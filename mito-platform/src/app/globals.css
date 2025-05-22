@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background-color: #FFFDD0; /* softCream as base */
+  background-image:
+    linear-gradient(135deg, rgba(176, 224, 230, 0.2) 25%, transparent 25%),
+    linear-gradient(225deg, rgba(176, 224, 230, 0.2) 25%, transparent 25%);
+  background-size: 40px 40px; /* Adjusted size for better visual, was 30px */
+  color: var(--foreground);
+  /* font-family: Arial, Helvetica, sans-serif; */ /* Removed to allow Next/font and Tailwind defaults */
+}
+
+.translucent-bg {
+  background-color: rgba(255, 255, 255, 0.8); /* White with 80% opacity */
+  backdrop-filter: blur(5px); /* Optional: adds a blur effect to the background */
+}
