@@ -32,7 +32,7 @@ const mockAnonymousUser: UserProfile = {
   updatedAt: new Date('2023-09-01T10:00:00Z'),
 };
 
-const UserProfilePage: React.FC<UserProfilePageProps> = ({ params }) => {
+const UserProfilePage = ({ params }: { params: { userId: string } }) => {
   const { userId } = params;
 
   // For this example, we'll pick one of the mock users to display.
