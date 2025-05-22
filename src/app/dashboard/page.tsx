@@ -37,9 +37,9 @@ const DashboardPage = () => {
     const getUser = async () => {
       const {
         data: { user },
-        error,
       } = await supabase.auth.getUser();
       if (user) {
+        await supabase.from('profiles').select('*').eq('id', user.id).single();
         setUser({
           name: user.user_metadata?.full_name || user.email || 'User',
           email: user.email || '',

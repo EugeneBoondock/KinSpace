@@ -1,7 +1,6 @@
 'use client';
 import Link from "next/link";
 import React, { useEffect, useRef } from "react";
-import ResponsiveNavbar from "@/components/ResponsiveNavbar";
 
 function AnimatedDnaStrand({ side = "left", mobile = false }: { side?: "left" | "right"; mobile?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -267,7 +266,7 @@ export default function Home() {
                 </a>
               
                 <p className="text-[#93b3c8] text-base font-normal leading-normal">
-                  © 2024 Mito. All rights reserved.
+                  © 2025 Mito. All rights reserved.
                 </p>
               </div>
             </div>

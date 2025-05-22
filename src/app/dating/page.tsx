@@ -45,7 +45,7 @@ export default function DatingPage() {
               </div>
             </div>
             <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-300 mb-1">"What I Need" in a Partner</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">&quot;What I Need&quot; in a Partner</label>
               <textarea
                 className="w-full rounded-md border border-gray-700 p-2 focus:ring-blue-400 focus:border-blue-400 bg-[#111b22] text-white"
                 rows={2}
@@ -85,8 +85,8 @@ export default function DatingPage() {
           <div className="bg-[#192734] rounded-xl p-4 shadow">
             <h3 className="text-xl font-bold text-white mb-2">Icebreakers & Mini Games</h3>
             <ul className="list-disc list-inside text-gray-300">
-              <li>Shared Trauma Cards: "Ever had to cancel a date because your body said NO?"</li>
-              <li>Creative Prompts: "If our pain levels were food, what would we be eating today?"</li>
+              <li>Shared Trauma Cards: &quot;Ever had to cancel a date because your body said NO?&quot;</li>
+              <li>Creative Prompts: &quot;If our pain levels were food, what would we be eating today?&quot;</li>
               <li>Mini Games: Co-journaling, 2-player quizzes, etc. (Coming soon)</li>
             </ul>
           </div>
