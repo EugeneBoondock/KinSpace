@@ -113,7 +113,7 @@ const [user, setUser] = useState<UserProfile | null>(null);
           <div className="layout-content-container flex flex-col max-w-[960px] flex-1">
             <h2 className="text-white tracking-light text-[28px] font-bold leading-tight px-4 text-center pb-3 pt-5">AI Therapist</h2>
             <p className="text-white text-base font-normal leading-normal pb-3 pt-1 px-4 text-center">
-              Welcome to your AI-powered therapy session. I'm here to listen and support you. Feel free to share what&apos;s on your mind or choose a quick prompt below.
+              Welcome to your AI-powered therapy session. I&apos;m here to listen and support you. Feel free to share what&apos;s on your mind or choose a quick prompt below.
             </p>
             <div className="flex flex-col gap-2">
               {messages.map((msg, idx) => (
