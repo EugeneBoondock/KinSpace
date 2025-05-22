@@ -3,11 +3,7 @@
 import React from 'react';
 import { UserProfile } from '@/lib/types'; // Adjusted import path
 
-interface UserProfilePageProps {
-  params: {
-    userId: string;
-  };
-}
+
 
 // Mock user data
 const mockUser: UserProfile = {
