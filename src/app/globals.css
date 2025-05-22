@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --mintGreen: #A8E6CF;
+  --pastelPink: #FFD3E2;
+  --peachSorbet: #FFB085;
+  --powderBlue: #B0E0E6;
+  --lavenderMist: #E6E6FA;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  /* font-family: Arial, Helvetica, sans-serif; */ /* Removed to allow Next/font and Tailwind defaults */
+}
+
+.bg-dna-pattern {
+  background-color: #FFFDD0;
+  background-image:
+    url('data:image/svg+xml;utf8,<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20,10 Q60,60 100,10" stroke="%23B0E0E6" stroke-width="4" fill="none"/><path d="M20,110 Q60,60 100,110" stroke="%23FFD3E2" stroke-width="4" fill="none"/><ellipse cx="60" cy="60" rx="8" ry="40" fill="none" stroke="%23A8E6CF" stroke-width="2"/><ellipse cx="60" cy="60" rx="40" ry="8" fill="none" stroke="%23FFB085" stroke-width="2"/></svg>'),
+    linear-gradient(135deg, rgba(176, 224, 230, 0.12) 25%, transparent 25%),
+    linear-gradient(225deg, rgba(255, 211, 226, 0.12) 25%, transparent 25%);
+  background-size: 120px 120px, 40px 40px, 40px 40px;
+  background-repeat: repeat;
+}
+
+.translucent-bg {
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(5px);
+}
+
+/* Pastel utility classes */
+.text-mintGreen { color: var(--mintGreen); }
+.text-pastelPink { color: var(--pastelPink); }
+.text-peachSorbet { color: var(--peachSorbet); }
+.text-powderBlue { color: var(--powderBlue); }
+.bg-mintGreen { background-color: var(--mintGreen); }
+.bg-pastelPink { background-color: var(--pastelPink); }
+.bg-peachSorbet { background-color: var(--peachSorbet); }
+.bg-powderBlue { background-color: var(--powderBlue); }
+.bg-lavenderMist { background-color: var(--lavenderMist); }
+
+/* DNA strand animation for left/right columns */
+.dna-bar {
+  position: relative;
+  width: 4px;
+  height: 32px;
+  margin: 2px 0;
+  background-color: rgba(255,255,255,0.08);
+  border-radius: 2px;
+  transform-style: preserve-3d;
+  animation: dna-rotation 4s linear infinite;
+}
+.dna-bar::before, .dna-bar::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  height: 12px;
+  background-color: white;
+  border-radius: 6px;
+  z-index: 1;
+  animation: dna-rotation 4s linear infinite reverse;
+}
+.dna-bar::before {
+  top: -10px;
+}
+.dna-bar::after {
+  bottom: -10px;
+}
+@keyframes dna-rotation {
+  from { transform: rotateX(0deg); }
+  to { transform: rotateX(359deg); }
+}
