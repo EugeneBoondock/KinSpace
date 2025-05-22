@@ -1,4 +1,4 @@
-'use client'; // Can be a client component for now, or server if data fetching is added
+// This page is a server component by default in Next.js app directory. Remove 'use client' unless you need client-side hooks.
 
 import React from 'react';
 import { UserProfile } from '@/lib/types'; // Adjusted import path
@@ -13,8 +13,8 @@ const mockUser: UserProfile = {
   isAnonymous: false,
   conditions: ['Lupus', "Raynaud's Phenomenon"],
   status: 'Managing daily symptoms',
-  createdAt: new Date('2023-01-15T09:30:00Z'),
-  updatedAt: new Date('2023-10-26T14:45:00Z'),
+  createdAt: '2023-01-15T09:30:00Z',
+  updatedAt: '2023-10-26T14:45:00Z',
 };
 
 const mockAnonymousUser: UserProfile = {
@@ -24,8 +24,8 @@ const mockAnonymousUser: UserProfile = {
   isAnonymous: true,
   conditions: ['Fibromyalgia'],
   status: 'Newly Diagnosed',
-  createdAt: new Date('2023-03-20T11:00:00Z'),
-  updatedAt: new Date('2023-09-01T10:00:00Z'),
+  createdAt: '2023-03-20T11:00:00Z',
+  updatedAt: '2023-09-01T10:00:00Z',
 };
 
 const UserProfilePage = ({ params }: { params: { userId: string } }) => {

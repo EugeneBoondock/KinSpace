@@ -7,7 +7,7 @@ export interface UserProfile {
   comorbidities?: string[]; // optional
   medications?: string[]; // optional
   status: string | null; // e.g., "newly diagnosed", "stable", "flaring", "recovering", or null if not specified
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string | Date;
+  updatedAt: string | Date;
   // TODO: Add moodCharts, painCharts, selfCareSchedule, gamification, etc.
 }
