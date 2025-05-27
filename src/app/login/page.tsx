@@ -1,21 +1,30 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../supabaseClient";
 
 const LoginPage: React.FC = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showVerified, setShowVerified] = useState(false);
+
+  useEffect(() => {
+    // Only show popup if coming from email confirmation
+    if (searchParams.get("verified") === "1") {
+      setShowVerified(true);
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -23,12 +32,48 @@ const LoginPage: React.FC = () => {
     if (error) {
       setError(error.message);
     } else {
+      // Get the authenticated user
+      const user = data?.user;
+      if (user) {
+        // Check if profile exists
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', user.id)
+          .single();
+        if (!profile) {
+          // Create a minimal profile
+          await supabase.from('profiles').insert([
+            {
+              id: user.id,
+              email: user.email,
+              username: user.user_metadata?.username || "",
+              isanonymous: user.user_metadata?.isanonymous || false,
+              // Add more fields if needed
+            }
+          ]);
+        }
+      }
       router.push("/dashboard");
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#111b22] p-4">
+      {showVerified && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/60">
+          <div className="bg-[#192734] rounded-xl shadow-xl p-8 max-w-sm w-full text-center border border-blue-500">
+            <h2 className="text-2xl font-bold text-mintGreen mb-2">You're verified!</h2>
+            <p className="text-white mb-4">Your email has been confirmed. Please log in to continue.</p>
+            <button
+              className="mt-2 px-6 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition"
+              onClick={() => setShowVerified(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
       <div className="w-full max-w-md">
         <form
           onSubmit={handleLogin}

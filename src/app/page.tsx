@@ -118,7 +118,7 @@ export default function Home() {
                     Find Your Support System
                   </h1>
                   <h2 className="text-white text-sm sm:text-base font-normal max-w-2xl">
-                    Connect with others who understand your journey. Mito is a community for individuals with chronic conditions, offering support, friendship, and dating opportunities.
+                    Connect with others who understand your journey. the Gathering is a community for individuals with chronic conditions, offering support, friendship, and dating opportunities.
                   </h2>
                   <Link 
                     href="/signup" 
@@ -266,7 +266,7 @@ export default function Home() {
                 </a>
               
                 <p className="text-[#93b3c8] text-base font-normal leading-normal">
-                  © 2025 Mito. All rights reserved.
+                  © 2025 the Gathering. All rights reserved.
                 </p>
               </div>
             </div>

@@ -4,8 +4,8 @@ import Layout from "@/components/Layout";
 import ResponsiveNavbar from "@/components/ResponsiveNavbar";
 
 export const metadata: Metadata = {
-  title: "Mito Platform",
-  description: "Connect, support, and thrive with Mito.",
+  title: "the Gathering",
+  description: "Connect, support, and thrive with the Gathering.",
 };
 
 export default function RootLayout({

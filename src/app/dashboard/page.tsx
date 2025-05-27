@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 interface UserProfile {
   name: string;
@@ -25,6 +26,7 @@ const DashboardPage = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeOfDay, setTimeOfDay] = useState('');
+  const router = useRouter();
 
   useEffect(() => {
     // Set time-based greeting
@@ -39,11 +41,16 @@ const DashboardPage = () => {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
-        await supabase.from('profiles').select('*').eq('id', user.id).single();
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        // If no pseudonym or full_name, redirect to settings
+        if (!profile?.pseudonym && !profile?.full_name) {
+          router.push('/settings');
+          return;
+        }
         setUser({
-          name: user.user_metadata?.full_name || user.email || 'User',
+          name: profile?.pseudonym || profile?.full_name || 'User',
           email: user.email || '',
-          image: user.user_metadata?.avatar_url || '/default-avatar.png',
+          image: profile?.avatar_url || user.user_metadata?.avatar_url || '/default-avatar.png',
           age: 28, // Example, replace with real data from your DB
           location: 'San Francisco', // Example, replace with real data from your DB
         });
@@ -74,7 +81,7 @@ const DashboardPage = () => {
       setLoading(false);
     };
     getUser();
-  }, []);
+  }, [router]);
 
   if (loading || !user) {
     return (

@@ -1,9 +1,23 @@
 'use client';
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "../supabaseClient";
 
 export default function ResponsiveNavbar() {
   const [open, setOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    // Optionally, subscribe to auth changes for real-time updates
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    window.location.href = "/login";
+  };
+
   return (
     <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#243947] px-4 sm:px-10 py-3 relative z-30 bg-[#111b22]">
       {/* Logo and hamburger only if dropdown is not open on mobile */}
@@ -18,18 +32,27 @@ export default function ResponsiveNavbar() {
             ></path>
           </svg>
         </div>
-        <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">Mito</h2>
+        <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">the Gathering</h2>
       </div>
       {/* Desktop nav */}
       <nav className="hidden md:flex flex-1 justify-end gap-8 items-center">
         <Link className="text-white text-sm font-medium leading-normal" href="#">About</Link>
         <Link className="text-white text-sm font-medium leading-normal" href="#">Features</Link>
-        <Link href="/signup" className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#1993e5] text-white text-sm font-bold leading-normal tracking-[0.015em]">
-          <span className="truncate">Sign Up</span>
-        </Link>
-        <Link href="/login" className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#243947] text-white text-sm font-bold leading-normal tracking-[0.015em]">
-          <span className="truncate">Log In</span>
-        </Link>
+        {!user && (
+          <>
+            <Link href="/signup" className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#1993e5] text-white text-sm font-bold leading-normal tracking-[0.015em]">
+              <span className="truncate">Sign Up</span>
+            </Link>
+            <Link href="/login" className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#243947] text-white text-sm font-bold leading-normal tracking-[0.015em]">
+              <span className="truncate">Log In</span>
+            </Link>
+          </>
+        )}
+        {user && (
+          <button onClick={handleLogout} className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-red-500 text-white text-sm font-bold leading-normal tracking-[0.015em]">
+            <span className="truncate">Logout</span>
+          </button>
+        )}
       </nav>
       {/* Mobile hamburger, only if dropdown is not open */}
       <div className={`md:hidden flex items-center ${open ? 'hidden' : ''}`}>
@@ -58,8 +81,15 @@ export default function ResponsiveNavbar() {
           <nav className="w-full flex flex-col gap-2">
             <Link href="#" className="block px-4 py-3 text-white hover:bg-[#243947] rounded text-lg font-medium" onClick={() => setOpen(false)}>About</Link>
             <Link href="#" className="block px-4 py-3 text-white hover:bg-[#243947] rounded text-lg font-medium" onClick={() => setOpen(false)}>Features</Link>
-            <Link href="/signup" className="block px-4 py-3 text-white hover:bg-[#1993e5] rounded text-lg font-bold" onClick={() => setOpen(false)}>Sign Up</Link>
-            <Link href="/login" className="block px-4 py-3 text-white hover:bg-[#243947] rounded text-lg font-bold" onClick={() => setOpen(false)}>Log In</Link>
+            {!user && (
+              <>
+                <Link href="/signup" className="block px-4 py-3 text-white hover:bg-[#1993e5] rounded text-lg font-bold" onClick={() => setOpen(false)}>Sign Up</Link>
+                <Link href="/login" className="block px-4 py-3 text-white hover:bg-[#243947] rounded text-lg font-bold" onClick={() => setOpen(false)}>Log In</Link>
+              </>
+            )}
+            {user && (
+              <button onClick={() => { setOpen(false); handleLogout(); }} className="block px-4 py-3 text-white hover:bg-red-500 rounded text-lg font-bold w-full text-left">Logout</button>
+            )}
           </nav>
         </div>
       )}

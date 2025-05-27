@@ -24,7 +24,7 @@ const handleSubmit = async (event: React.FormEvent) => {
   setLoading(true);
 
   // 1. Sign up the user with Supabase Auth
-  const { data, error: signUpError } = await supabase.auth.signUp({
+  const { error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -32,42 +32,16 @@ const handleSubmit = async (event: React.FormEvent) => {
         username,
         isanonymous,
       },
+      emailRedirectTo: "https://thegathering.vercel.app/login?verified=1"
     },
   });
+  setLoading(false);
   if (signUpError) {
     setError(signUpError.message);
-    setLoading(false);
     return;
   }
-  const user = data.user;
-  if (!user) {
-    setError('Signup failed: No user returned.');
-    setLoading(false);
-    return;
-  }
-
-  // 2. Insert profile data into 'profiles' table
-  const { error: profileError } = await supabase.from('profiles').insert([
-    {
-      id: user.id,
-      email,
-      username,
-      conditions: conditions.split(',').map((c) => c.trim()).filter(Boolean),
-      comorbidities: comorbidities.split(',').map((c) => c.trim()).filter(Boolean),
-      medications: medications.split(',').map((m) => m.trim()).filter(Boolean),
-      status: status || null,
-      isanonymous,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  ]);
-  setLoading(false);
-  if (profileError) {
-    setError('Profile creation failed: ' + profileError.message);
-    return;
-  }
-  // Success: redirect to dashboard
-  router.push('/dashboard');
+  // Success: redirect to verify email page
+  router.push('/verify-email');
 };
 
   return (
