@@ -72,9 +72,9 @@ function AnimatedDnaStrand({ side = "left", mobile = false }: { side?: "left" | 
         <div ref={containerRef} className="absolute left-1/2 -translate-x-1/2" style={{ height, width: amplitude * 2 + 20 }}>
           {Array.from({ length: rungs }).map((_, i) => (
             <div key={i} className="absolute">
-              <div className="dna-helix-line absolute h-0.5 bg-brand-accent3 bg-opacity-50" style={{ zIndex: 1 }} />
-              <div className="dna-helix-dot1 absolute w-3 h-3 bg-brand-accent3 rounded-full" style={{ zIndex: 2 }} />
-              <div className="dna-helix-dot2 absolute w-3 h-3 bg-brand-accent3 rounded-full" style={{ zIndex: 2 }} />
+              <div className="dna-helix-line absolute h-0.5 bg-[#eedfc8] bg-opacity-50" style={{ zIndex: 1 }} />
+              <div className="dna-helix-dot1 absolute w-3 h-3 bg-[#eedfc8] rounded-full" style={{ zIndex: 2 }} />
+              <div className="dna-helix-dot2 absolute w-3 h-3 bg-[#eedfc8] rounded-full" style={{ zIndex: 2 }} />
             </div>
           ))}
         </div>
@@ -91,9 +91,9 @@ function AnimatedDnaStrand({ side = "left", mobile = false }: { side?: "left" | 
       <div ref={containerRef} className="absolute left-1/2 -translate-x-1/2" style={{ height, width: amplitude * 2 + 20 }}>
         {Array.from({ length: rungs }).map((_, i) => (
           <div key={i} className="absolute">
-            <div className="dna-helix-line absolute h-0.5 bg-brand-accent3 bg-opacity-50" style={{ zIndex: 1 }} />
-            <div className="dna-helix-dot1 absolute w-3 h-3 bg-brand-accent3 rounded-full" style={{ zIndex: 2 }} />
-            <div className="dna-helix-dot2 absolute w-3 h-3 bg-brand-accent3 rounded-full" style={{ zIndex: 2 }} />
+            <div className="dna-helix-line absolute h-0.5 bg-[#eedfc8] bg-opacity-50" style={{ zIndex: 1 }} />
+            <div className="dna-helix-dot1 absolute w-3 h-3 bg-[#eedfc8] rounded-full" style={{ zIndex: 2 }} />
+            <div className="dna-helix-dot2 absolute w-3 h-3 bg-[#eedfc8] rounded-full" style={{ zIndex: 2 }} />
           </div>
         ))}
       </div>
@@ -115,12 +115,13 @@ export default function Home() {
             <div className="flex flex-col items-center justify-center min-h-[480px] text-center p-4">
               {/* New Image Tag */}
               <div className="w-full flex justify-center mb-6 relative h-64 sm:h-96"> {/* Added relative and height for Next/Image with fill */}  {/* Centering container for the image */}
-                <Image
+                  <Image
                   src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVIW-iPKfFRZjytJziRzlI8q5VPSpsbp6Q1zVLaM5SoZTGzh8LDiqlK9Y13Fhh07D2jSpzEL1F_1Yjtmu4R-Tm0csYocI_gd-3i_gf2zDBNcMxHC4WmYtKH7iHn7WRwBzVR4yz-h4AmfhOy7FB9I-uFr2-WSTZvyl-RfVBAy8msmK5PCvJTL90uioh1j3tT1w53rhWtgIYxZIYvBQZFT1MXPLfaEKKnIk46PhJm_vqT5WHsSg5jPXVgYAnKvoTmBmWxeveIJRkW7qk"
-                  alt="Welcome to The Gathering banner"
+                  alt="Welcome to KinSpace banner"
                   fill={true}
                   priority
-                  className="object-contain @[480px]:rounded-xl" // object-contain to maintain aspect ratio within bounds
+                  className="object-contain hero-image-custom-style" // object-contain to maintain aspect ratio within bounds
+                  sizes="100vw"
                 />
               </div>
 
@@ -131,7 +132,7 @@ export default function Home() {
                     Find Your Support System
                   </h1>
                   <h2 className="text-brand-background opacity-90 text-sm sm:text-base font-normal max-w-2xl">
-                    Connect with others who understand your journey. the Gathering is a community for individuals with chronic conditions, offering support, friendship, and dating opportunities.
+                    Connect with others who understand your journey. KinSpace is a community for individuals with chronic conditions, offering support, friendship, and dating opportunities.
                   </h2>
                   <Link 
                     href="/signup" 
@@ -259,7 +260,7 @@ export default function Home() {
           <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm8,191.63V152h24a8,8,0,0,0,0-16H136V112a16,16,0,0,1,16-16h16a8,8,0,0,0,0-16H152a32,32,0,0,0-32,32v24H96a8,8,0,0,0,0,16h24v63.63a88,88,0,1,1,16,0Z"></path></svg>
         </a>
       </div>
-      <p className="text-xs sm:text-sm text-[#eedfc8] text-center sm:text-left">2025 the Gathering. All rights reserved.</p>
+      <p className="text-xs sm:text-sm text-[#eedfc8] text-center sm:text-left">2025 KinSpace. All rights reserved.</p>
       <a
         href="https://boondocklabs.co.za"
         target="_blank"

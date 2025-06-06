@@ -18,8 +18,8 @@ const notoSans = Noto_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "the Gathering",
-  description: "Connect, support, and thrive with the Gathering.",
+  title: "KinSpace",
+  description: "Connect, support, and thrive with KinSpace.",
 };
 
 export default function RootLayout({

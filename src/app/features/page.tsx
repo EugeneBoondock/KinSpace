@@ -92,7 +92,7 @@ const FeaturesPage = () => (
   <div className="relative flex size-full min-h-screen flex-col bg-[#f8fcfb] justify-between font-[Manrope,sans-serif] overflow-x-hidden">
     <div>
       <div className="flex items-center bg-[#f8fcfb] p-4 pb-2 justify-between">
-        <h2 className="text-[#0d1c18] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pl-12">The Gathering</h2>
+        <h2 className="text-[#0d1c18] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pl-12">KinSpace</h2>
         <div className="flex w-12 items-center justify-end">
           <button className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 bg-transparent text-[#0d1c18] gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0">
             <div className="text-[#0d1c18]">
