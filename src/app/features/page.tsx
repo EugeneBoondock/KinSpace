@@ -33,6 +33,14 @@ const features = [
   {
     name: "Trauma-Bonding",
     url: "https://lh3.googleusercontent.com/aida-public/AB6AXuCiltR9cu4fdjA0pNzU7YzeaP5I5gvLicY9dwFtIO0vtnzhEFgdz_D2a4xOW_RIkN7cA9w7KzzedMkAjvLbM89SyX0Zxr6jKu6Qtx0y9chmRumiAhEgFEHHwCDLPNB0x0sbkoAKzn_MRbIfeLBk3UHqHxFYTyfHjLTjWuCjcx-OwJJ26Q9JYnuRB-TsrRzhBRpNeU5CJHyY4QX4W83WZuDovUU3-AEHD_wRZnOiQUzY06VZwqhMXXs1TAQhvwkKAsN0yxddQX1wTeMt"
+  },
+  {
+    name: "Resources",
+    url: "https://lh3.googleusercontent.com/aida-public/AB6AXuB-zJvwdGfudZ0YKB_ZiGf6hl5qn2tljytjUwUQ5pdMlkLXIAu0sywaZoM_mIAiiMWq3ofUsL95fOQ1_FXNHVwQn2WtlwSjZuxP_e4mVn5QhG0N_yLuO9n06YyJVgSifsLiSDk-WibF_598sbIIBd8JPU7JAR0ZDqCv_MQ_Fw-nLpxSL9f0Fd7YVmaaki1JuBVrx8gshc7SInTMMYK26zVOSjiFhbk7BMAmsC0frgGaC0AUeNJZx8PRKy1vm8_3WTIpqSZbYMpVv95T"
+  },
+  {
+    name: "Explore",
+    url: "https://lh3.googleusercontent.com/aida-public/AB6AXuDp_1fAw6u2X8BjaFY9JjcDRnN_Y2wICcYdypF_aZLhx3vy799FPusaeZ8DwnH9wyE6DgQuaqkZS1RNYUU9hoX79ZMQBBP3MycOClkwA7ni7xNRkD0DzLMpDxMGVsKJvsngTpdhZgAVJhbfSL3GLFy1Mn1qVQkLJT-eKrCqW2nb8rtn4G-Ng66YlCcFqQotnCpTL0Wl24uU1moqMyV3cq1lTTDP1AYMUEkPftmbaAYrsFYfpCc9GDOQTehr9UkHHUWErvqV4yxwglh_"
   }
 ];
 
