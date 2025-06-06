@@ -1,6 +1,5 @@
 'use client';
-import Image from 'next/image';
-import BottomNav from '@/components/BottomNav';
+
 
 // Define UserProfile type if not already defined
 interface UserProfile {
@@ -48,12 +47,6 @@ const mockAnonymousUser: UserProfile = {
   status: 'Status hidden'
 };
 
-const StatCard = ({ label, value }: { label: string; value: number }) => (
-  <div className="bg-[#2A4A42] p-4 rounded-lg text-center border border-[#eedfc9]/20">
-    <p className="text-[#eedfc9]/80 text-sm">{label}</p>
-    <p className="text-[#eedfc9] text-2xl font-bold">{value}</p>
-  </div>
-);
 
 interface ProfileContentProps {
   userId: string;

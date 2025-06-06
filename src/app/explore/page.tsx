@@ -36,7 +36,7 @@ export default function ExplorePage() {
           </label>
         </div>
         <p className="text-[#eedfc9] text-base font-normal leading-normal pb-3 pt-1 px-4">
-          Welcome to KinSpace! We're here to help you find the information and support you need. Please use the search bar above to explore topics related to temporary conditions
+          Welcome to KinSpace! We&apos;re here to help you find the information and support you need. Please use the search bar above to explore topics related to temporary conditions
           like hemorrhoids.
         </p>
         <h2 className="text-[#eedfc9] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Trending Conditions</h2>
