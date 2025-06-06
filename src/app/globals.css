@@ -84,6 +84,53 @@ body {
 .dna-bar::after {
   bottom: -10px;
 }
+/* Hero banner image styling */
+img.hero-banner {
+  border-radius: 16px !important;
+  -webkit-border-radius: 16px !important;
+  -moz-border-radius: 16px !important;
+  overflow: hidden !important;
+}
+
+@keyframes heartbeat {
+  0% {
+    box-shadow: 0 0 30px rgba(238,223,201,0.15),
+               0 0 60px rgba(238,223,201,0.1);
+  }
+  /* First beat - stronger */
+  15% {
+    box-shadow: 0 0 60px rgba(238,223,201,0.35),
+               0 0 120px rgba(238,223,201,0.25);
+  }
+  30% {
+    box-shadow: 0 0 30px rgba(238,223,201,0.15),
+               0 0 60px rgba(238,223,201,0.1);
+  }
+  /* Brief pause */
+  35% {
+    box-shadow: 0 0 30px rgba(238,223,201,0.15),
+               0 0 60px rgba(238,223,201,0.1);
+  }
+  /* Second beat - slightly weaker */
+  50% {
+    box-shadow: 0 0 50px rgba(238,223,201,0.3),
+               0 0 100px rgba(238,223,201,0.2);
+  }
+  65% {
+    box-shadow: 0 0 30px rgba(238,223,201,0.15),
+               0 0 60px rgba(238,223,201,0.1);
+  }
+  /* Rest period */
+  100% {
+    box-shadow: 0 0 30px rgba(238,223,201,0.15),
+               0 0 60px rgba(238,223,201,0.1);
+  }
+}
+
+.hero-glow {
+  animation: heartbeat 2s ease-out infinite;
+}
+
 @keyframes dna-rotation {
   from { transform: rotateX(0deg); }
   to { transform: rotateX(359deg); }

@@ -26,7 +26,7 @@ export default function ResponsiveNavbar() {
       <div className={`flex items-center gap-4 ${open ? 'hidden' : ''} md:flex`}>
         <Link href="/" className="flex items-center gap-2" aria-label="KinSpace Home">
           <Image src="/images/gather_logo.png" alt="KinSpace Logo" width={40} height={40} className="h-10 w-auto" priority />
-          <span className="text-[#2A4A42] text-xl font-bold hidden sm:block">KinSpace</span>
+          <span className="text-[#2A4A42] text-xl font-bold">KinSpace</span>
         </Link>
       </div>
       {/* Desktop nav */}
