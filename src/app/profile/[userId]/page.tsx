@@ -1,11 +1,28 @@
 'use client';
-
-import React from 'react';
-import { UserProfile } from '@/lib/types';
+import Image from 'next/image';
 import BottomNav from '@/components/BottomNav';
-import Image from 'next/image'; // For profile picture
 
-// Mock user data (can be kept or moved to a separate file/API call later)
+// Define UserProfile type if not already defined
+interface UserProfile {
+  id: string;
+  username: string;
+  pseudonym: string | null;
+  isAnonymous: boolean;
+  conditions: string[];
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  profileImageUrl: string;
+  coverImageUrl: string;
+  bio: string;
+  interests: string[];
+  pronouns: string;
+  location: string;
+  followers: number;
+  following: number;
+  postsCount: number;
+}
+
 const mockUser: UserProfile = {
   id: '123-abc',
   username: 'MitoUser123',
@@ -15,9 +32,8 @@ const mockUser: UserProfile = {
   status: 'Managing daily symptoms',
   createdAt: '2023-01-15T09:30:00Z',
   updatedAt: '2023-10-26T14:45:00Z',
-  // Fields from new snippet (can be populated from mockUser or new mock data)
-  profileImageUrl: '/images/profile-placeholder.jpg', // Placeholder image
-  coverImageUrl: '/images/cover-placeholder.jpg', // Placeholder image
+  profileImageUrl: '/images/profile-placeholder.jpg',
+  coverImageUrl: '/images/cover-placeholder.jpg',
   bio: 'Living one day at a time with chronic illness. Finding strength in community.',
   interests: ['Reading', 'Art', 'Gentle Yoga', 'Advocacy'],
   pronouns: 'She/Her',
@@ -44,7 +60,7 @@ const mockAnonymousUser: UserProfile = {
   location: 'Not specified',
   followers: 0,
   following: 0,
-  postsCount: 0,
+  postsCount: 0
 };
 
 // Helper icons (can be replaced with actual icon components if you have them)
