@@ -4,9 +4,13 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { supabase } from "../supabaseClient";
 
+// Define a minimal User type fallback if @supabase/supabase-js is not installed
+// Remove this if you have the package installed
+type User = { id: string; email?: string | null; [key: string]: any };
+
 export default function ResponsiveNavbar() {
   const [open, setOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
