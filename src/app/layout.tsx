@@ -29,6 +29,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${manrope.variable} ${notoSans.variable}`}>
+      <head>
+        <link rel="icon" href="/images/gather_logo.png" type="image/png" />
+      </head>
       <body className={`${manrope.className} bg-brand-primary text-brand-background`}>
         <ResponsiveNavbar />
         <Layout>{children}</Layout>
