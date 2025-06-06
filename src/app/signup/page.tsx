@@ -52,7 +52,7 @@ const handleSubmit = async (event: React.FormEvent) => {
           className="rounded-xl bg-[#192734] shadow-xl p-8 space-y-6"
         >
           <h1 className="text-3xl font-bold text-center text-white mb-8">
-            Create your Mito Profile
+            Create your Kin Space Profile
           </h1>
 
           <div>
