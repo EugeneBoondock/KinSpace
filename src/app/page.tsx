@@ -1,5 +1,6 @@
 'use client';
 import Link from "next/link";
+import Image from "next/image";
 import React, { useEffect, useRef } from "react";
 
 function AnimatedDnaStrand({ side = "left", mobile = false }: { side?: "left" | "right"; mobile?: boolean }) {
@@ -113,11 +114,13 @@ export default function Home() {
           <div className="max-w-[960px] mx-auto">
             <div className="flex flex-col items-center justify-center min-h-[480px] text-center p-4">
               {/* New Image Tag */}
-              <div className="w-full flex justify-center mb-6"> {/* Centering container for the image */}
-                <img
+              <div className="w-full flex justify-center mb-6 relative h-64 sm:h-96"> {/* Added relative and height for Next/Image with fill */}  {/* Centering container for the image */}
+                <Image
                   src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVIW-iPKfFRZjytJziRzlI8q5VPSpsbp6Q1zVLaM5SoZTGzh8LDiqlK9Y13Fhh07D2jSpzEL1F_1Yjtmu4R-Tm0csYocI_gd-3i_gf2zDBNcMxHC4WmYtKH7iHn7WRwBzVR4yz-h4AmfhOy7FB9I-uFr2-WSTZvyl-RfVBAy8msmK5PCvJTL90uioh1j3tT1w53rhWtgIYxZIYvBQZFT1MXPLfaEKKnIk46PhJm_vqT5WHsSg5jPXVgYAnKvoTmBmWxeveIJRkW7qk"
                   alt="Welcome to The Gathering banner"
-                  className="max-w-full h-auto @[480px]:rounded-xl" // Ensure full visibility and responsiveness
+                  fill={true}
+                  priority
+                  className="object-contain @[480px]:rounded-xl" // object-contain to maintain aspect ratio within bounds
                 />
               </div>
 

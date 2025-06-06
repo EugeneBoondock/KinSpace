@@ -3,10 +3,7 @@ import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { supabase } from "../supabaseClient";
-
-// Define a minimal User type fallback if @supabase/supabase-js is not installed
-// Remove this if you have the package installed
-type User = { id: string; email?: string | null; [key: string]: any };
+import type { User } from "@supabase/supabase-js";
 
 export default function ResponsiveNavbar() {
   const [open, setOpen] = useState(false);
