@@ -57,7 +57,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${manrope.variable} ${notoSans.variable}`}>
-      <head />
+      <head>
+        <link rel="icon" href="/images/gather_logo.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/images/gather_logo.png" />
+        <link rel="shortcut icon" href="/images/gather_logo.png" type="image/png" />
+      </head>
 
       <body className={`${manrope.className} bg-brand-primary text-brand-background`}>
         <ResponsiveNavbar />
