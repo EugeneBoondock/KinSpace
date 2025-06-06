@@ -30,7 +30,7 @@ export default function ResponsiveNavbar() {
       {/* Desktop nav */}
       <nav className="hidden md:flex flex-1 justify-end gap-8 items-center">
         <Link className="text-[#2A4A42] text-sm font-medium leading-normal hover:text-brand-accent1 transition-colors duration-200 px-3 py-1 rounded-md hover:bg-[#2A4A42]/10" href="#">About</Link>
-        <Link className="text-[#2A4A42] text-sm font-medium leading-normal hover:text-brand-accent1 transition-colors duration-200 px-3 py-1 rounded-md hover:bg-[#2A4A42]/10" href="#">Features</Link>
+        <Link className="text-[#2A4A42] text-sm font-medium leading-normal hover:text-brand-accent1 transition-colors duration-200 px-3 py-1 rounded-md hover:bg-[#2A4A42]/10" href="/features">Features</Link>
         {!user && (
           <>
             <Link href="/signup" className="flex min-w-[100px] cursor-pointer items-center justify-center rounded-full h-10 px-6 bg-[#2A4A42] text-[#eedfc8] border-2 border-[#eedfc8] hover:bg-[#2A4A42]/90 hover:text-white hover:border-white text-sm font-bold transition-all duration-200 shadow-md hover:shadow-lg hover:shadow-brand-accent1/30 hover:-translate-y-0.5">
