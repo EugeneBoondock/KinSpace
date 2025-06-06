@@ -52,12 +52,12 @@ const NearbySupportPage = () => {
   const supportGroups = mockSupportGroups;
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100 pb-24 font-manrope">
+    <div className="flex min-h-screen flex-col bg-[#2A4A42] pb-24 font-manrope">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-slate-100/80 backdrop-blur-sm">
+      <header className="sticky top-0 z-40 border-b border-[#eedfc9]/20 bg-[#2A4A42]/90 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-screen-lg items-center justify-between px-4">
-          <h1 className="text-xl font-semibold text-slate-900">Nearby Support</h1>
-          <button className="rounded-lg p-2 text-slate-700 hover:bg-slate-200">
+          <h1 className="text-xl font-semibold text-[#eedfc9]">Nearby Support</h1>
+          <button className="rounded-lg p-2 text-[#eedfc9] hover:bg-[#eedfc9]/10 transition-colors">
             <SearchIcon />
           </button>
         </div>
@@ -68,24 +68,24 @@ const NearbySupportPage = () => {
         {supportGroups.length > 0 ? (
           <div className="space-y-4">
             {supportGroups.map((group) => (
-              <div key={group.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div key={group.id} className="rounded-lg border border-[#eedfc9]/20 bg-[#2A4A42] p-4 shadow-sm hover:border-[#eedfc9]/40 transition-colors">
                 <div className="flex items-start gap-4">
                   {/* Placeholder for group image - replace with Next/Image if using actual images */}
-                  <div className="h-16 w-16 flex-shrink-0 rounded-md bg-slate-200 flex items-center justify-center text-slate-500">
+                  <div className="h-16 w-16 flex-shrink-0 rounded-md bg-[#eedfc9]/10 flex items-center justify-center text-[#eedfc9]">
                     <MapPinIcon />
                   </div>
                   <div className="flex-1">
-                    <h2 className="text-lg font-semibold text-slate-800">{group.name}</h2>
-                    <p className="text-sm text-slate-500">{group.distance}</p>
-                    <p className="mt-1 text-xs text-slate-600">Next meeting: {group.nextMeeting}</p>
-                    <div className="mt-2 flex items-center gap-4 text-xs text-slate-500">
+                    <h2 className="text-lg font-semibold text-[#eedfc9]">{group.name}</h2>
+                    <p className="text-sm text-[#eedfc9]/80">{group.distance}</p>
+                    <p className="mt-1 text-xs text-[#eedfc9]/70">Next meeting: {group.nextMeeting}</p>
+                    <div className="mt-2 flex items-center gap-4 text-xs text-[#eedfc9]/80">
                       <span>{group.members} members</span>
-                      <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">{group.type}</span>
+                      <span className="rounded-full bg-[#eedfc9]/10 px-2 py-0.5 text-[#eedfc9]">{group.type}</span>
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 border-t border-slate-200 pt-3 text-right">
-                    <button className="rounded-md bg-sky-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-600">
+                <div className="mt-3 border-t border-[#eedfc9]/20 pt-3 text-right">
+                    <button className="rounded-full bg-[#eedfc9] px-4 py-2 text-sm font-bold text-[#2A4A42] hover:bg-[#eedfc9]/90 transition-colors shadow-sm hover:shadow-md">
                         View Details
                     </button>
                 </div>
@@ -93,12 +93,12 @@ const NearbySupportPage = () => {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-white p-12 text-center">
-            <div className="text-3xl text-slate-400">
+          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#eedfc9]/20 bg-[#2A4A42] p-12 text-center">
+            <div className="text-3xl text-[#eedfc9]/60">
               <MapPinIcon />
             </div>
-            <h3 className="mt-2 text-sm font-medium text-slate-900">No Support Groups Found</h3>
-            <p className="mt-1 text-sm text-slate-500">Try adjusting your location or search filters.</p>
+            <h3 className="mt-2 text-sm font-medium text-[#eedfc9]">No Support Groups Found</h3>
+            <p className="mt-1 text-sm text-[#eedfc9]/80">Try adjusting your location or search filters.</p>
           </div>
         )}
       </main>

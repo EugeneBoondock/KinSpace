@@ -37,16 +37,16 @@ const features = [
 ];
 
 const BottomNav = () => (
-  <div className="fixed bottom-0 left-0 w-full z-50 bg-[#f8fcfb] border-t border-[#cedbe8] shadow-[0_-2px_8px_0_rgba(0,0,0,0.03)]">
+  <div className="fixed bottom-0 left-0 w-full z-50 bg-[#2A4A42] border-t border-[#eedfc9]/20 shadow-[0_-2px_8px_0_rgba(0,0,0,0.1)]">
     <div className="flex gap-2 px-2 py-1 sm:px-4 sm:py-2 max-w-2xl mx-auto">
-      <a className="flex flex-1 flex-col items-center justify-end gap-1 rounded-full text-[#0d1c18] py-2" href="#">
-        <div className="text-[#0d1c18] flex h-8 items-center justify-center">
+      <a className="flex flex-1 flex-col items-center justify-end gap-1 rounded-full text-[#eedfc9] hover:text-[#eedfc9]/80 transition-colors py-2" href="#">
+        <div className="text-[#eedfc9] flex h-8 items-center justify-center">
           {/* Home SVG */}
           <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
             <path d="M224,115.55V208a16,16,0,0,1-16,16H168a16,16,0,0,1-16-16V168a8,8,0,0,0-8-8H112a8,8,0,0,0-8,8v40a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V115.55a16,16,0,0,1,5.17-11.78l80-75.48.11-.11a16,16,0,0,1,21.53,0,1.14,1.14,0,0,0,.11.11l80,75.48A16,16,0,0,1,224,115.55Z"></path>
           </svg>
         </div>
-        <p className="text-[#0d1c18] text-xs font-medium leading-normal tracking-[0.015em]">Home</p>
+        <p className="text-[#eedfc9] text-xs font-medium leading-normal tracking-[0.015em]">Home</p>
       </a>
       <a className="flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87] py-2" href="#">
         <div className="text-[#499c87] flex h-8 items-center justify-center">
@@ -89,13 +89,13 @@ const BottomNav = () => (
 );
 
 const FeaturesPage = () => (
-  <div className="relative flex size-full min-h-screen flex-col bg-[#f8fcfb] justify-between font-[Manrope,sans-serif] overflow-x-hidden">
+  <div className="relative flex size-full min-h-screen flex-col bg-[#2A4A42] justify-between font-[Manrope,sans-serif] overflow-x-hidden">
     <div>
-      <div className="flex items-center bg-[#f8fcfb] p-4 pb-2 justify-between">
-        <h2 className="text-[#0d1c18] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pl-12">KinSpace</h2>
+      <div className="flex items-center bg-[#2A4A42] p-4 pb-2 justify-between">
+        <h2 className="text-[#eedfc9] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pl-12">KinSpace</h2>
         <div className="flex w-12 items-center justify-end">
-          <button className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 bg-transparent text-[#0d1c18] gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0">
-            <div className="text-[#0d1c18]">
+          <button className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 bg-transparent text-[#eedfc9] hover:text-[#eedfc9]/80 transition-colors gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0">
+            <div className="text-[#eedfc9]">
               {/* Gear SVG */}
               <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
                 <path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"></path>
@@ -104,7 +104,7 @@ const FeaturesPage = () => (
           </button>
         </div>
       </div>
-      <h2 className="text-[#0d1c18] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Features</h2>
+      <h2 className="text-[#eedfc9] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Features</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-6 py-6 w-full max-w-6xl mx-auto">
         {features.map((feature) => {
           // Compute route path
@@ -113,13 +113,13 @@ const FeaturesPage = () => (
             <Link
               key={feature.name}
               href={route}
-              className="flex flex-col items-center justify-center gap-3 rounded-xl border border-[#cee8e2] bg-white shadow-sm hover:shadow-md transition-shadow duration-200 p-6 min-h-[150px] cursor-pointer group focus:outline-none focus:ring-2 focus:ring-[#499c87]"
+              className="flex flex-col items-center justify-center gap-3 rounded-xl border border-[#eedfc9]/20 bg-[#2A4A42] shadow-sm hover:shadow-md transition-all duration-200 p-6 min-h-[150px] cursor-pointer group focus:outline-none focus:ring-2 focus:ring-[#eedfc9] hover:border-[#eedfc9]/40"
             >
               <div
-                className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-14 h-14 mb-2 border border-[#e7f4f0] group-hover:scale-105 transition-transform"
+                className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-14 h-14 mb-2 border border-[#eedfc9]/10 group-hover:scale-105 transition-transform"
                 style={{ backgroundImage: `url('${feature.url}')` }}
               ></div>
-              <h2 className="text-[#0d1c18] text-base font-semibold leading-tight text-center group-hover:text-[#499c87] transition-colors">
+              <h2 className="text-[#eedfc9] text-base font-semibold leading-tight text-center group-hover:text-[#eedfc9]/80 transition-colors">
                 {feature.name}
               </h2>
             </Link>

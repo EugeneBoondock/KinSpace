@@ -45,18 +45,18 @@ const handleSubmit = async (event: React.FormEvent) => {
 };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#111b22]" style={{ fontFamily: 'Manrope, Noto Sans, sans-serif' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#2A4A42]" style={{ fontFamily: 'Manrope, Noto Sans, sans-serif' }}>
       <div className="w-full max-w-md">
         <form
           onSubmit={handleSubmit}
-          className="rounded-xl bg-[#192734] shadow-xl p-8 space-y-6"
+          className="rounded-xl bg-[#2A4A42] shadow-xl border border-[#eedfc9]/20 p-8 space-y-6"
         >
-          <h1 className="text-3xl font-bold text-center text-white mb-8">
-            Create your Kin Space Profile
+          <h1 className="text-3xl font-bold text-center text-[#eedfc9] mb-8">
+            Join the Kin Space
           </h1>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-[#eedfc9] mb-1">
               Email
             </label>
             <input
@@ -65,7 +65,7 @@ const handleSubmit = async (event: React.FormEvent) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="mt-1 block w-full px-4 py-2 border border-gray-700 rounded-md shadow-sm focus:ring-blue-400 focus:border-blue-400 bg-[#111b22] text-white sm:text-sm"
+              className="mt-1 block w-full px-4 py-2 border border-[#eedfc9]/20 rounded-md shadow-sm focus:ring-[#eedfc9] focus:border-[#eedfc9] bg-[#2A4A42] text-[#eedfc9] sm:text-sm"
             />
           </div>
 
@@ -79,7 +79,7 @@ const handleSubmit = async (event: React.FormEvent) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="mt-1 block w-full px-4 py-2 border border-gray-700 rounded-md shadow-sm focus:ring-blue-400 focus:border-blue-400 bg-[#111b22] text-white sm:text-sm"
+              className="mt-1 block w-full px-4 py-2 border border-[#eedfc9]/20 rounded-md shadow-sm focus:ring-[#eedfc9] focus:border-[#eedfc9] bg-[#2A4A42] text-[#eedfc9] sm:text-sm"
             />
           </div>
 
@@ -93,7 +93,7 @@ const handleSubmit = async (event: React.FormEvent) => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="mt-1 block w-full px-4 py-2 border border-gray-700 rounded-md shadow-sm focus:ring-blue-400 focus:border-blue-400 bg-[#111b22] text-white sm:text-sm"
+              className="mt-1 block w-full px-4 py-2 border border-[#eedfc9]/20 rounded-md shadow-sm focus:ring-[#eedfc9] focus:border-[#eedfc9] bg-[#2A4A42] text-[#eedfc9] sm:text-sm"
             />
           </div>
 
@@ -107,7 +107,7 @@ const handleSubmit = async (event: React.FormEvent) => {
               value={conditions}
               onChange={(e) => setConditions(e.target.value)}
               required
-              className="mt-1 block w-full px-4 py-2 border border-gray-700 rounded-md shadow-sm focus:ring-blue-400 focus:border-blue-400 bg-[#111b22] text-white sm:text-sm"
+              className="mt-1 block w-full px-4 py-2 border border-[#eedfc9]/20 rounded-md shadow-sm focus:ring-[#eedfc9] focus:border-[#eedfc9] bg-[#2A4A42] text-[#eedfc9] sm:text-sm"
               placeholder="e.g., Lupus, Fibromyalgia"
             />
           </div>
@@ -121,7 +121,7 @@ const handleSubmit = async (event: React.FormEvent) => {
               id="comorbidities"
               value={comorbidities}
               onChange={(e) => setComorbidities(e.target.value)}
-              className="mt-1 block w-full px-4 py-2 border border-gray-700 rounded-md shadow-sm focus:ring-blue-400 focus:border-blue-400 bg-[#111b22] text-white sm:text-sm"
+              className="mt-1 block w-full px-4 py-2 border border-[#eedfc9]/20 rounded-md shadow-sm focus:ring-[#eedfc9] focus:border-[#eedfc9] bg-[#2A4A42] text-[#eedfc9] sm:text-sm"
               placeholder="e.g., Diabetes, Hypertension"
             />
           </div>
@@ -135,7 +135,7 @@ const handleSubmit = async (event: React.FormEvent) => {
               id="medications"
               value={medications}
               onChange={(e) => setMedications(e.target.value)}
-              className="mt-1 block w-full px-4 py-2 border border-gray-700 rounded-md shadow-sm focus:ring-blue-400 focus:border-blue-400 bg-[#111b22] text-white sm:text-sm"
+              className="mt-1 block w-full px-4 py-2 border border-[#eedfc9]/20 rounded-md shadow-sm focus:ring-[#eedfc9] focus:border-[#eedfc9] bg-[#2A4A42] text-[#eedfc9] sm:text-sm"
               placeholder="e.g., Prednisone, Methotrexate"
             />
           </div>
@@ -149,7 +149,7 @@ const handleSubmit = async (event: React.FormEvent) => {
               id="status"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="mt-1 block w-full px-4 py-2 border border-gray-700 rounded-md shadow-sm focus:ring-blue-400 focus:border-blue-400 bg-[#111b22] text-white sm:text-sm"
+              className="mt-1 block w-full px-4 py-2 border border-[#eedfc9]/20 rounded-md shadow-sm focus:ring-[#eedfc9] focus:border-[#eedfc9] bg-[#2A4A42] text-[#eedfc9] sm:text-sm"
               placeholder="e.g., newly diagnosed, stable"
             />
           </div>
