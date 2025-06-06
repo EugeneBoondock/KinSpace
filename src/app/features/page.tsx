@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 
 const features = [
   {
@@ -36,9 +37,9 @@ const features = [
 ];
 
 const BottomNav = () => (
-  <div>
-    <div className="flex gap-2 border-t border-[#e7f4f0] bg-[#f8fcfb] px-4 pb-3 pt-2">
-      <a className="just flex flex-1 flex-col items-center justify-end gap-1 rounded-full text-[#0d1c18]" href="#">
+  <div className="fixed bottom-0 left-0 w-full z-50 bg-[#f8fcfb] border-t border-[#cedbe8] shadow-[0_-2px_8px_0_rgba(0,0,0,0.03)]">
+    <div className="flex gap-2 px-2 py-1 sm:px-4 sm:py-2 max-w-2xl mx-auto">
+      <a className="flex flex-1 flex-col items-center justify-end gap-1 rounded-full text-[#0d1c18] py-2" href="#">
         <div className="text-[#0d1c18] flex h-8 items-center justify-center">
           {/* Home SVG */}
           <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
@@ -47,7 +48,7 @@ const BottomNav = () => (
         </div>
         <p className="text-[#0d1c18] text-xs font-medium leading-normal tracking-[0.015em]">Home</p>
       </a>
-      <a className="just flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87]" href="#">
+      <a className="flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87] py-2" href="#">
         <div className="text-[#499c87] flex h-8 items-center justify-center">
           {/* Groups SVG */}
           <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
@@ -56,7 +57,7 @@ const BottomNav = () => (
         </div>
         <p className="text-[#499c87] text-xs font-medium leading-normal tracking-[0.015em]">Groups</p>
       </a>
-      <a className="just flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87]" href="#">
+      <a className="flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87] py-2" href="#">
         <div className="text-[#499c87] flex h-8 items-center justify-center">
           {/* Messages SVG */}
           <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
@@ -65,7 +66,7 @@ const BottomNav = () => (
         </div>
         <p className="text-[#499c87] text-xs font-medium leading-normal tracking-[0.015em]">Messages</p>
       </a>
-      <a className="just flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87]" href="#">
+      <a className="flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87] py-2" href="#">
         <div className="text-[#499c87] flex h-8 items-center justify-center">
           {/* Notifications SVG */}
           <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
@@ -74,7 +75,7 @@ const BottomNav = () => (
         </div>
         <p className="text-[#499c87] text-xs font-medium leading-normal tracking-[0.015em]">Notifications</p>
       </a>
-      <a className="just flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87]" href="#">
+      <a className="flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87] py-2" href="#">
         <div className="text-[#499c87] flex h-8 items-center justify-center">
           {/* Profile SVG */}
           <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
@@ -84,7 +85,6 @@ const BottomNav = () => (
         <p className="text-[#499c87] text-xs font-medium leading-normal tracking-[0.015em]">Profile</p>
       </a>
     </div>
-    <div className="h-5 bg-[#f8fcfb]"></div>
   </div>
 );
 
@@ -105,16 +105,26 @@ const FeaturesPage = () => (
         </div>
       </div>
       <h2 className="text-[#0d1c18] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Features</h2>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(158px,1fr))] gap-3 p-4">
-        {features.map((feature) => (
-          <div key={feature.name} className="flex flex-1 gap-3 rounded-lg border border-[#cee8e2] bg-[#f8fcfb] p-4 items-center">
-            <div
-              className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-10 shrink-0"
-              style={{ backgroundImage: `url('${feature.url}')` }}
-            ></div>
-            <h2 className="text-[#0d1c18] text-base font-bold leading-tight">{feature.name}</h2>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-6 py-6 w-full max-w-6xl mx-auto">
+        {features.map((feature) => {
+          // Compute route path
+          const route = `/${feature.name.toLowerCase().replace(/\s+/g, "-")}`;
+          return (
+            <Link
+              key={feature.name}
+              href={route}
+              className="flex flex-col items-center justify-center gap-3 rounded-xl border border-[#cee8e2] bg-white shadow-sm hover:shadow-md transition-shadow duration-200 p-6 min-h-[150px] cursor-pointer group focus:outline-none focus:ring-2 focus:ring-[#499c87]"
+            >
+              <div
+                className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-14 h-14 mb-2 border border-[#e7f4f0] group-hover:scale-105 transition-transform"
+                style={{ backgroundImage: `url('${feature.url}')` }}
+              ></div>
+              <h2 className="text-[#0d1c18] text-base font-semibold leading-tight text-center group-hover:text-[#499c87] transition-colors">
+                {feature.name}
+              </h2>
+            </Link>
+          );
+        })}
       </div>
     </div>
     <BottomNav />

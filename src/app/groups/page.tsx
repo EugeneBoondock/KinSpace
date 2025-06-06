@@ -81,9 +81,43 @@ const GroupsPage = () => (
       </div>
       <Tabs />
       <h2 className="text-[#0d1c18] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Based on your conditions</h2>
-      <ImageCarousel images={groupImages} />
+      <div className="px-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-6xl mx-auto">
+          {groupImages.map((img) => (
+            <div
+              key={img.name}
+              className="flex flex-col items-center justify-center gap-3 rounded-xl border border-[#cee8e2] bg-white shadow-sm hover:shadow-md transition-shadow duration-200 p-6 min-h-[150px] cursor-pointer group"
+            >
+              <div
+                className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-14 h-14 mb-2 border border-[#e7f4f0] group-hover:scale-105 transition-transform"
+                style={{ backgroundImage: `url('${img.url}')` }}
+              ></div>
+              <h2 className="text-[#0d1c18] text-base font-semibold leading-tight text-center group-hover:text-[#499c87] transition-colors">
+                {img.name}
+              </h2>
+            </div>
+          ))}
+        </div>
+      </div>
       <h2 className="text-[#0d1c18] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Communities</h2>
-      <ImageCarousel images={communityImages} />
+      <div className="px-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-6xl mx-auto">
+          {communityImages.map((img) => (
+            <div
+              key={img.name}
+              className="flex flex-col items-center justify-center gap-3 rounded-xl border border-[#cee8e2] bg-white shadow-sm hover:shadow-md transition-shadow duration-200 p-6 min-h-[150px] cursor-pointer group"
+            >
+              <div
+                className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-14 h-14 mb-2 border border-[#e7f4f0] group-hover:scale-105 transition-transform"
+                style={{ backgroundImage: `url('${img.url}')` }}
+              ></div>
+              <h2 className="text-[#0d1c18] text-base font-semibold leading-tight text-center group-hover:text-[#499c87] transition-colors">
+                {img.name}
+              </h2>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
     {/* Bottom Navigation - same as FeaturesPage */}
     <div>
