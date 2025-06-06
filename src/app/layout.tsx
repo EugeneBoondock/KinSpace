@@ -20,11 +20,16 @@ const notoSans = Noto_Sans({
 export const metadata: Metadata = {
   title: "KinSpace",
   description: "Connect, support, and thrive with KinSpace.",
-  metadataBase: new URL('https://kinspace.vercel.app'),
+  metadataBase: new URL('https://kin-space-jade.vercel.app'),
+  icons: {
+    icon: '/images/gather_logo.png',
+    shortcut: '/images/gather_logo.png',
+    apple: '/images/gather_logo.png',
+  },
   openGraph: {
     title: 'KinSpace',
     description: 'Connect, support, and thrive with KinSpace.',
-    url: 'https://kinspace.vercel.app',
+    url: 'https://kin-space-jade.vercel.app',
     siteName: 'KinSpace',
     images: [
       {
@@ -52,9 +57,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${manrope.variable} ${notoSans.variable}`}>
-      <head>
-        <link rel="icon" href="/images/gather_logo.png" type="image/png" />
-      </head>
+      <head />
+
       <body className={`${manrope.className} bg-brand-primary text-brand-background`}>
         <ResponsiveNavbar />
         <Layout>{children}</Layout>
