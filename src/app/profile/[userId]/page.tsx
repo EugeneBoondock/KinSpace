@@ -63,7 +63,7 @@ const UserPlusIcon = () => (
 );
 
 
-const UserProfilePage = ({ params }: { params: { userId: string } }) => {
+export default function Page({ params }: { params: { userId: string } }) {
   const { userId } = params;
   const userToDisplay = userId === 'anonymous-example' ? mockAnonymousUser : mockUser;
 
@@ -192,4 +192,4 @@ const UserProfilePage = ({ params }: { params: { userId: string } }) => {
   );
 };
 
-export default UserProfilePage;
+

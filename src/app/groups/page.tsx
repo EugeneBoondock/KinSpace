@@ -1,7 +1,7 @@
 'use client';
 
 import React from "react";
-import Link from "next/link";
+
 
 const groupImages = [
   {
@@ -44,22 +44,6 @@ const Tabs = () => (
     <a className="flex flex-col items-center justify-center border-b-[3px] border-b-transparent text-[#49739c] pb-[13px] pt-4" href="#">
       <p className="text-[#49739c] text-sm font-bold leading-normal tracking-[0.015em]">Your groups</p>
     </a>
-  </div>
-);
-
-const ImageCarousel = ({ images }: { images: { name: string; url: string }[] }) => (
-  <div className="flex overflow-y-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-    <div className="flex items-stretch p-4 gap-3">
-      {images.map((img) => (
-        <div key={img.name} className="flex h-full flex-1 flex-col gap-4 rounded-lg min-w-40">
-          <div
-            className="w-full bg-center bg-no-repeat aspect-square bg-cover rounded-lg flex flex-col"
-            style={{ backgroundImage: `url('${img.url}')` }}
-          ></div>
-          <p className="text-[#0d141c] text-base font-medium leading-normal">{img.name}</p>
-        </div>
-      ))}
-    </div>
   </div>
 );
 

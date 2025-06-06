@@ -64,7 +64,7 @@ const LoginPage: React.FC = () => {
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/60">
           <div className="bg-[#192734] rounded-xl shadow-xl p-8 max-w-sm w-full text-center border border-blue-500">
             <h2 className="text-2xl font-bold text-mintGreen mb-2">You're verified!</h2>
-            <p className="text-white mb-4">Your email has been confirmed. Please log in to continue.</p>
+            <p className="text-white mb-4">You don&apos;t have an account? Confirmed. Please log in to continue.</p>
             <button
               className="mt-2 px-6 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition"
               onClick={() => setShowVerified(false)}

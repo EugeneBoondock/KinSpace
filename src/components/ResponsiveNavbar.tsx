@@ -1,6 +1,7 @@
 'use client';
 import Link from "next/link";
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { supabase } from "../supabaseClient";
 
 export default function ResponsiveNavbar() {
@@ -23,7 +24,7 @@ export default function ResponsiveNavbar() {
       {/* Logo and hamburger only if dropdown is not open on mobile */}
       <div className={`flex items-center gap-4 ${open ? 'hidden' : ''} md:flex`}>
         <Link href="/" className="flex items-center gap-2" aria-label="The Gathering Home">
-          <img src="/images/gather_logo.png" alt="The Gathering Logo" className="h-10 w-auto" />
+          <Image src="/images/gather_logo.png" alt="The Gathering Logo" width={40} height={40} className="h-10 w-auto" priority />
           <span className="text-[#2A4A42] text-xl font-bold hidden sm:block">the Gathering</span>
         </Link>
       </div>

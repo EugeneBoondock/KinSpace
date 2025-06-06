@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { HomeIcon, UsersIcon, ChatBubbleLeftRightIcon, Cog6ToothIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -50,7 +49,7 @@ export default function SettingsPage() {
         .eq("id", user.id)
         .single();
       if (data) {
-        setProfile(data);
+        
         setFullName(data.full_name || "");
         setAvatarUrl(data.avatar_url || "");
         setAge(data.age ? String(data.age) : "");
