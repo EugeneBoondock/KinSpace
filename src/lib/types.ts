@@ -9,5 +9,14 @@ export interface UserProfile {
   status: string | null; // e.g., "newly diagnosed", "stable", "flaring", "recovering", or null if not specified
   createdAt: string | Date;
   updatedAt: string | Date;
+  profileImageUrl?: string;
+  coverImageUrl?: string;
+  bio?: string;
+  interests?: string[];
+  pronouns?: string;
+  location?: string;
+  followers?: number;
+  following?: number;
+  postsCount?: number;
   // TODO: Add moodCharts, painCharts, selfCareSchedule, gamification, etc.
 }
