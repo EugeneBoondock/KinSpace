@@ -1,96 +1,228 @@
-export default function ExplorePage() {
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import BottomNav from "@/components/BottomNav";
+
+export default function Explore() {
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const categories = [
+    { id: "all", name: "All", count: 850 },
+    { id: "mental-health", name: "Mental Health", count: 245 },
+    { id: "chronic-illness", name: "Chronic Illness", count: 180 },
+    { id: "diabetes", name: "Diabetes", count: 95 },
+    { id: "cancer", name: "Cancer Support", count: 75 },
+    { id: "anxiety", name: "Anxiety & Depression", count: 120 },
+    { id: "autoimmune", name: "Autoimmune", count: 65 },
+    { id: "rare-diseases", name: "Rare Diseases", count: 45 },
+  ];
+
+  const supportGroups = [
+    {
+      id: 1,
+      name: "Depression Recovery Circle",
+      members: 127,
+      type: "virtual",
+      category: "mental-health",
+      nextMeeting: "Today, 7:00 PM",
+      description:
+        "A safe space to share experiences and coping strategies for depression recovery.",
+    },
+    {
+      id: 2,
+      name: "Type 1 Diabetes Warriors",
+      members: 89,
+      type: "local",
+      category: "diabetes",
+      nextMeeting: "Tomorrow, 6:30 PM",
+      location: "Community Center, Downtown",
+      description:
+        "Support and practical tips for managing Type 1 diabetes daily.",
+    },
+    {
+      id: 3,
+      name: "Chronic Pain Support Network",
+      members: 156,
+      type: "virtual",
+      category: "chronic-illness",
+      nextMeeting: "Wed, 8:00 PM",
+      description: "Understanding and managing chronic pain with peer support.",
+    },
+    {
+      id: 4,
+      name: "Anxiety Mindfulness Group",
+      members: 203,
+      type: "virtual",
+      category: "anxiety",
+      nextMeeting: "Thu, 7:30 PM",
+      description:
+        "Mindfulness techniques and breathing exercises for anxiety management.",
+    },
+    {
+      id: 5,
+      name: "Cancer Survivors United",
+      members: 78,
+      type: "local",
+      category: "cancer",
+      nextMeeting: "Sat, 2:00 PM",
+      location: "Memorial Hospital, Room 204",
+      description:
+        "Stories of hope and practical support for cancer survivors.",
+    },
+    {
+      id: 6,
+      name: "Lupus Community Circle",
+      members: 45,
+      type: "virtual",
+      category: "autoimmune",
+      nextMeeting: "Sun, 4:00 PM",
+      description: "Living well with lupus - tips, support, and friendship.",
+    },
+  ];
+
+  const filteredGroups = supportGroups.filter((group) => {
+    const matchesCategory =
+      activeCategory === "all" || group.category === activeCategory;
+    const matchesSearch =
+      group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      group.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   return (
-    <div className="relative flex size-full min-h-screen flex-col bg-[#2A4A42] justify-between group/design-root overflow-x-hidden" style={{fontFamily: 'Manrope, "Noto Sans", sans-serif'}}>
-      <div>
-        <div className="flex items-center bg-[#2A4A42] p-4 pb-2 justify-between">
-          <div className="text-[#eedfc9] flex size-12 shrink-0 items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256">
-              <path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z" />
-            </svg>
-          </div>
-          <h2 className="text-[#eedfc9] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Search</h2>
+    <div className="min-h-screen bg-[#eedfc8] pb-20 page-explore">
+      {/* Content */}
+      <div className="pt-20 px-6">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-emerald-800 mb-2">
+            Explore Support Groups
+          </h1>
+          <p className="text-emerald-600">
+            Find your community and connect with others who understand
+          </p>
         </div>
-        <div className="px-4 py-3">
-          <label className="flex flex-col min-w-40 h-12 w-full">
-            <div className="flex w-full flex-1 items-stretch rounded-xl h-full">
-              <div className="text-[#eedfc9]/70 flex border-none bg-[#eedfc9]/10 items-center justify-center pl-4 rounded-l-xl border-r-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256">
-                  <path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z" />
-                </svg>
+
+        {/* Search */}
+        <div className="relative mb-6">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <i className="ri-search-line text-emerald-400"></i>
+          </div>
+          <input
+            type="text"
+            placeholder="Search support groups..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 bg-white/90 rounded-full border border-emerald-200 text-sm text-emerald-800 placeholder-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent shadow-sm"
+          />
+        </div>
+
+        {/* Categories */}
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-emerald-800 mb-3">
+            Categories
+          </h3>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {categories.slice(0, 6).map((category) => (
+              <button
+                key={category.id}
+                onClick={() => setActiveCategory(category.id)}
+                className={`p-3 rounded-xl text-left transition-all !rounded-button ${
+                  activeCategory === category.id
+                    ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg"
+                    : "bg-white/90 border border-emerald-200 text-emerald-700 hover:bg-emerald-50 shadow-sm"
+                }`}
+              >
+                <div className="font-semibold text-sm">{category.name}</div>
+                <div
+                  className={`text-xs ${
+                    activeCategory === category.id
+                      ? "text-emerald-100"
+                      : "text-emerald-500"
+                  }`}
+                >
+                  {category.count} groups
+                </div>
+              </button>
+            ))}
+          </div>
+          <button className="text-emerald-600 text-sm font-medium hover:text-emerald-700">
+            View all categories
+          </button>
+        </div>
+
+        {/* Support Groups List */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-emerald-800">
+              {activeCategory === "all"
+                ? "All Groups"
+                : categories.find((c) => c.id === activeCategory)?.name}
+            </h3>
+            <span className="text-sm text-emerald-500">
+              {filteredGroups.length} groups
+            </span>
+          </div>
+
+          {filteredGroups.map((group) => (
+            <div
+              key={group.id}
+              className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-sm border border-emerald-200"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h4 className="font-semibold text-emerald-800 mb-1">
+                    {group.name}
+                  </h4>
+                  <p className="text-sm text-emerald-600 mb-2">
+                    {group.description}
+                  </p>
+                </div>
+                <div
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    group.type === "virtual"
+                      ? "bg-emerald-100 text-emerald-600"
+                      : "bg-teal-100 text-teal-600"
+                  }`}
+                >
+                  {group.type === "virtual" ? "Virtual" : "In-Person"}
+                </div>
               </div>
-              <input
-                className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#eedfc9] focus:outline-0 focus:ring-0 border-none bg-[#eedfc9]/10 focus:border-none h-full placeholder:text-[#eedfc9]/70 px-4 rounded-r-none border-r-0 pr-2 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal"
-                placeholder="Search conditions..."
-                value="Hemorrhoids"
-              />
-              <div className="flex items-center justify-center rounded-r-xl border-l-0 border-none bg-[#eedfc9]/10 pr-4">
-                <button className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full bg-transparent text-[#eedfc9] gap-2 text-base font-bold leading-normal tracking-[0.015em] h-auto min-w-0 px-0">
-                  <div className="text-[#eedfc9]/70">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256">
-                      <path d="M165.66,101.66,139.31,128l26.35,26.34a8,8,0,0,1-11.32,11.32L128,139.31l-26.34,26.35a8,8,0,0,1-11.32-11.32L116.69,128,90.34,101.66a8,8,0,0,1,11.32-11.32L128,116.69l26.34-26.35a8,8,0,0,1,11.32,11.32Z" />
-                    </svg>
-                  </div>
+
+              <div className="flex items-center text-sm text-emerald-500 mb-3 space-x-4">
+                <div className="flex items-center space-x-1">
+                  <i className="ri-group-line"></i>
+                  <span>{group.members} members</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <i className="ri-calendar-line"></i>
+                  <span>{group.nextMeeting}</span>
+                </div>
+              </div>
+
+              {group.location && (
+                <div className="flex items-center text-sm text-emerald-500 mb-3">
+                  <i className="ri-map-pin-line mr-1"></i>
+                  <span>{group.location}</span>
+                </div>
+              )}
+
+              <div className="flex space-x-3">
+                <button className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-2 px-4 rounded-full text-sm font-medium !rounded-button">
+                  Join Group
+                </button>
+                <button className="px-4 py-2 border border-emerald-200 rounded-full text-sm font-medium text-emerald-600 !rounded-button hover:bg-emerald-50">
+                  Learn More
                 </button>
               </div>
             </div>
-          </label>
-        </div>
-        <p className="text-[#eedfc9] text-base font-normal leading-normal pb-3 pt-1 px-4">
-          Welcome to KinSpace! We&apos;re here to help you find the information and support you need. Please use the search bar above to explore topics related to temporary conditions
-          like hemorrhoids.
-        </p>
-        <h2 className="text-[#eedfc9] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Trending Conditions</h2>
-        <div className="flex gap-3 p-3 flex-wrap pr-4">
-          {['Common Cold', 'Flu', 'Allergies', 'Migraines', 'Back Pain'].map((condition) => (
-            <div key={condition} className="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#eedfc9]/10 pl-4 pr-4">
-              <p className="text-[#eedfc9] text-sm font-medium leading-normal">{condition}</p>
-            </div>
           ))}
-        </div>
-        <h2 className="text-[#eedfc9] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Condition Categories</h2>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(158px,1fr))] gap-3 p-4">
-          {[
-            { title: 'Cardiovascular', icon: 'Heart' },
-            { title: 'Neurological', icon: 'Brain' },
-            { title: 'Musculoskeletal', icon: 'Bone' },
-            { title: 'Ophthalmological', icon: 'Eye' },
-            { title: 'Gastrointestinal', icon: 'SmileyNervous' }
-          ].map((category) => (
-            <div key={category.title} className="flex flex-1 gap-3 rounded-lg border border-[#eedfc9]/20 bg-[#2A4A42] p-4 items-center">
-              <div className="text-[#eedfc9]">
-                {/* Icon would go here */}
-              </div>
-              <h2 className="text-[#eedfc9] text-base font-bold leading-tight">{category.title}</h2>
-            </div>
-          ))}
-        </div>
-        <h2 className="text-[#eedfc9] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Related Resources</h2>
-        <div className="flex items-center gap-4 bg-[#2A4A42] px-4 min-h-14">
-          <div className="text-[#eedfc9] flex items-center justify-center rounded-lg bg-[#eedfc9]/10 shrink-0 size-10">
-            {/* User icon */}
-          </div>
-          <p className="text-[#eedfc9] text-base font-normal leading-normal flex-1 truncate">Find a Doctor</p>
-        </div>
-        <div className="flex items-center gap-4 bg-[#2A4A42] px-4 min-h-14">
-          <div className="text-[#eedfc9] flex items-center justify-center rounded-lg bg-[#eedfc9]/10 shrink-0 size-10">
-            {/* Users icon */}
-          </div>
-          <p className="text-[#eedfc9] text-base font-normal leading-normal flex-1 truncate">Support Groups</p>
         </div>
       </div>
-      <div>
-        <div className="flex gap-2 border-t border-[#eedfc9]/20 bg-[#2A4A42] px-4 pb-3 pt-2">
-          {['Home', 'Explore', 'Groups', 'Notifications', 'Profile'].map((item, i) => (
-            <a key={i} className={`just flex flex-1 flex-col items-center justify-end gap-1 ${item === 'Explore' ? 'text-[#eedfc9]' : 'text-[#eedfc9]/70'}`} href="#">
-              <div className={`${item === 'Explore' ? 'text-[#eedfc9]' : 'text-[#eedfc9]/70'} flex h-8 items-center justify-center`}>
-                {/* Icon would go here */}
-              </div>
-              <p className={`${item === 'Explore' ? 'text-[#eedfc9]' : 'text-[#eedfc9]/70'} text-xs font-medium leading-normal tracking-[0.015em]`}>{item}</p>
-            </a>
-          ))}
-        </div>
-        <div className="h-5 bg-[#2A4A42]"></div>
-      </div>
+
+      <BottomNav />
     </div>
   );
 }

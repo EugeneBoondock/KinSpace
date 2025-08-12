@@ -56,6 +56,43 @@ body {
 .bg-powderBlue { background-color: var(--powderBlue); }
 .bg-lavenderMist { background-color: var(--lavenderMist); }
 
+/* Page-specific color variations while maintaining core theme */
+.page-profile {
+  --page-accent: #1F3A32; /* Slightly darker green for profile */
+  --page-accent-light: #2A4A42;
+  --page-bg-tint: rgba(31, 58, 50, 0.05);
+}
+
+.page-therapy {
+  --page-accent: #2A4A42; /* Standard green for therapy */
+  --page-accent-light: #3A5A52;
+  --page-bg-tint: rgba(42, 74, 66, 0.05);
+}
+
+.page-community {
+  --page-accent: #2F4F47; /* Warmer green for community */
+  --page-accent-light: #3F5F57;
+  --page-bg-tint: rgba(47, 79, 71, 0.05);
+}
+
+.page-map {
+  --page-accent: #254238; /* Cooler green for map */
+  --page-accent-light: #355248;
+  --page-bg-tint: rgba(37, 66, 56, 0.05);
+}
+
+.page-resources {
+  --page-accent: #2A4A42; /* Standard green for resources */
+  --page-accent-light: #3A5A52;
+  --page-bg-tint: rgba(42, 74, 66, 0.05);
+}
+
+.page-explore {
+  --page-accent: #2F4F47; /* Warmer green for explore */
+  --page-accent-light: #3F5F57;
+  --page-bg-tint: rgba(47, 79, 71, 0.05);
+}
+
 /* DNA strand animation for left/right columns */
 .dna-bar {
   position: relative;

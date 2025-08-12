@@ -2,6 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import React, { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 function AnimatedDnaStrand({ side = "left", mobile = false }: { side?: "left" | "right"; mobile?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -102,6 +103,29 @@ function AnimatedDnaStrand({ side = "left", mobile = false }: { side?: "left" | 
 }
 
 export default function Home() {
+  const router = useRouter();
+
+  const supportCategories = [
+    { name: 'Mental Health', count: 284, icon: '🧠' },
+    { name: 'Chronic Illness', count: 195, icon: '🏥' },
+    { name: 'Addiction Recovery', count: 127, icon: '💪' },
+    { name: 'Grief & Loss', count: 89, icon: '💙' },
+    { name: 'Disability Support', count: 156, icon: '♿' },
+    { name: 'Rare Conditions', count: 73, icon: '🔬' },
+  ];
+
+  const handleEmergencyCall = () => {
+    window.location.href = 'tel:911';
+  };
+
+  const handleFindDoctors = () => {
+    router.push('/map?type=doctors');
+  };
+
+  const handleFindPharmacies = () => {
+    router.push('/map?type=pharmacies');
+  };
+
   return (
     <div className="relative flex min-h-screen flex-col group/design-root overflow-x-hidden bg-brand-primary" style={{ fontFamily: 'Manrope, Noto Sans, sans-serif' }}>
       <AnimatedDnaStrand mobile />
@@ -113,7 +137,7 @@ export default function Home() {
         <div className="px-4 sm:px-40 py-5">
           <div className="max-w-[960px] mx-auto">
             <div className="flex flex-col items-center justify-center min-h-[480px] text-center p-4">
-              {/* New Image Tag */}
+              {/* Hero Image */}
               <div className="w-full flex justify-center mb-6 relative h-72 sm:h-[450px]">
                   <div className="p-12">
                     <div className="relative aspect-square h-full rounded-2xl hero-glow bg-brand-primary">
@@ -129,21 +153,190 @@ export default function Home() {
                   </div>
               </div>
 
-              {/* Hero Text Card (original content, wrapper div modified) */}
-              <div className="rounded-xl p-8 w-full"> {/* No background image style */}
+              {/* Hero Text */}
+              <div className="rounded-xl p-8 w-full">
                 <div className="flex flex-col items-center gap-6">
                   <h1 className="text-brand-background text-4xl font-black leading-tight tracking-[-0.033em] sm:text-5xl">
-                    Find Your Support System
+                    Your Cozy Corner for Healing
                   </h1>
                   <h2 className="text-brand-background opacity-90 text-sm sm:text-base font-normal max-w-2xl">
-                    Connect with others who understand your journey. KinSpace is a community for individuals with chronic conditions, offering support, friendship, and dating opportunities.
+                    A warm community where we grow together through life's challenges - chronic illness, mental health, addiction, grief, and beyond. Connect with others who understand your journey.
                   </h2>
                   <Link 
                     href="/signup" 
                     className="flex min-w-[180px] cursor-pointer items-center justify-center rounded-full h-12 px-8 bg-[#2A4A42] text-[#eedfc8] border-2 border-[#eedfc8] hover:bg-[#2A4A42]/90 hover:text-white hover:border-white text-base font-bold transition-all duration-200 shadow-lg hover:shadow-xl hover:shadow-brand-accent1/40 transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-md"
                   >
-                    <span className="truncate">Get Started</span>
+                    <span className="truncate">Join Our Community</span>
                   </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Emergency & Quick Actions Section */}
+        <div className="w-full py-8 px-4 sm:px-40">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-[#2A4A42]/10 backdrop-blur-lg rounded-2xl p-6 border border-[#eedfc8]/20 mb-8">
+              <h3 className="text-brand-background text-lg font-bold mb-4 text-center">Need Help Nearby?</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <button
+                  onClick={handleFindDoctors}
+                  className="bg-[#2A4A42] text-[#eedfc8] p-4 rounded-2xl text-center shadow-lg hover:shadow-xl transition-all duration-200 hover:bg-[#2A4A42]/90 transform hover:-translate-y-0.5"
+                >
+                  <div className="w-8 h-8 bg-[#eedfc8]/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-lg">🩺</span>
+                  </div>
+                  <div className="font-semibold text-sm">Find Doctors</div>
+                </button>
+                <button
+                  onClick={handleFindPharmacies}
+                  className="bg-[#2A4A42] text-[#eedfc8] p-4 rounded-2xl text-center shadow-lg hover:shadow-xl transition-all duration-200 hover:bg-[#2A4A42]/90 transform hover:-translate-y-0.5"
+                >
+                  <div className="w-8 h-8 bg-[#eedfc8]/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-lg">💊</span>
+                  </div>
+                  <div className="font-semibold text-sm">Pharmacies</div>
+                </button>
+                <button
+                  onClick={handleEmergencyCall}
+                  className="bg-red-600 text-white p-4 rounded-2xl text-center shadow-lg hover:shadow-xl transition-all duration-200 hover:bg-red-700 transform hover:-translate-y-0.5"
+                >
+                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-lg">📞</span>
+                  </div>
+                  <div className="font-semibold text-sm">Emergency</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Community Stats */}
+            <div className="bg-[#2A4A42]/10 backdrop-blur-lg rounded-2xl p-6 border border-[#eedfc8]/20 mb-8">
+              <h3 className="text-brand-background text-lg font-bold mb-4 text-center">Our Growing Family</h3>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-brand-background">12.5k+</div>
+                  <div className="text-sm text-brand-background opacity-70">Members</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-brand-background">850+</div>
+                  <div className="text-sm text-brand-background opacity-70">Support Groups</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-brand-background">24/7</div>
+                  <div className="text-sm text-brand-background opacity-70">Support</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Support Categories Section */}
+        <div className="w-full py-8 px-4 sm:px-40">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-brand-background text-2xl font-bold text-center mb-8">Find Your Tribe</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+              {supportCategories.map((category, index) => (
+                <Link
+                  key={index}
+                  href="/explore"
+                  className="bg-[#2A4A42]/10 backdrop-blur-lg rounded-2xl p-4 border border-[#eedfc8]/20 hover:shadow-lg hover:shadow-brand-accent1/20 transition-all duration-300 group"
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <div className="text-3xl mb-2">{category.icon}</div>
+                    <div className="font-semibold text-brand-background text-sm mb-1">{category.name}</div>
+                    <div className="text-xs text-brand-background opacity-70">{category.count} groups</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Games & Activities Section */}
+        <div className="w-full py-8 px-4 sm:px-40">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {/* Games Section */}
+              <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg rounded-2xl p-6 border border-[#eedfc8]/20">
+                <div className="flex items-center space-x-2 mb-3">
+                  <div className="bg-[#eedfc8]/20 px-2 py-1 rounded-full text-xs font-medium text-brand-background">Fun!</div>
+                  <div className="bg-[#eedfc8]/20 px-2 py-1 rounded-full text-xs font-medium text-brand-background">Play Together</div>
+                </div>
+                <h3 className="text-lg font-bold mb-2 text-brand-background">Game Zone Open!</h3>
+                <p className="text-brand-background opacity-80 text-sm mb-4">
+                  Connect with community members through fun games - chess, tic-tac-toe, wordle, and more!
+                </p>
+                <Link href="/games" className="bg-[#2A4A42] text-[#eedfc8] px-6 py-2 rounded-full font-semibold text-sm inline-block border-2 border-[#eedfc8] hover:bg-[#2A4A42]/90 hover:text-white hover:border-white transition-all duration-200">
+                  Start Playing
+                </Link>
+              </div>
+
+              {/* Group Activities Section */}
+              <div className="bg-gradient-to-r from-emerald-600/20 to-teal-600/20 backdrop-blur-lg rounded-2xl p-6 border border-[#eedfc8]/20">
+                <div className="flex items-center space-x-2 mb-3">
+                  <div className="bg-[#eedfc8]/20 px-2 py-1 rounded-full text-xs font-medium text-brand-background">New!</div>
+                  <div className="bg-[#eedfc8]/20 px-2 py-1 rounded-full text-xs font-medium text-brand-background">Group Adventures</div>
+                </div>
+                <h3 className="text-lg font-bold mb-2 text-brand-background">Spread Joy Together!</h3>
+                <p className="text-brand-background opacity-80 text-sm mb-4">
+                  Join fellow members for meaningful volunteer activities - visit orphanages, spend time at hospices, or brighten someone's day.
+                </p>
+                <Link href="/community" className="bg-[#2A4A42] text-[#eedfc8] px-6 py-2 rounded-full font-semibold text-sm inline-block border-2 border-[#eedfc8] hover:bg-[#2A4A42]/90 hover:text-white hover:border-white transition-all duration-200">
+                  Join Adventures
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Activities Section */}
+        <div className="w-full py-8 px-4 sm:px-40">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-brand-background text-2xl font-bold text-center mb-8">Today's Good Vibes</h2>
+            <div className="space-y-4">
+              <div className="bg-gradient-to-r from-teal-600/20 to-emerald-600/20 backdrop-blur-lg rounded-2xl p-6 border border-[#eedfc8]/20">
+                <div className="flex items-center space-x-2 mb-3">
+                  <div className="bg-[#eedfc8]/20 px-2 py-1 rounded-full text-xs font-medium text-brand-background">Live Now</div>
+                </div>
+                <h4 className="font-bold mb-2 text-brand-background">Weekly Wellness Circle</h4>
+                <p className="text-brand-background opacity-80 text-sm mb-4">
+                  Join 47 friends sharing self-care wins and cozy chat about feeling good
+                </p>
+                <button className="bg-[#2A4A42] text-[#eedfc8] px-6 py-2 rounded-full font-semibold text-sm border-2 border-[#eedfc8] hover:bg-[#2A4A42]/90 hover:text-white hover:border-white transition-all duration-200">
+                  Join the Circle
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-[#2A4A42]/10 backdrop-blur-lg rounded-2xl p-5 border border-[#eedfc8]/20">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-10 h-10 bg-[#eedfc8]/20 rounded-full flex items-center justify-center">
+                      <span className="text-lg">📚</span>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-brand-background text-sm">Fresh Resource Added</h4>
+                      <p className="text-xs text-brand-background opacity-70">Understanding Anxiety: Your Friendly Guide</p>
+                    </div>
+                    <Link href="/resources" className="text-brand-background text-sm font-medium hover:opacity-80">
+                      Check it out
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="bg-[#2A4A42]/10 backdrop-blur-lg rounded-2xl p-5 border border-[#eedfc8]/20">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-10 h-10 bg-[#eedfc8]/20 rounded-full flex items-center justify-center">
+                      <span className="text-lg">👋</span>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-brand-background text-sm">New Buddy Available</h4>
+                      <p className="text-xs text-brand-background opacity-70">Chronic pain warrior offering friendly 1-on-1 chats</p>
+                    </div>
+                    <Link href="/community" className="text-brand-background text-sm font-medium hover:opacity-80">
+                      Say Hi
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>

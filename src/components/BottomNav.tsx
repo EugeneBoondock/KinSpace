@@ -2,129 +2,133 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
+import type { User } from '@supabase/supabase-js';
 
-// Define an interface for the props
-interface NavLinkProps {
-  href: string;
-  icon: React.ElementType;
-  label: string;
-  isActive?: boolean; // Optional: to explicitly set active state if needed
-}
-
-const NavIcon = ({ component: Icon, isActive }: { component: React.ElementType; isActive: boolean }) => (
-  <div className={`flex h-8 items-center justify-center ${isActive ? 'text-brand-text-on-primary' : 'text-brand-accent3'}`}>
-    <Icon width="24px" height="24px" fill="currentColor" />
-  </div>
-);
-
-const NavLabel = ({ label, isActive }: { label: string; isActive: boolean }) => (
-  <p className={`text-xs font-medium leading-normal tracking-[0.015em] ${isActive ? 'text-brand-text-on-primary' : 'text-brand-accent3'}`}>
-    {label}
-  </p>
-);
-
-// Placeholder icons - replace with actual SVG components or imports
+// Icon components
 const HouseIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" {...props}>
-    <path d="M218.83,103.77l-80-75.48a1.14,1.14,0,0,1-.11-.11,16,16,0,0,0-21.53,0l-.11.11L37.17,103.77A16,16,0,0,0,32,115.55V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V160h32v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V115.55A16,16,0,0,0,218.83,103.77ZM208,208H160V160a16,16,0,0,0-16-16H112a16,16,0,0,0-16,16v48H48V115.55l.11-.1L128,40l79.9,75.43.11.1Z" />
+    <path d="M218.83,103.77l-80-75.48a1.14,1.14,0,0,1-.11-.11,16,16,0,0,0-21.53,0l-.11.11L37.17,103.77A16,16,0,0,0,32,115.55V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V160h32v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V115.55A16,16,0,0,0,218.83,103.77ZM208,208H160V160a16,16,0,0,0-16-16H112a16,16,0,0,0-16,16v48H48V115.55l.11-.1L128,40l79.9,75.43.11.10Z" />
   </svg>
 );
 
-const UsersIcon = (props: React.SVGProps<SVGSVGElement>) => (
+const CompassIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" {...props}>
-    <path d="M164.47,195.63a8,8,0,0,1-6.7,12.37H10.23a8,8,0,0,1-6.7-12.37,95.83,95.83,0,0,1,47.22-37.71,60,60,0,1,1,66.5,0A95.83,95.83,0,0,1,164.47,195.63Zm87.91-.15a95.87,95.87,0,0,0-47.13-37.56A60,60,0,0,0,144.7,54.59a4,4,0,0,0-1.33,6A75.83,75.83,0,0,1,147,150.53a4,4,0,0,0,1.07,5.53,112.32,112.32,0,0,1,29.85,30.83,23.92,23.92,0,0,1,3.65,16.47,4,4,0,0,0,3.95,4.64h60.3a8,8,0,0,0,7.73-5.93A8.22,8.22,0,0,0,252.38,195.48Z" />
+    <path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216ZM172.42,99.06l-32,80a8,8,0,0,1-14.84,0l-32-80a8,8,0,0,1,10.42-10.42l80,32a8,8,0,0,1,0,14.84ZM138.82,138.82,153.19,102.81,117.18,117.18,102.81,153.19Z" />
   </svg>
 );
 
 const UsersThreeIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" {...props}>
-     <path d="M64.12,147.8a4,4,0,0,1-4,4.2H16a8,8,0,0,1-7.8-6.17,8.35,8.35,0,0,1,1.62-6.93A67.79,67.79,0,0,1,37,117.51a40,40,0,1,1,66.46-35.8,3.94,3.94,0,0,1-2.27,4.18A64.08,64.08,0,0,0,64,144C64,145.28,64,146.54,64.12,147.8Zm182-8.91A67.76,67.76,0,0,0,219,117.51a40,40,0,1,0-66.46-35.8,3.94,3.94,0,0,0,2.27,4.18A64.08,64.08,0,0,1,192,144c0,1.28,0,2.54-.12,3.8a4,4,0,0,0,4,4.2H240a8,8,0,0,0,7.8-6.17A8.33,8.33,0,0,0,246.17,138.89Zm-89,43.18a48,48,0,1,0-58.37,0A72.13,72.13,0,0,0,65.07,212,8,8,0,0,0,72,224H184a8,8,0,0,0,6.93-12A72.15,72.15,0,0,0,157.19,182.07Z" />
+    <path d="M244.8,150.4a8,8,0,0,1-11.2-1.6A51.6,51.6,0,0,0,192,128a8,8,0,0,1-7.37-4.89,8,8,0,0,1,0-6.22A8,8,0,0,1,192,112a24,24,0,1,0-23.24-30,8,8,0,1,1-15.5-4A40,40,0,1,1,219,117.51a67.94,67.94,0,0,1,27.43,21.68A8,8,0,0,1,244.8,150.4ZM190.92,212a8,8,0,1,1-13.84,8,57,57,0,0,0-98.16,0,8,8,0,1,1-13.84-8,72.06,72.06,0,0,1,33.74-29.92,48,48,0,1,1,58.36,0A72.06,72.06,0,0,1,190.92,212ZM128,176a32,32,0,1,0-32-32A32,32,0,0,0,128,176ZM72,120a8,8,0,0,0-8-8A24,24,0,1,1,87.24,82a8,8,0,1,0,15.5-4A40,40,0,1,0,37,117.51,67.94,67.94,0,0,0,9.6,139.19a8,8,0,1,0,12.8,9.61A51.6,51.6,0,0,1,64,128,8,8,0,0,0,72,120Z" />
   </svg>
 );
 
-const HeartIcon = (props: React.SVGProps<SVGSVGElement>) => (
+const ChatCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" {...props}>
-    <path d="M178,32c-20.65,0-38.73,8.88-50,23.89C116.73,40.88,98.65,32,78,32A62.07,62.07,0,0,0,16,94c0,70,103.79,126.66,108.21,129a8,8,0,0,0,7.58,0C136.21,220.66,240,164,240,94A62.07,62.07,0,0,0,178,32ZM128,206.8C109.74,196.16,32,147.69,32,94A46.06,46.06,0,0,1,78,48c19.45,0,35.78,10.36,42.6,27a8,8,0,0,0,14.8,0c6.82-16.67,23.15-27,42.6-27a46.06,46.06,0,0,1,46,46C224,147.61,146.24,196.15,128,206.8Z" />
+    <path d="M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm0,192a87.87,87.87,0,0,1-44.06-11.81,8,8,0,0,0-6.54-.67L40,216,52.47,178.6a8,8,0,0,0-.66-6.54A88,88,0,1,1,128,216Z" />
   </svg>
 );
 
-const UserIcon = (props: React.SVGProps<SVGSVGElement>) => (
+const BookIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" {...props}>
-    <path d="M230.93,220a8,8,0,0,1-6.93,4H32a8,8,0,0,1-6.92-12c15.23-26.33,38.7-45.21,66.09-54.16a72,72,0,1,1,73.66,0c27.39,8.95,50.86,27.83,66.09,54.16A8,8,0,0,1,230.93,220Z" />
-  </svg>
-);
-
-const ChatCircleDotsIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" {...props}>
-    <path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128ZM84,116a12,12,0,1,0,12,12A12,12,0,0,0,84,116Zm88,0a12,12,0,1,0,12,12A12,12,0,0,0,172,116Zm60,12A104,104,0,0,1,79.12,219.82L45.07,231.17a16,16,0,0,1-20.24-20.24l11.35-34.05A104,104,0,1,1,232,128Zm-16,0A88,88,0,1,0,51.81,172.06a8,8,0,0,1,.66,6.54L40,216,77.4,203.53a7.85,7.85,0,0,1,2.53-.42,8,8,0,0,1,4,1.08A88,88,0,0,0,216,128Z" />
-  </svg>
-);
-
-const BellIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" {...props}>
-    <path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z" />
+    <path d="M208,24H72A32,32,0,0,0,40,56V224a8,8,0,0,0,8,8H192a8,8,0,0,0,0-16H56a16,16,0,0,1,16-16H208a8,8,0,0,0,8-8V32A8,8,0,0,0,208,24ZM200,184H72a31.82,31.82,0,0,0-16,4.29V56A16,16,0,0,1,72,40H200Z" />
   </svg>
 );
 
 interface BottomNavProps {
-  activePage: 'Home' | 'Connect' | 'Trauma-Bonding' | 'Profile' | 'Groups' | 'Matches' | 'Messages' | 'Notifications';
+  activePage?: string;
 }
 
-const BottomNav: React.FC<BottomNavProps> = ({ activePage }) => {
+export default function BottomNav({ activePage }: BottomNavProps) {
   const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const navItems = {
-    profile: [
-      { href: "/dashboard", icon: HouseIcon, label: "Home" }, // Assuming home is dashboard
-      { href: "/trauma-bonding", icon: UsersIcon, label: "Connect" },
-      { href: "/trauma-bonding", icon: HeartIcon, label: "Trauma-Bonding" }, // Points to trauma-bonding as per current understanding
-      { href: "/profile/me", icon: UserIcon, label: "Profile" } // Assuming '/profile/me' or similar for current user
-    ],
-    traumaBonding: [
-      { href: "/dashboard", icon: HouseIcon, label: "Home" },
-      { href: "/trauma-bonding", icon: UsersIcon, label: "Matches" }, // Active link
-      { href: "/messages", icon: ChatCircleDotsIcon, label: "Messages" },
-      { href: "/profile/me", icon: UserIcon, label: "Profile" }
-    ],
-    groups: [
-      { href: "/dashboard", icon: HouseIcon, label: "Home" },
-      { href: "/groups", icon: UsersThreeIcon, label: "Groups" }, // Active link
-      { href: "/messages", icon: ChatCircleDotsIcon, label: "Messages" },
-      { href: "/notifications", icon: BellIcon, label: "Notifications" }, // Assuming a notifications page
-    ],
-    // nearby-support does not have a bottom nav in the snippet
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  const navItems = [
+    { href: '/dashboard', label: 'Home', icon: HouseIcon },
+    { href: '/explore', label: 'Explore', icon: CompassIcon },
+    { href: '/community', label: 'Community', icon: ChatCircleIcon },
+    { href: '/resources', label: 'Resources', icon: BookIcon },
+    { href: user ? `/profile/${user.id}` : '/login', label: 'Profile', icon: UsersThreeIcon },
+  ];
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-emerald-200 z-50">
+        <div className="grid grid-cols-5 h-16">
+          {navItems.map((item, i) => (
+            <div key={i} className="flex flex-col items-center justify-center space-y-1">
+              <div className="w-5 h-5 bg-emerald-200 rounded animate-pulse"></div>
+              <div className="w-8 h-2 bg-emerald-200 rounded animate-pulse"></div>
+            </div>
+          ))}
+        </div>
+      </nav>
+    );
+  }
+
+  const isActive = (href: string) => {
+    if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/';
+    return pathname.startsWith(href);
   };
 
-  let currentNavItems: NavLinkProps[] = [];
-  if (activePage === 'Profile') currentNavItems = navItems.profile;
-  else if (activePage === 'Trauma-Bonding' || activePage === 'Matches') currentNavItems = navItems.traumaBonding;
-  else if (activePage === 'Groups') currentNavItems = navItems.groups;
-  // Add other page types if they have specific navs
-
-  // Fallback to a default or empty nav if no specific one is found
-  if (!currentNavItems.length && (pathname.startsWith('/profile/') || pathname === '/profile')) {
-    currentNavItems = navItems.profile;
-  }
-  if (!currentNavItems.length && (pathname.startsWith('/trauma-bonding/') || pathname === '/trauma-bonding')) {
-    currentNavItems = navItems.traumaBonding;
-  }
-   if (!currentNavItems.length && (pathname.startsWith('/groups/') || pathname === '/groups')) {
-    currentNavItems = navItems.groups;
-  }
-
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-around border-t border-solid border-t-brand-accent3 bg-brand-primary sm:hidden">
-      {currentNavItems.map((item) => {
-        const isActive = item.href === pathname || activePage === item.label || (item.label === 'Matches' && activePage === 'Trauma-Bonding');
-        return (
-          <Link href={item.href} key={item.label} className={`flex flex-1 flex-col items-center justify-center gap-1 ${isActive ? 'text-brand-text-on-primary' : 'text-brand-accent3'}`}>
-            <NavIcon component={item.icon} isActive={isActive} />
-            <NavLabel label={item.label} isActive={isActive} />
-          </Link>
-        );
-      })}
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-emerald-200 z-50">
+      <div className="grid grid-cols-5 h-16">
+        {navItems.map((item) => {
+          const IconComponent = item.icon;
+          const active = isActive(item.href);
+          
+          return (
+            <Link
+              key={item.label}
+              href={item.href}
+              className="flex flex-col items-center justify-center space-y-1 transition-colors duration-200"
+            >
+              <IconComponent 
+                className={`w-5 h-5 ${
+                  active 
+                    ? 'text-emerald-600 fill-current' 
+                    : 'text-emerald-400 fill-current hover:text-emerald-500'
+                }`}
+              />
+              <span className={`text-xs ${
+                active 
+                  ? 'text-emerald-600 font-medium' 
+                  : 'text-emerald-400 hover:text-emerald-500'
+              }`}>
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
-};
-
-export default BottomNav;
+}

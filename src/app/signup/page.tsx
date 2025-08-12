@@ -2,10 +2,14 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../../supabaseClient';
+import { supabase } from '../../lib/supabase';
 
 const SignupPage: React.FC = () => {
   const [username, setUsername] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [age, setAge] = useState('');
+  const [location, setLocation] = useState('');
+  const [bio, setBio] = useState('');
   const [conditions, setConditions] = useState('');
   const [status, setStatus] = useState('');
   const [comorbidities, setComorbidities] = useState('');
@@ -13,36 +17,108 @@ const SignupPage: React.FC = () => {
   const [isanonymous, setIsAnonymous] = useState(false);
 
   const [email, setEmail] = useState('');
-const [password, setPassword] = useState('');
-const [error, setError] = useState('');
-const [loading, setLoading] = useState(false);
-const router = useRouter();
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-const handleSubmit = async (event: React.FormEvent) => {
-  event.preventDefault();
-  setError('');
-  setLoading(true);
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setLoading(true);
 
-  // 1. Sign up the user with Supabase Auth
-  const { error: signUpError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        username,
-        isanonymous,
-      },
-      emailRedirectTo: "https://thegathering.vercel.app/login?verified=1"
-    },
-  });
-  setLoading(false);
-  if (signUpError) {
-    setError(signUpError.message);
-    return;
-  }
-  // Success: redirect to verify email page
-  router.push('/verify-email');
-};
+    // Basic validation
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      setLoading(false);
+      return;
+    }
+
+    if (!username.trim()) {
+      setError('Username is required');
+      setLoading(false);
+      return;
+    }
+
+    if (!conditions.trim()) {
+      setError('Please enter at least one condition');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // First, sign up the user with basic info
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username: username.trim(),
+            full_name: fullName.trim() || username.trim(),
+          },
+        },
+      });
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      if (data.user) {
+        // Wait a moment for the trigger to create the basic profile
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Now update the profile with additional health information
+        const profileData = {
+          username: username.trim(),
+          full_name: fullName.trim() || username.trim(),
+          age: age ? parseInt(age) : null,
+          location: location.trim() || null,
+          bio: bio.trim() || null,
+          status: status.trim() || null,
+          is_anonymous: isanonymous,
+          conditions: conditions ? conditions.split(',').map(c => c.trim()).filter(Boolean) : [],
+          comorbidities: comorbidities ? comorbidities.split(',').map(c => c.trim()).filter(Boolean) : [],
+          medications: medications ? medications.split(',').map(c => c.trim()).filter(Boolean) : [],
+          updated_at: new Date().toISOString(),
+        };
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update(profileData)
+          .eq('id', data.user.id);
+
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+          // Try to insert if update failed (in case trigger didn't work)
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: data.user.id,
+              email: data.user.email,
+              ...profileData,
+              created_at: new Date().toISOString(),
+            });
+
+          if (insertError) {
+            console.error('Profile insert error:', insertError);
+            setError('Account created but profile setup failed. Please complete your profile in settings.');
+          }
+        }
+
+        // Redirect to email verification
+        router.push('/verify-email');
+      }
+    } catch (e) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError('An unexpected error occurred');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#2A4A42]" style={{ fontFamily: 'Manrope, Noto Sans, sans-serif' }}>
@@ -94,6 +170,64 @@ const handleSubmit = async (event: React.FormEvent) => {
               onChange={(e) => setUsername(e.target.value)}
               required
               className="mt-1 block w-full px-4 py-2 border border-[#eedfc9]/20 rounded-md shadow-sm focus:ring-[#eedfc9] focus:border-[#eedfc9] bg-[#2A4A42] text-[#eedfc9] sm:text-sm"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="fullName" className="block text-sm font-medium text-gray-300 mb-1">
+              Full Name (Optional)
+            </label>
+            <input
+              type="text"
+              id="fullName"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="mt-1 block w-full px-4 py-2 border border-[#eedfc9]/20 rounded-md shadow-sm focus:ring-[#eedfc9] focus:border-[#eedfc9] bg-[#2A4A42] text-[#eedfc9] sm:text-sm"
+              placeholder="Your real name (if you want to share)"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="age" className="block text-sm font-medium text-gray-300 mb-1">
+                Age (Optional)
+              </label>
+              <input
+                type="number"
+                id="age"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                min="13"
+                max="120"
+                className="mt-1 block w-full px-4 py-2 border border-[#eedfc9]/20 rounded-md shadow-sm focus:ring-[#eedfc9] focus:border-[#eedfc9] bg-[#2A4A42] text-[#eedfc9] sm:text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium text-gray-300 mb-1">
+                Location (Optional)
+              </label>
+              <input
+                type="text"
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="mt-1 block w-full px-4 py-2 border border-[#eedfc9]/20 rounded-md shadow-sm focus:ring-[#eedfc9] focus:border-[#eedfc9] bg-[#2A4A42] text-[#eedfc9] sm:text-sm"
+                placeholder="City, Country"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="bio" className="block text-sm font-medium text-gray-300 mb-1">
+              Bio (Optional)
+            </label>
+            <textarea
+              id="bio"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              rows={3}
+              className="mt-1 block w-full px-4 py-2 border border-[#eedfc9]/20 rounded-md shadow-sm focus:ring-[#eedfc9] focus:border-[#eedfc9] bg-[#2A4A42] text-[#eedfc9] sm:text-sm"
+              placeholder="Tell us a bit about yourself..."
             />
           </div>
 

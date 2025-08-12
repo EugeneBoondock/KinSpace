@@ -1,18 +1,16 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { supabase } from "../../supabaseClient";
+import { supabase } from "../../lib/supabase";
 
 const TherapistPage: React.FC = () => {
   type UserProfile = {
-  id: string;
-  email: string;
-  user_metadata?: {
+    id: string;
+    email: string;
     avatar_url?: string;
-    full_name?: string;
+    username?: string;
   };
-};
-const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
     {
@@ -30,14 +28,29 @@ const [user, setUser] = useState<UserProfile | null>(null);
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        setUser({
-          id: user.id,
-          email: user.email || '',
-          user_metadata: {
-            avatar_url: user.user_metadata?.avatar_url,
-            full_name: user.user_metadata?.full_name,
-          },
-        });
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching profile:', error);
+          setUser(null);
+        } else if (profile) {
+          setUser({
+            id: user.id,
+            email: user.email || '',
+            avatar_url: profile.avatar_url,
+            username: profile.username,
+          });
+        } else {
+          // Profile doesn't exist, but user is authenticated
+          setUser({
+            id: user.id,
+            email: user.email || '',
+          });
+        }
       } else {
         setUser(null);
       }
@@ -58,9 +71,9 @@ const [user, setUser] = useState<UserProfile | null>(null);
         sender: "user",
         text: input,
         avatar:
-          user?.user_metadata?.avatar_url ||
+          user?.avatar_url ||
           "https://lh3.googleusercontent.com/aida-public/AB6AXuDZa3PEqEeDLnM5bfJbckxL-uUBB084CYI7QLQoi9nLVqw5TC_fhCbpXMgAEELAJagYHYyPcH_0ChBxjOeZus4gtqwpGdIR01HOvwY4yEEmc_a11PgBDv5tt4xGgG8wdoioyiIK0aU5emn0cL0xPdomuP5u-qbFkAcFVv5HDXJ0L3GDm-6y-91slHf_OsruKomtBA2OM_HlkULftnrCu38EKDIQS3MOMoDXD4zIs8iFhsreCM1Y6dFXgx_tOo6LHcUpxqF9jsVaGt7W",
-        name: user?.user_metadata?.full_name || user?.email || "You",
+        name: user?.username || user?.email || "You",
       },
     ]);
     setInput("");
@@ -106,7 +119,7 @@ const [user, setUser] = useState<UserProfile | null>(null);
               <a className="text-brand-text-secondary text-sm font-medium leading-normal" href="#">Resources</a>
             </div>
             <button className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 bg-brand-accent2 text-brand-text-on-accent gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5"><div className="text-brand-text-on-accent" data-icon="Bell" data-size="20px" data-weight="regular"><svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" fill="currentColor" viewBox="0 0 256 256"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"></path></svg></div></button>
-            <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" style={{ backgroundImage: `url(${user?.user_metadata?.avatar_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAUC_ME9gM9SGwtdtfj0GacwnnoSIqU07f68_F2_p-QRNcCzRfD4hJW46p76KODId-lRUrlEgvYA0P1agVqB9LrzG8-Gxxio6JtnoCWLv4JMnluW7GfX_QWBW1cc7Ntyj2BgEY9i0w_j3ydUr9YqASbulU-Bc-VzAikPjKD47eMv-NbVO8WPLl_OgXaqOs2qNh11O2Cm5ggSaT0Tt7EbRdc0OLv5lAqtmBpXjsJrHVPd_NcM6E4XnyjbpQtX9GaSyVT5uQAoIsKFt6x'})` }}></div>
+            <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" style={{ backgroundImage: `url(${user?.avatar_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAUC_ME9gM9SGwtdtfj0GacwnnoSIqU07f68_F2_p-QRNcCzRfD4hJW46p76KODId-lRUrlEgvYA0P1agVqB9LrzG8-Gxxio6JtnoCWLv4JMnluW7GfX_QWBW1cc7Ntyj2BgEY9i0w_j3ydUr9YqASbulU-Bc-VzAikPjKD47eMv-NbVO8WPLl_OgXaqOs2qNh11O2Cm5ggSaT0Tt7EbRdc0OLv5lAqtmBpXjsJrHVPd_NcM6E4XnyjbpQtX9GaSyVT5uQAoIsKFt6x'})` }}></div>
           </div>
         </header>
         <div className="px-40 flex flex-1 justify-center py-5">
@@ -157,7 +170,7 @@ const [user, setUser] = useState<UserProfile | null>(null);
                     onChange={e => setInput(e.target.value)}
                     disabled={loading}
                   />
-                  <div className="flex border-none bg-brand-accent3 bg-opacity-20 items-center justify-center pr-4 rounded-r-xl border-l-0 !pr-2">
+                  <div className="flex border-none bg-brand-accent3 bg-opacity-20 items-center justify-center rounded-r-xl border-l-0 !pr-2">
                     <div className="flex items-center gap-4 justify-end">
                       <div className="flex items-center gap-1">
                         <button type="button" className="flex items-center justify-center p-1.5" disabled>

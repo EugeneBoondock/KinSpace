@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "../../supabaseClient";
+import { supabase } from "../../lib/supabase";
 import { useRouter } from "next/navigation";
 import { HomeIcon, UsersIcon, ChatBubbleLeftRightIcon, Cog6ToothIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 
@@ -13,7 +13,6 @@ export default function SettingsPage() {
   const [location, setLocation] = useState("");
   const [bio, setBio] = useState("");
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [comorbidities, setComorbidities] = useState("");
@@ -39,26 +38,29 @@ export default function SettingsPage() {
     const fetchProfile = async () => {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
+
       if (!user) {
         router.push("/login");
         return;
       }
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
         .single();
-      if (data) {
-        
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile:', error);
+      } else if (data) {
         setFullName(data.full_name || "");
         setAvatarUrl(data.avatar_url || "");
         setAge(data.age ? String(data.age) : "");
         setLocation(data.location || "");
         setBio(data.bio || "");
         setUsername(data.username || "");
-        setEmail(data.email || "");
         setStatus(data.status || "");
-        setIsAnonymous(data.isAnonymous || data.isanonymous || false);
+        setIsAnonymous(data.is_anonymous || false);
         setComorbidities((data.comorbidities && data.comorbidities.join(", ")) || "");
         setConditions((data.conditions && data.conditions.join(", ")) || "");
         setMedications((data.medications && data.medications.join(", ")) || "");
@@ -75,11 +77,13 @@ export default function SettingsPage() {
     setSaving(true);
     setError("");
     const { data: { user } } = await supabase.auth.getUser();
+
     if (!user) {
       setError("Not authenticated");
       setSaving(false);
       return;
     }
+
     const updates = {
       full_name: fullName,
       avatar_url: avatarUrl,
@@ -87,21 +91,22 @@ export default function SettingsPage() {
       location,
       bio,
       username,
-      email,
       status,
-      isAnonymous,
+      is_anonymous: isAnonymous,
       comorbidities: comorbidities.split(",").map((c) => c.trim()).filter(Boolean),
       conditions: conditions.split(",").map((c) => c.trim()).filter(Boolean),
       medications: medications.split(",").map((m) => m.trim()).filter(Boolean),
       notif_matches: notifMatches,
       notif_messages: notifMessages,
       notif_groups: notifGroups,
+      updated_at: new Date(),
     };
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update(updates)
-      .eq("id", user.id);
-    if (updateError) setError(updateError.message);
+
+    const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', user.id);
+
+    if (updateError) {
+      setError(updateError.message);
+    }
     setSaving(false);
   };
 
@@ -114,21 +119,24 @@ export default function SettingsPage() {
       setError("Not authenticated");
       return;
     }
+
     const fileExt = file.name.split('.').pop();
     const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(filePath, file, { upsert: true });
+
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
+
     if (uploadError) {
       setError(uploadError.message);
       return;
     }
-    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-    if (urlData?.publicUrl) {
-      setAvatarUrl(urlData.publicUrl);
-      await supabase.from('profiles').update({ avatar_url: urlData.publicUrl }).eq('id', user.id);
-    } else {
-      setError('Failed to get public URL for avatar.');
+
+    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    setAvatarUrl(publicUrl);
+
+    const { error: updateError } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+
+    if (updateError) {
+      setError(updateError.message);
     }
   };
 

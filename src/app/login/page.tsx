@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "../../supabaseClient";
+import { supabase } from "../../lib/supabase";
 
 const LoginContent: React.FC = () => {
   const router = useRouter();
@@ -24,37 +24,63 @@ const LoginContent: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-    } else {
-      // Get the authenticated user
-      const user = data?.user;
-      if (user) {
-        // Check if profile exists
-        const { data: profile } = await supabase
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      if (data.user) {
+        // Check if profile exists in Supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('id')
-          .eq('id', user.id)
+          .select('*')
+          .eq('id', data.user.id)
           .single();
+
+        if (profileError && profileError.code !== 'PGRST116') { // PGRST116: 'No rows found'
+            setError(profileError.message);
+            return;
+        }
+
         if (!profile) {
-          // Create a minimal profile
-          await supabase.from('profiles').insert([
-            {
-              id: user.id,
-              email: user.email,
-              username: user.user_metadata?.username || "",
-              isanonymous: user.user_metadata?.isanonymous || false,
-              // Add more fields if needed
-            }
-          ]);
+          // Create a minimal profile in Supabase if it doesn't exist
+          const { error: insertError } = await supabase.from('profiles').insert({
+            id: data.user.id,
+            email: data.user.email || '',
+            username: data.user.email?.split('@')[0] || 'user',
+            full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+
+          if (insertError) {
+            console.error('Profile creation error:', insertError);
+            // Continue anyway, user can complete profile later
+          }
+        }
+
+        // Check if user has completed their profile setup
+        if (profile && (!profile.username || !profile.conditions || profile.conditions.length === 0)) {
+          // Redirect to settings to complete profile
+          router.push('/settings');
+          return;
         }
       }
-      router.push("/dashboard");
+      router.push("/dashboard"); // Redirect to dashboard after login
+    } catch (e) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError('An unexpected error occurred');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 

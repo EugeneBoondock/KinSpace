@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '../../supabaseClient';
+import { supabase } from '../../lib/supabase';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
@@ -11,6 +11,8 @@ interface UserProfile {
   image?: string;
   age?: number;
   location?: string;
+  username?: string;
+  avatar_url?: string;
 }
 
 interface Match {
@@ -29,31 +31,44 @@ const DashboardPage = () => {
   const router = useRouter();
 
   useEffect(() => {
-    // Set time-based greeting
     const hour = new Date().getHours();
     if (hour < 12) setTimeOfDay('Morning');
     else if (hour < 18) setTimeOfDay('Afternoon');
     else setTimeOfDay('Evening');
 
-    // Fetch the authenticated user from Supabase
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-        // If no pseudonym or full_name, redirect to settings
-        if (!profile?.pseudonym && !profile?.full_name) {
+    const fetchUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching profile:', error);
+          router.push('/login');
+          return;
+        }
+
+        if (profile) {
+          if (!profile.username) {
+            router.push('/settings');
+            return;
+          }
+          setUser({
+            name: profile.username || 'User',
+            email: session.user.email || '',
+            image: profile.avatar_url || '/default-avatar.png',
+            age: 28, // Placeholder
+            location: 'San Francisco', // Placeholder
+            ...profile,
+          });
+        } else {
           router.push('/settings');
           return;
         }
-        setUser({
-          name: profile?.pseudonym || profile?.full_name || 'User',
-          email: user.email || '',
-          image: profile?.avatar_url || user.user_metadata?.avatar_url || '/default-avatar.png',
-          age: 28, // Example, replace with real data from your DB
-          location: 'San Francisco', // Example, replace with real data from your DB
-        });
+
         setMatches([
           {
             id: '1',
@@ -77,10 +92,13 @@ const DashboardPage = () => {
             image: 'https://randomuser.me/api/portraits/women/63.jpg',
           },
         ]);
+      } else {
+        router.push('/login');
       }
       setLoading(false);
     };
-    getUser();
+
+    fetchUser();
   }, [router]);
 
   if (loading || !user) {
