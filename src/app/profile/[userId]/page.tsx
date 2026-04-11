@@ -179,7 +179,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen bg-brand-primary pb-20">
+      <div className="min-h-screen bg-brand-primary pb-24 md:pb-28">
         <div className="mx-auto w-full max-w-5xl">
           {/* Skeleton cover */}
           <div className="h-36 skeleton" />
@@ -199,7 +199,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-brand-primary pb-20 flex flex-col items-center justify-center px-4">
+      <div className="min-h-screen bg-brand-primary pb-24 md:pb-28 flex flex-col items-center justify-center px-4">
         <i className="ri-user-unfollow-line text-5xl text-[#eedfc8]/30 mb-4" />
         <h2 className="text-[#eedfc8] text-xl font-bold mb-2">Profile Not Found</h2>
         <p className="text-[#eedfc8]/50 text-sm text-center mb-6">This user does not exist or their profile has been removed.</p>
@@ -262,7 +262,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   }
 
   return (
-    <div className="min-h-screen bg-brand-primary pb-20">
+    <div className="min-h-screen bg-brand-primary pb-24 md:pb-28">
       <div className="mx-auto w-full max-w-5xl">
         {/* Cover Area */}
         <div className="relative h-36 overflow-hidden bg-gradient-to-br from-brand-accent3/40 via-brand-primary to-brand-accent1/20">

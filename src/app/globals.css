@@ -347,7 +347,7 @@ input::placeholder, textarea::placeholder {
 
 @media (min-width: 768px) {
   .page-shell {
-    padding-bottom: 2.5rem;
+    padding-bottom: 6.25rem;
   }
 
   .page-container {

@@ -216,7 +216,7 @@ export default function Settings() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-brand-primary pb-20">
+      <div className="min-h-screen bg-brand-primary pb-24 md:pb-28">
         <div className="mx-auto w-full max-w-4xl px-4 pt-14 space-y-6">
           <div className="h-8 w-32 skeleton rounded-lg" />
           <div className="h-20 skeleton rounded-xl" />
@@ -232,7 +232,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-primary pb-20">
+    <div className="min-h-screen bg-brand-primary pb-24 md:pb-28">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-4 left-4 right-4 z-50 p-3 rounded-xl flex items-center gap-2 text-sm font-medium shadow-lg transition-all ${
