@@ -78,8 +78,18 @@ export interface CommunityPost {
   type: string
   tags: string[]
   likes_count: number
+  reaction_counts?: Record<string, number>
   comments_count: number
   is_anonymous: boolean
+  edited?: boolean
+  media?: Array<{ url: string; type: 'image' | 'video' | 'audio' }>
+  rekindle_count?: number
+  rekindle_original?: {
+    content: string
+    author_name: string
+    media?: Array<{ url: string; type: 'image' | 'video' | 'audio' }>
+    created_at?: unknown
+  }
   profile?: Partial<UserProfile> | null
   created_at?: unknown
 }

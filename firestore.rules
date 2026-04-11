@@ -19,6 +19,14 @@ service cloud.firestore {
       allow read, create, delete: if request.auth != null;
     }
 
+    match /post_reactions/{reactionId} {
+      allow read, create, delete: if request.auth != null;
+    }
+
+    match /post_comments/{commentId} {
+      allow read, create: if request.auth != null;
+    }
+
     // Chat messages: authenticated users can read/write
     match /chat_messages/{messageId} {
       allow read, create: if request.auth != null;

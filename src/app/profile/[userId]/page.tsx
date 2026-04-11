@@ -1,10 +1,11 @@
 'use client'
 
-import { use, useState, useEffect } from 'react'
+import { use, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
+import { StorageService } from '@/lib/storage'
 import { EncryptionService } from '@/lib/encryption'
 import BottomNav from '@/components/BottomNav'
 
@@ -13,6 +14,7 @@ interface Profile {
   full_name?: string
   username?: string
   avatar_url?: string
+  cover_image_url?: string
   bio?: string
   location?: string
   conditions?: string[]
@@ -77,6 +79,14 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   const [connectionState, setConnectionState] = useState<'idle' | 'sending' | 'sent' | 'received' | 'accepted'>('idle')
   const [connectionRequestId, setConnectionRequestId] = useState<string | null>(null)
   const [connectionBusy, setConnectionBusy] = useState(false)
+
+  // Post creation
+  const [newPostContent, setNewPostContent] = useState('')
+  const [posting, setPosting] = useState(false)
+
+  // Cover photo upload
+  const [uploadingCover, setUploadingCover] = useState(false)
+  const coverInputRef = useRef<HTMLInputElement>(null)
 
   const isOwnProfile = user?.userId === userId
 
@@ -261,12 +271,59 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
     }
   }
 
+  async function handleCreatePost() {
+    if (!user || !newPostContent.trim() || !isOwnProfile) return
+
+    setPosting(true)
+    try {
+      await DatabaseService.createPost(
+        user.userId,
+        newPostContent.trim(),
+        'discussion',
+        [],
+        false,
+      )
+      const refreshedPosts = await DatabaseService.getCommunityPosts(20, { userId })
+      setPosts(refreshedPosts as Post[])
+      setNewPostContent('')
+    } catch (error) {
+      console.error('Failed to create post:', error)
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  async function handleCoverUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file || !user || !isOwnProfile) return
+
+    setUploadingCover(true)
+    try {
+      const coverUrl = await StorageService.uploadProfileCover(user.userId, file)
+      await DatabaseService.updateProfile(user.userId, { cover_image_url: coverUrl })
+      setProfile((prev) => prev ? { ...prev, cover_image_url: coverUrl } : prev)
+    } catch (error) {
+      console.error('Failed to upload cover:', error)
+    } finally {
+      setUploadingCover(false)
+      if (coverInputRef.current) coverInputRef.current.value = ''
+    }
+  }
+
   return (
     <div className="min-h-screen bg-brand-primary pb-24 md:pb-28">
       <div className="mx-auto w-full max-w-5xl">
         {/* Cover Area */}
         <div className="relative h-36 overflow-hidden bg-gradient-to-br from-brand-accent3/40 via-brand-primary to-brand-accent1/20">
-          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
+          {profile?.cover_image_url ? (
+            <img
+              src={profile.cover_image_url}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
+          )}
           <div className="absolute top-4 left-4">
             <button
               onClick={() => router.back()}
@@ -275,17 +332,34 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
               <i className="ri-arrow-left-line text-lg" />
             </button>
           </div>
-          {isOwnProfile && (
-            <div className="absolute top-4 right-4">
-              <Link
-                href="/settings"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-primary/60 backdrop-blur-sm text-[#eedfc8] text-xs font-medium hover:bg-brand-primary/80 transition-colors"
-              >
-                <i className="ri-edit-line text-sm" />
-                Edit Profile
-              </Link>
-            </div>
-          )}
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            {isOwnProfile && (
+              <>
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleCoverUpload}
+                />
+                <button
+                  onClick={() => coverInputRef.current?.click()}
+                  disabled={uploadingCover}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-primary/60 backdrop-blur-sm text-[#eedfc8] text-xs font-medium hover:bg-brand-primary/80 transition-colors disabled:opacity-50"
+                >
+                  <i className={uploadingCover ? 'ri-loader-4-line animate-spin text-sm' : 'ri-camera-line text-sm'} />
+                  {uploadingCover ? 'Uploading...' : 'Cover photo'}
+                </button>
+                <Link
+                  href="/settings"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-primary/60 backdrop-blur-sm text-[#eedfc8] text-xs font-medium hover:bg-brand-primary/80 transition-colors"
+                >
+                  <i className="ri-edit-line text-sm" />
+                  Edit Profile
+                </Link>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Avatar + Info */}
@@ -320,9 +394,15 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
           )}
         </div>
 
-        {/* Bio */}
+        {/* Bio - thought bubble */}
         {profile.bio && (
-          <p className="text-[#eedfc8]/70 text-sm leading-relaxed mb-3">{profile.bio}</p>
+          <div className="relative mb-3">
+            <div className="relative rounded-2xl bg-[#eedfc8]/6 border border-[#eedfc8]/8 px-4 py-2.5">
+              <p className="text-[#eedfc8]/70 text-xs leading-relaxed italic">&ldquo;{profile.bio}&rdquo;</p>
+            </div>
+            <div className="absolute -bottom-1.5 left-5 w-3 h-3 rounded-full bg-[#eedfc8]/6 border border-[#eedfc8]/8" />
+            <div className="absolute -bottom-3.5 left-3 w-1.5 h-1.5 rounded-full bg-[#eedfc8]/6 border border-[#eedfc8]/8" />
+          </div>
         )}
 
         {/* Location & Pronouns */}
@@ -439,17 +519,65 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <div className="space-y-4">
+            {/* Create Post (own profile only) */}
+            {isOwnProfile && (
+              <div className="card">
+                <h3 className="text-[#eedfc8] font-semibold text-sm mb-3 flex items-center gap-2">
+                  <i className="ri-quill-pen-line text-[#D19A58]" /> Create a post
+                </h3>
+                <textarea
+                  value={newPostContent}
+                  onChange={(e) => setNewPostContent(e.target.value)}
+                  rows={3}
+                  placeholder="Share something with the community..."
+                  className="w-full rounded-xl bg-[#eedfc8]/6 border border-[#eedfc8]/10 px-4 py-3 text-sm text-[#eedfc8] placeholder-[#eedfc8]/30 outline-none focus:border-[#D19A58]/40 resize-none"
+                />
+                <div className="mt-3 flex items-center justify-between">
+                  <p className="text-xs text-[#eedfc8]/40">Posts appear in Community and on your Activity tab.</p>
+                  <button
+                    onClick={handleCreatePost}
+                    disabled={posting || !newPostContent.trim()}
+                    className="btn-primary !py-2 !px-4 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {posting ? 'Posting...' : 'Post'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Crowd-source actions (own profile only) */}
+            {isOwnProfile && (
+              <div className="grid grid-cols-2 gap-3">
+                <Link
+                  href="/groups?create=1"
+                  className="card-light flex flex-col items-center gap-2 py-4 text-center hover:bg-[#eedfc8]/12 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#D19A58]/16 flex items-center justify-center">
+                    <i className="ri-group-line text-lg text-[#D19A58]" />
+                  </div>
+                  <span className="text-[#eedfc8] text-xs font-semibold">Create Group</span>
+                </Link>
+                <Link
+                  href="/resources?submit=1"
+                  className="card-light flex flex-col items-center gap-2 py-4 text-center hover:bg-[#eedfc8]/12 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#6B8A83]/16 flex items-center justify-center">
+                    <i className="ri-book-open-line text-lg text-[#6B8A83]" />
+                  </div>
+                  <span className="text-[#eedfc8] text-xs font-semibold">Add Resource</span>
+                </Link>
+              </div>
+            )}
+
             {/* About */}
-            <div className="card">
-              <h3 className="text-[#eedfc8] font-semibold text-sm mb-3 flex items-center gap-2">
-                <i className="ri-information-line text-[#D19A58]" /> About
-              </h3>
-              {profile.bio ? (
-                <p className="text-[#eedfc8]/70 text-sm leading-relaxed">{profile.bio}</p>
-              ) : (
+            {!profile.bio && (
+              <div className="card">
+                <h3 className="text-[#eedfc8] font-semibold text-sm mb-3 flex items-center gap-2">
+                  <i className="ri-information-line text-[#D19A58]" /> About
+                </h3>
                 <p className="text-[#eedfc8]/40 text-sm">No bio yet.</p>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Conditions */}
             {visibleConditions.length > 0 && (

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
 import { useAuth } from '@/lib/AuthContext'
@@ -25,6 +26,7 @@ const tabs: Array<{ id: Tab; label: string; icon: string }> = [
 
 export default function GroupsPage() {
   const { user, loading: authLoading } = useAuth()
+  const searchParams = useSearchParams()
 
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('for-you')
@@ -62,6 +64,12 @@ export default function GroupsPage() {
 
     if (!authLoading) loadGroupsPage()
   }, [authLoading, user])
+
+  useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      setShowCreateModal(true)
+    }
+  }, [searchParams])
 
   const joinedGroups = useMemo(
     () => memberships.filter((membership) => membership.group),

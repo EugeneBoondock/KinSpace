@@ -31,6 +31,16 @@ type GroupInput = {
   tags?: string[]
 }
 
+type ResourceInput = {
+  title: string
+  excerpt: string
+  url?: string | null
+  source?: string | null
+  category: string
+  type: string
+  tags?: string[]
+}
+
 function withId<T extends FirestoreRecord>(id: string, data: T) {
   return { id, ...data } as T & { id: string }
 }
@@ -261,14 +271,18 @@ export class DatabaseService {
     type: string,
     tags?: string[],
     isAnonymous = false,
+    media?: Array<{ url: string; type: 'image' | 'video' | 'audio' }>,
   ) {
     const reference = await addDoc(collection(db, 'community_posts'), {
       user_id: userId,
       content,
       type,
       tags: tags || [],
+      media: media || [],
       likes_count: 0,
+      reaction_counts: {},
       comments_count: 0,
+      rekindle_count: 0,
       is_anonymous: isAnonymous,
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
@@ -282,9 +296,93 @@ export class DatabaseService {
     return { id: reference.id }
   }
 
+  static async updatePost(postId: string, userId: string, updates: { content?: string }) {
+    const postRef = doc(db, 'community_posts', postId)
+    const postSnap = await getDoc(postRef)
+    if (!postSnap.exists()) throw new Error('Post not found')
+    if (postSnap.data().user_id !== userId) throw new Error('Not authorized')
+
+    await updateDoc(postRef, {
+      ...updates,
+      edited: true,
+      updated_at: serverTimestamp(),
+    })
+  }
+
+  static async rekindlePost(postId: string, userId: string, comment?: string) {
+    const originalRef = doc(db, 'community_posts', postId)
+    const originalSnap = await getDoc(originalRef)
+    if (!originalSnap.exists()) throw new Error('Original post not found')
+
+    const original = originalSnap.data()
+    const originalProfile = await getProfileSummary(original.user_id as string | undefined)
+
+    const reference = await addDoc(collection(db, 'community_posts'), {
+      user_id: userId,
+      content: comment || '',
+      type: 'rekindle',
+      tags: [],
+      media: [],
+      likes_count: 0,
+      reaction_counts: {},
+      comments_count: 0,
+      rekindle_count: 0,
+      is_anonymous: false,
+      rekindle_of: postId,
+      rekindle_original: {
+        id: postId,
+        content: original.content,
+        user_id: original.user_id,
+        media: original.media || [],
+        is_anonymous: original.is_anonymous,
+        author_name: original.is_anonymous
+          ? 'Anonymous'
+          : (originalProfile?.full_name as string | undefined)
+            || (originalProfile?.username as string | undefined)
+            || 'Community member',
+        created_at: original.created_at,
+      },
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    })
+
+    await updateDoc(originalRef, {
+      rekindle_count: increment(1),
+      updated_at: serverTimestamp(),
+    })
+
+    await updateDoc(doc(db, 'profiles', userId), {
+      postsCount: increment(1),
+      updated_at: serverTimestamp(),
+    })
+
+    return { id: reference.id }
+  }
+
+  static async isUsernameTaken(username: string, excludeUserId?: string): Promise<boolean> {
+    const normalized = username.trim().toLowerCase()
+    if (!normalized) return false
+    const snap = await getDocs(collection(db, 'profiles'))
+    return snap.docs.some((document) => {
+      const data = document.data()
+      if (excludeUserId && document.id === excludeUserId) return false
+      return typeof data.username === 'string' && data.username.trim().toLowerCase() === normalized
+    })
+  }
+
   static async getUserLikedPostIds(userId: string) {
     const snap = await getDocs(query(collection(db, 'post_likes'), where('user_id', '==', userId)))
     return new Set(snap.docs.map((document) => document.data().post_id as string))
+  }
+
+  static async getUserPostReactions(userId: string) {
+    const snap = await getDocs(query(collection(db, 'post_reactions'), where('user_id', '==', userId)))
+    return new Set(
+      snap.docs.map((document) => {
+        const data = document.data()
+        return `${data.post_id as string}:${data.reaction as string}`
+      }),
+    )
   }
 
   static async togglePostLike(postId: string, userId: string) {
@@ -311,6 +409,95 @@ export class DatabaseService {
       updated_at: serverTimestamp(),
     })
     return true
+  }
+
+  static async togglePostReaction(postId: string, userId: string, reaction: string) {
+    const reactionId = `${postId}_${userId}_${reaction}`
+    const reactionRef = doc(db, 'post_reactions', reactionId)
+    const reactionSnap = await getDoc(reactionRef)
+
+    if (reactionSnap.exists()) {
+      await deleteDoc(reactionRef)
+      await updateDoc(doc(db, 'community_posts', postId), {
+        [`reaction_counts.${reaction}`]: increment(-1),
+        updated_at: serverTimestamp(),
+      })
+      return false
+    }
+
+    await setDoc(reactionRef, {
+      post_id: postId,
+      user_id: userId,
+      reaction,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    })
+
+    await updateDoc(doc(db, 'community_posts', postId), {
+      [`reaction_counts.${reaction}`]: increment(1),
+      updated_at: serverTimestamp(),
+    })
+
+    return true
+  }
+
+  static async addPostComment(postId: string, userId: string, content: string, isAnonymous = false) {
+    const reference = await addDoc(collection(db, 'post_comments'), {
+      post_id: postId,
+      user_id: userId,
+      content,
+      is_anonymous: isAnonymous,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    })
+
+    await updateDoc(doc(db, 'community_posts', postId), {
+      comments_count: increment(1),
+      updated_at: serverTimestamp(),
+    })
+
+    return { id: reference.id }
+  }
+
+  static async getCommentsForPosts(postIds: string[], limitCount = 3) {
+    const uniquePostIds = Array.from(new Set(postIds.filter(Boolean)))
+    if (uniquePostIds.length === 0) return new Map<string, Array<FirestoreRecord & { id: string; profile: FirestoreRecord | null }>>()
+
+    const batches: string[][] = []
+    for (let index = 0; index < uniquePostIds.length; index += 10) {
+      batches.push(uniquePostIds.slice(index, index + 10))
+    }
+
+    const snapshots = await Promise.all(
+      batches.map((batch) =>
+        getDocs(query(collection(db, 'post_comments'), where('post_id', 'in', batch))),
+      ),
+    )
+
+    const comments = await Promise.all(
+      snapshots
+        .flatMap((snapshot) => snapshot.docs)
+        .map(async (document) => {
+          const data = document.data()
+          const profile = await getProfileSummary(data.user_id as string | undefined)
+          return { ...withId(document.id, data), profile }
+        }),
+    )
+
+    const grouped = new Map<string, Array<FirestoreRecord & { id: string; profile: FirestoreRecord | null }>>()
+
+    comments
+      .sort((first, second) => sortByDateAsc(first, second, 'created_at'))
+      .forEach((comment) => {
+        const postId = (comment as FirestoreRecord).post_id as string | undefined
+        if (!postId) return
+
+        const existing = grouped.get(postId) ?? []
+        existing.push(comment)
+        grouped.set(postId, existing.slice(-limitCount))
+      })
+
+    return grouped
   }
 
   static async sendMessage(
@@ -474,6 +661,26 @@ export class DatabaseService {
       .filter((resource) => !filters?.type || resource.type === filters.type)
       .filter((resource) => !filters?.featured || resource.featured === true)
       .sort((first, second) => sortByNewest(first, second))
+  }
+
+  static async createResource(userId: string, data: ResourceInput) {
+    const reference = await addDoc(collection(db, 'resources'), {
+      title: data.title,
+      excerpt: data.excerpt,
+      url: data.url || null,
+      source: data.source || 'Community submitted',
+      category: data.category,
+      type: data.type,
+      tags: data.tags || [],
+      featured: false,
+      submitted_by: userId,
+      status: 'published',
+      created_at: serverTimestamp(),
+      published_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    })
+
+    return { id: reference.id }
   }
 
   static async getCommunitySignals(limitCount = 6) {

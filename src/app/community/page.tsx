@@ -1,13 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
+import { StorageService, detectMediaType } from '@/lib/storage'
 import { formatCompactNumber, formatRelativeTime, getInitials } from '@/lib/platform'
+import { getTopReactions, isEmoji, applyReactionMutation } from '@/lib/social'
 
 type Tab = 'discussions' | 'angels' | 'mentors' | 'activities'
 
@@ -40,6 +42,26 @@ export default function CommunityPage() {
   const [posting, setPosting] = useState(false)
   const [joiningActivityIds, setJoiningActivityIds] = useState<Set<string>>(new Set())
   const [choosingAngelIds, setChoosingAngelIds] = useState<Set<string>>(new Set())
+  const [userReactions, setUserReactions] = useState<Set<string>>(new Set())
+  const [emojiInputPostId, setEmojiInputPostId] = useState<string | null>(null)
+  const emojiInputRef = useRef<HTMLInputElement>(null)
+
+  // Media attachments for new post
+  const [pendingMedia, setPendingMedia] = useState<Array<{ file: File; preview: string; type: 'image' | 'video' | 'audio' }>>([])
+  const mediaInputRef = useRef<HTMLInputElement>(null)
+  const [recording, setRecording] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+
+  // Editing
+  const [editingPostId, setEditingPostId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // Rekindle
+  const [rekindlingPostId, setRekindlingPostId] = useState<string | null>(null)
+  const [rekindleComment, setRekindleComment] = useState('')
+  const [rekindling, setRekindling] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -59,10 +81,11 @@ export default function CommunityPage() {
       if (!user) return
 
       try {
-        const [profileData, communityPosts, likedIds, availableAngels, availableMentors, upcomingActivities] = await Promise.all([
+        const [profileData, communityPosts, likedIds, reactionKeys, availableAngels, availableMentors, upcomingActivities] = await Promise.all([
           DatabaseService.getProfile(user.userId),
           DatabaseService.getCommunityPosts(24),
           DatabaseService.getUserLikedPostIds(user.userId),
+          DatabaseService.getUserPostReactions(user.userId),
           DatabaseService.getAvailableAngels(user.userId),
           DatabaseService.getMentors(),
           DatabaseService.getCommunityActivities(10),
@@ -71,6 +94,7 @@ export default function CommunityPage() {
         setProfile(profileData as Record<string, unknown> | null)
         setPosts(communityPosts as Post[])
         setLikedPostIds(likedIds)
+        setUserReactions(reactionKeys)
         setAngels(availableAngels as Record<string, unknown>[])
         setMentors(availableMentors as Record<string, unknown>[])
         setActivities(upcomingActivities as Record<string, unknown>[])
@@ -87,24 +111,123 @@ export default function CommunityPage() {
   const featuredPosts = useMemo(() => posts.slice(0, 8), [posts])
 
   async function handleCreatePost() {
-    if (!user || !newPostContent.trim()) return
+    if (!user || (!newPostContent.trim() && pendingMedia.length === 0)) return
 
     setPosting(true)
     try {
+      // Upload media files
+      const uploadedMedia: Array<{ url: string; type: 'image' | 'video' | 'audio' }> = []
+      for (const item of pendingMedia) {
+        const { url, mediaType } = await StorageService.uploadPostMedia(user.userId, item.file)
+        uploadedMedia.push({ url, type: mediaType })
+      }
+
       await DatabaseService.createPost(
         user.userId,
         newPostContent.trim(),
         'discussion',
         [],
         Boolean(profile?.is_anonymous),
+        uploadedMedia.length > 0 ? uploadedMedia : undefined,
       )
       const refreshedPosts = await DatabaseService.getCommunityPosts(24)
       setPosts(refreshedPosts as Post[])
       setNewPostContent('')
+      // Clean up previews
+      pendingMedia.forEach((item) => URL.revokeObjectURL(item.preview))
+      setPendingMedia([])
     } catch (error) {
       console.error('Failed to create post:', error)
     } finally {
       setPosting(false)
+    }
+  }
+
+  function handleMediaSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files
+    if (!files) return
+
+    const newItems: typeof pendingMedia = []
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const mt = detectMediaType(file.type)
+      if (!mt) continue
+      const validation = StorageService.validatePostMedia(file)
+      if (!validation.valid) continue
+      newItems.push({ file, preview: URL.createObjectURL(file), type: mt })
+    }
+    setPendingMedia((prev) => [...prev, ...newItems])
+    if (mediaInputRef.current) mediaInputRef.current.value = ''
+  }
+
+  function removePendingMedia(index: number) {
+    setPendingMedia((prev) => {
+      const next = [...prev]
+      URL.revokeObjectURL(next[index].preview)
+      next.splice(index, 1)
+      return next
+    })
+  }
+
+  const toggleVoiceRecording = useCallback(async () => {
+    if (recording) {
+      mediaRecorderRef.current?.stop()
+      setRecording(false)
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      audioChunksRef.current = []
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
+
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop())
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const file = new File([blob], `voice_${Date.now()}.webm`, { type: 'audio/webm' })
+        setPendingMedia((prev) => [...prev, { file, preview: URL.createObjectURL(blob), type: 'audio' }])
+      }
+
+      mediaRecorderRef.current = recorder
+      recorder.start()
+      setRecording(true)
+    } catch {
+      console.error('Microphone access denied')
+    }
+  }, [recording])
+
+  async function handleEditPost(postId: string) {
+    if (!user || !editContent.trim()) return
+    setSaving(true)
+    try {
+      await DatabaseService.updatePost(postId, user.userId, { content: editContent.trim() })
+      setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, content: editContent.trim(), edited: true } : p))
+      setEditingPostId(null)
+      setEditContent('')
+    } catch (error) {
+      console.error('Failed to edit post:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleRekindle(postId: string) {
+    if (!user) return
+    setRekindling(true)
+    try {
+      await DatabaseService.rekindlePost(postId, user.userId, rekindleComment.trim() || undefined)
+      const refreshedPosts = await DatabaseService.getCommunityPosts(24)
+      setPosts(refreshedPosts as Post[])
+      setRekindlingPostId(null)
+      setRekindleComment('')
+    } catch (error) {
+      console.error('Failed to rekindle:', error)
+    } finally {
+      setRekindling(false)
     }
   }
 
@@ -137,6 +260,41 @@ export default function CommunityPage() {
       await DatabaseService.togglePostLike(postId, user.userId)
     } catch (error) {
       console.error('Failed to toggle like:', error)
+    }
+  }
+
+  async function handleEmojiReaction(postId: string, emoji: string) {
+    if (!user || !isEmoji(emoji)) return
+
+    const key = `${postId}:${emoji}`
+    const wasActive = userReactions.has(key)
+
+    setUserReactions((current) => {
+      const next = new Set(current)
+      if (wasActive) next.delete(key)
+      else next.add(key)
+      return next
+    })
+
+    setPosts((current) =>
+      current.map((post) =>
+        post.id === postId ? applyReactionMutation(post, emoji, !wasActive) : post,
+      ),
+    )
+
+    setEmojiInputPostId(null)
+
+    try {
+      await DatabaseService.togglePostReaction(postId, user.userId, emoji)
+    } catch (error) {
+      console.error('Failed to toggle reaction:', error)
+    }
+  }
+
+  function handleEmojiInput(postId: string, value: string) {
+    const emoji = value.trim()
+    if (emoji && isEmoji(emoji)) {
+      handleEmojiReaction(postId, emoji)
     }
   }
 
@@ -195,8 +353,8 @@ export default function CommunityPage() {
 
   return (
     <PageFrame>
-      <div className="page-grid">
-        <section className="card">
+      <div className="page-grid overflow-x-hidden">
+        <section className="card overflow-hidden">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
@@ -232,7 +390,7 @@ export default function CommunityPage() {
         </section>
 
         {activeTab === 'discussions' && (
-          <div className="page-grid lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-start">
+          <div className="page-grid lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-start overflow-hidden">
             <div className="space-y-4">
               <section className="card">
                 <div className="flex items-start gap-3">
@@ -265,21 +423,78 @@ export default function CommunityPage() {
                 <textarea
                   value={newPostContent}
                   onChange={(event) => setNewPostContent(event.target.value)}
-                  rows={4}
+                  rows={3}
                   placeholder="What is on your mind today?"
                   className="input-field mt-4 resize-none"
                 />
 
+                {/* Pending media previews */}
+                {pendingMedia.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {pendingMedia.map((item, idx) => (
+                      <div key={idx} className="relative group">
+                        {item.type === 'image' && (
+                          <img src={item.preview} alt="" className="h-20 w-20 rounded-xl object-cover border border-[#eedfc8]/10" />
+                        )}
+                        {item.type === 'video' && (
+                          <div className="h-20 w-20 rounded-xl border border-[#eedfc8]/10 bg-[#eedfc8]/5 flex items-center justify-center">
+                            <i className="ri-video-line text-xl text-[#D19A58]" />
+                          </div>
+                        )}
+                        {item.type === 'audio' && (
+                          <div className="h-20 w-20 rounded-xl border border-[#eedfc8]/10 bg-[#eedfc8]/5 flex items-center justify-center">
+                            <i className="ri-mic-line text-xl text-[#6B8A83]" />
+                          </div>
+                        )}
+                        <button
+                          onClick={() => removePendingMedia(idx)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#B85C3A] text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <i className="ri-close-line" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mt-4 flex items-center justify-between gap-3">
-                  <p className="text-xs text-[#eedfc8]/40">
-                    {profile?.is_anonymous ? 'Posting in anonymous mode.' : 'Posting with your profile.'}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={mediaInputRef}
+                      type="file"
+                      accept="image/*,video/*,audio/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleMediaSelect}
+                    />
+                    <button
+                      onClick={() => mediaInputRef.current?.click()}
+                      className="flex items-center gap-1 rounded-xl bg-[#eedfc8]/8 px-2.5 py-1.5 text-xs text-[#eedfc8]/60 hover:text-[#D19A58] hover:bg-[#D19A58]/10 transition-colors"
+                      title="Attach image or video"
+                    >
+                      <i className="ri-image-line text-sm" />
+                    </button>
+                    <button
+                      onClick={toggleVoiceRecording}
+                      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs transition-colors ${
+                        recording
+                          ? 'bg-[#B85C3A]/20 text-[#B85C3A] animate-pulse'
+                          : 'bg-[#eedfc8]/8 text-[#eedfc8]/60 hover:text-[#6B8A83] hover:bg-[#6B8A83]/10'
+                      }`}
+                      title={recording ? 'Stop recording' : 'Record voice'}
+                    >
+                      <i className={recording ? 'ri-stop-circle-line text-sm' : 'ri-mic-line text-sm'} />
+                    </button>
+                    <span className="text-[10px] text-[#eedfc8]/30 hidden sm:inline">
+                      {profile?.is_anonymous ? 'anonymous' : 'as you'}
+                    </span>
+                  </div>
                   <button
                     onClick={handleCreatePost}
-                    disabled={posting || !newPostContent.trim()}
+                    disabled={posting || (!newPostContent.trim() && pendingMedia.length === 0)}
                     className="btn-primary !py-2.5 !px-4 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {posting ? 'Posting...' : 'Post to community'}
+                    {posting ? 'Posting...' : 'Post'}
                   </button>
                 </div>
               </section>
@@ -294,6 +509,11 @@ export default function CommunityPage() {
                         'Community member')
 
                     const liked = likedPostIds.has(post.id)
+                    const isOwner = user && (post.user_id as string) === user.userId
+                    const postMedia = (post.media as Array<{ url: string; type: string }> | undefined) || []
+                    const rekindleOriginal = post.rekindle_original as Record<string, unknown> | undefined
+                    const isEditing = editingPostId === post.id
+
                     return (
                       <article key={post.id} className="card">
                         <div className="flex items-start gap-3">
@@ -303,19 +523,178 @@ export default function CommunityPage() {
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="truncate font-semibold text-[#eedfc8]">{author}</p>
-                              {typeof post.type === 'string' && (
+                              {post.type === 'rekindle' && (
+                                <span className="badge text-[10px] bg-[#D19A58]/15 text-[#D19A58]">
+                                  <i className="ri-loop-left-line mr-0.5" /> rekindled
+                                </span>
+                              )}
+                              {typeof post.type === 'string' && post.type !== 'rekindle' && (
                                 <span className="badge text-[10px]">{post.type}</span>
+                              )}
+                              {!!post.edited && (
+                                <span className="text-[10px] text-[#eedfc8]/30 italic">edited</span>
                               )}
                             </div>
                             <p className="text-xs text-[#eedfc8]/40">{formatRelativeTime(post.created_at)}</p>
                           </div>
+                          {isOwner && !isEditing && (
+                            <button
+                              onClick={() => { setEditingPostId(post.id); setEditContent(post.content as string || '') }}
+                              className="flex h-8 w-8 items-center justify-center rounded-xl text-[#eedfc8]/30 hover:text-[#eedfc8]/60 hover:bg-[#eedfc8]/8 transition-colors"
+                              title="Edit post"
+                            >
+                              <i className="ri-pencil-line text-sm" />
+                            </button>
+                          )}
                         </div>
 
-                        <p className="mt-4 text-sm leading-relaxed text-[#eedfc8]/75">
-                          {post.content as string}
-                        </p>
+                        {/* Post content or edit mode */}
+                        {isEditing ? (
+                          <div className="mt-3">
+                            <textarea
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              rows={3}
+                              className="input-field resize-none w-full"
+                            />
+                            <div className="mt-2 flex items-center gap-2 justify-end">
+                              <button onClick={() => { setEditingPostId(null); setEditContent('') }} className="text-xs text-[#eedfc8]/50 px-3 py-1.5 rounded-xl hover:bg-[#eedfc8]/8">
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => handleEditPost(post.id)}
+                                disabled={saving || !editContent.trim()}
+                                className="btn-primary !py-1.5 !px-3 text-xs disabled:opacity-50"
+                              >
+                                {saving ? 'Saving...' : 'Save'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {(post.content as string)?.trim() && (
+                              <p className="mt-4 text-sm leading-relaxed text-[#eedfc8]/75">
+                                {post.content as string}
+                              </p>
+                            )}
+                          </>
+                        )}
 
-                        <div className="mt-4 flex items-center gap-4 border-t border-[#eedfc8]/8 pt-4 text-sm">
+                        {/* Rekindle embed (original post) */}
+                        {rekindleOriginal && (
+                          <div className="mt-3 rounded-2xl border border-[#eedfc8]/10 bg-[#eedfc8]/4 p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <i className="ri-loop-left-line text-xs text-[#D19A58]" />
+                              <span className="text-xs font-medium text-[#eedfc8]/60">
+                                {rekindleOriginal.author_name as string || 'Someone'}
+                              </span>
+                            </div>
+                            {(rekindleOriginal.content as string)?.trim() && (
+                              <p className="text-sm leading-relaxed text-[#eedfc8]/60">
+                                {rekindleOriginal.content as string}
+                              </p>
+                            )}
+                            {/* Original post media */}
+                            {Array.isArray(rekindleOriginal.media) && (rekindleOriginal.media as Array<{ url: string; type: string }>).length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {(rekindleOriginal.media as Array<{ url: string; type: string }>).map((m, i) => (
+                                  <div key={i}>
+                                    {m.type === 'image' && (
+                                      <img src={m.url} alt="" className="max-h-32 rounded-xl object-cover" />
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Post media */}
+                        {postMedia.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {postMedia.map((media, idx) => (
+                              <div key={idx}>
+                                {media.type === 'image' && (
+                                  <img
+                                    src={media.url}
+                                    alt=""
+                                    className="w-full max-h-80 rounded-2xl object-cover border border-[#eedfc8]/10"
+                                  />
+                                )}
+                                {media.type === 'video' && (
+                                  <video
+                                    src={media.url}
+                                    controls
+                                    className="w-full max-h-80 rounded-2xl border border-[#eedfc8]/10 bg-black"
+                                  />
+                                )}
+                                {media.type === 'audio' && (
+                                  <div className="flex items-center gap-3 rounded-2xl border border-[#eedfc8]/10 bg-[#eedfc8]/4 p-3">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#6B8A83]/16">
+                                      <i className="ri-mic-line text-lg text-[#6B8A83]" />
+                                    </div>
+                                    <audio src={media.url} controls className="flex-1 h-8" style={{ minWidth: 0 }} />
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Emoji reactions display */}
+                        {getTopReactions(post).length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {getTopReactions(post).map(({ emoji, count }) => {
+                              const reacted = userReactions.has(`${post.id}:${emoji}`)
+                              return (
+                                <button
+                                  key={emoji}
+                                  onClick={() => handleEmojiReaction(post.id, emoji)}
+                                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-all ${
+                                    reacted
+                                      ? 'bg-[#D19A58]/20 border border-[#D19A58]/40'
+                                      : 'bg-[#eedfc8]/8 border border-[#eedfc8]/10 hover:bg-[#eedfc8]/14'
+                                  }`}
+                                >
+                                  <span className="text-sm">{emoji}</span>
+                                  <span className={reacted ? 'text-[#D19A58] font-semibold' : 'text-[#eedfc8]/60'}>
+                                    {count}
+                                  </span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+
+                        {/* Rekindle modal inline */}
+                        {rekindlingPostId === post.id && (
+                          <div className="mt-3 rounded-2xl border border-[#D19A58]/20 bg-[#D19A58]/5 p-3">
+                            <p className="text-xs font-semibold text-[#D19A58] mb-2">
+                              <i className="ri-loop-left-line mr-1" /> Rekindle this post
+                            </p>
+                            <textarea
+                              value={rekindleComment}
+                              onChange={(e) => setRekindleComment(e.target.value)}
+                              rows={2}
+                              placeholder="Add a thought (optional)..."
+                              className="input-field resize-none w-full text-xs"
+                            />
+                            <div className="mt-2 flex items-center gap-2 justify-end">
+                              <button onClick={() => { setRekindlingPostId(null); setRekindleComment('') }} className="text-xs text-[#eedfc8]/50 px-3 py-1.5 rounded-xl hover:bg-[#eedfc8]/8">
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => handleRekindle(post.id)}
+                                disabled={rekindling}
+                                className="btn-primary !py-1.5 !px-3 text-xs disabled:opacity-50"
+                              >
+                                {rekindling ? 'Rekindling...' : 'Rekindle'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex items-center gap-3 border-t border-[#eedfc8]/8 pt-3 text-sm">
                           <button
                             onClick={() => handleToggleLike(post.id)}
                             className={`flex items-center gap-1.5 transition-colors ${
@@ -329,6 +708,59 @@ export default function CommunityPage() {
                             <i className="ri-chat-1-line" />
                             {formatCompactNumber(post.comments_count as number | undefined)}
                           </span>
+
+                          {/* Rekindle button */}
+                          <button
+                            onClick={() => setRekindlingPostId(rekindlingPostId === post.id ? null : post.id)}
+                            className={`flex items-center gap-1.5 transition-colors ${
+                              rekindlingPostId === post.id ? 'text-[#D19A58]' : 'text-[#eedfc8]/45 hover:text-[#D19A58]'
+                            }`}
+                            title="Rekindle"
+                          >
+                            <i className="ri-loop-left-line" />
+                            {formatCompactNumber(post.rekindle_count as number | undefined)}
+                          </button>
+
+                          {/* Emoji react button */}
+                          <div className="relative ml-auto">
+                            {emojiInputPostId === post.id ? (
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  ref={emojiInputRef}
+                                  type="text"
+                                  inputMode="text"
+                                  autoFocus
+                                  className="w-12 rounded-full bg-[#eedfc8]/10 border border-[#eedfc8]/20 px-2 py-1 text-center text-base text-[#eedfc8] outline-none focus:border-[#D19A58]/50"
+                                  placeholder="?"
+                                  onInput={(e) => {
+                                    const val = (e.target as HTMLInputElement).value
+                                    if (val) handleEmojiInput(post.id, val)
+                                  }}
+                                  onBlur={() => setTimeout(() => setEmojiInputPostId(null), 200)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Escape') setEmojiInputPostId(null)
+                                  }}
+                                />
+                                <button
+                                  onClick={() => setEmojiInputPostId(null)}
+                                  className="text-[#eedfc8]/40 text-xs"
+                                >
+                                  <i className="ri-close-line" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setEmojiInputPostId(post.id)
+                                  setTimeout(() => emojiInputRef.current?.focus(), 50)
+                                }}
+                                className="flex items-center gap-1.5 text-[#eedfc8]/45 hover:text-[#D19A58] transition-colors"
+                                title="React with emoji"
+                              >
+                                <i className="ri-emotion-happy-line" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </article>
                     )

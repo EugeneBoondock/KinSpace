@@ -64,6 +64,8 @@ export default function Settings() {
   const [medicationInput, setMedicationInput] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [usernameError, setUsernameError] = useState<string | null>(null)
+  const usernameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -147,6 +149,17 @@ export default function Settings() {
     if (!user) return
     setSaving(true)
     try {
+      // Check username uniqueness
+      if (profile.username.trim()) {
+        const taken = await DatabaseService.isUsernameTaken(profile.username, user.userId)
+        if (taken) {
+          setUsernameError('This username is already taken')
+          setSaving(false)
+          return
+        }
+        setUsernameError(null)
+      }
+
       // Encrypt sensitive health data before saving
       const key = await EncryptionService.getOrCreateUserKey(user.userId)
       const encryptedFields = await EncryptionService.encryptFields(
@@ -343,11 +356,25 @@ export default function Settings() {
                 <input
                   type="text"
                   value={profile.username}
-                  onChange={(e) => setProfile((p) => ({ ...p, username: e.target.value }))}
+                  onChange={(e) => {
+                    const val = e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '')
+                    setProfile((p) => ({ ...p, username: val }))
+                    setUsernameError(null)
+                    if (usernameCheckTimer.current) clearTimeout(usernameCheckTimer.current)
+                    if (val.trim() && user) {
+                      usernameCheckTimer.current = setTimeout(async () => {
+                        const taken = await DatabaseService.isUsernameTaken(val, user.userId)
+                        if (taken) setUsernameError('This username is already taken')
+                      }, 600)
+                    }
+                  }}
                   placeholder="username"
-                  className="input-field !pl-8"
+                  className={`input-field !pl-8 ${usernameError ? '!border-[#B85C3A]/60' : ''}`}
                 />
               </div>
+              {usernameError && (
+                <p className="mt-1 text-xs text-[#B85C3A]">{usernameError}</p>
+              )}
             </div>
 
             {/* Bio */}

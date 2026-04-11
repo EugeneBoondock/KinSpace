@@ -6,7 +6,8 @@
       "Bash(npm run:*)",
       "Bash(npm info:*)",
       "Bash(npx next:*)",
-      "Bash(xargs wc:*)"
+      "Bash(xargs wc:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
