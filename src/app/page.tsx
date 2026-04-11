@@ -170,17 +170,15 @@ export default function LandingPage() {
         <div className="relative z-10 max-w-[960px] mx-auto text-center">
           {/* Hero Image */}
           <div className="w-full flex justify-center mb-8">
-            <div className="p-4 sm:p-8">
-              <div className="relative w-full max-w-md sm:max-w-lg aspect-square rounded-2xl hero-glow bg-brand-primary">
-                <Image
-                  src="/images/kinspace_hero.png"
-                  alt="Welcome to KinSpace"
-                  fill
-                  priority
-                  className="object-contain rounded-2xl"
-                  sizes="(max-width: 640px) 90vw, 500px"
-                />
-              </div>
+            <div className="hero-glow rounded-2xl">
+              <Image
+                src="/images/kinspace_hero.png"
+                alt="Welcome to KinSpace"
+                width={500}
+                height={500}
+                priority
+                className="rounded-2xl w-[280px] h-[280px] sm:w-[450px] sm:h-[450px] object-contain"
+              />
             </div>
           </div>
 
@@ -369,7 +367,7 @@ export default function LandingPage() {
                 </div>
                 <div className="h-56 w-full md:h-auto md:w-1/2 relative">
                   <Image
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBeDRT8DFuw7cUeoYXAmVbKIxx5YBa9E3etYRaYAjhlQxM7xK0tfKp4g-vPuK-eKei4ocJhJ3YqscsFK8pxhcX4Ynk0wSHx6ddC33dO1j-BHtXhtbUd-2SObnuJtrAh7ape128dtXDJVf3SebqzkuXO5VX4mGfXv9Hp3fa6xcVofc93DcrI1uCnVw5fzKxMTiYhCx-ln8zowrE2t91sllnsYJ5dnW1cXqKCAkbUMT2zNL8sFgt_sWs8O_4rEtx7ivx0dYGMs4JQvcYj"
+                    src="/images/personalized_matching.png"
                     alt="Personalized matching"
                     fill
                     className="object-cover"
@@ -391,7 +389,7 @@ export default function LandingPage() {
                 </div>
                 <div className="h-56 w-full md:h-auto md:w-1/2 relative">
                   <Image
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJn5Rf3kj-6m4RualIi8zHttC_JU7nv2acLwqS5wpcSQNuD6rhwYKScV5bYldT44ZOMkYohOmJg1udyaNt9sKytqUbyHpjEQt0cbCMtrletCIBXocDQZ3Yc7nYEcPc848QYMIt5KPCxqxZyuxlIO9lqDY31n84_1a3DUlBI8Y3zlpnjXxrTKxjnCuCyjxTTn0-QIZ58Yy7mxAIpZ-d3tWArLWmy6aymENBmehD8ATWmIJFfWT1tzP3Zoz8xWwjCV0my6pWGYXeHqcu"
+                    src="/images/support_groups.png"
                     alt="Support groups"
                     fill
                     className="object-cover"
@@ -413,7 +411,7 @@ export default function LandingPage() {
                 </div>
                 <div className="h-56 w-full md:h-auto md:w-1/2 relative">
                   <Image
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuA69cErNk7dJcGUaxqrdIzOi0GcQiSpPrzT9LH6t6eNmQ-Gz6IIbwM_08OQ_dp1eTYkdklwwqJjueuTiHXhOljU6SYJ1Cl6HYKw3jVuDs-Bajgt0xZIWWaOUHkQBYgoybDtscPPzZvluPiWMBSkEUBNIyR3nNZuYesIKPtvlzdLVRIjXJONLj8YVhg9ncO4vSalxnzFa5JOsbDk7stVxpQPFEY93j4O4D9E-guNIJ_D0AdbKVRbeVD5UF4iTn3vPBtS8p2l5UTFxic6"
+                    src="/images/bonding.png"
                     alt="Trauma bonding connections"
                     fill
                     className="object-cover"
@@ -543,7 +541,7 @@ export default function LandingPage() {
                 <i className="ri-facebook-circle-line text-lg" />
               </a>
             </div>
-            <p className="text-xs text-[#eedfc8]/50">2025 KinSpace. All rights reserved.</p>
+            <p className="text-xs text-[#eedfc8]/50">2026 KinSpace. All rights reserved.</p>
             <a
               href="https://boondocklabs.co.za"
               target="_blank"
