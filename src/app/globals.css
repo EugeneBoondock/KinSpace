@@ -208,6 +208,49 @@ input::placeholder, textarea::placeholder {
   animation: fadeIn 0.2s ease-out;
 }
 
+/* Shared page framing */
+.page-shell {
+  min-height: 100vh;
+  padding-bottom: 5.5rem;
+  background:
+    radial-gradient(circle at top, rgba(209, 154, 88, 0.09), transparent 35%),
+    linear-gradient(180deg, rgba(26, 48, 41, 0.25) 0%, rgba(42, 74, 66, 0) 22%),
+    #2A4A42;
+}
+
+.page-container {
+  width: min(100%, 78rem);
+  margin: 0 auto;
+  padding: 1.5rem 1rem 0;
+}
+
+.page-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.page-card-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+@media (min-width: 768px) {
+  .page-shell {
+    padding-bottom: 2.5rem;
+  }
+
+  .page-container {
+    padding: 2rem 1.5rem 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-container {
+    padding-inline: 2rem;
+  }
+}
+
 /* Slide up for modals/sheets */
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(100%); }

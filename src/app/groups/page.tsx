@@ -1,517 +1,386 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import BottomNav from '@/components/BottomNav';
-import { useAuth } from '@/lib/AuthContext';
-import { DatabaseService } from '@/lib/database';
+import type { ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import BottomNav from '@/components/BottomNav'
+import PageFrame from '@/components/PageFrame'
+import { useAuth } from '@/lib/AuthContext'
+import { DatabaseService } from '@/lib/database'
+import { formatCompactNumber } from '@/lib/platform'
 
-type Tab = 'for-you' | 'following' | 'your-groups';
+type Tab = 'for-you' | 'following' | 'your-groups'
 
-const mockRecommended = [
-  {
-    id: '1',
-    name: 'Anxiety Warriors United',
-    description: 'A safe space for people living with anxiety disorders to share strategies and support.',
-    members: 1243,
-    matchPercent: 95,
-    matchReasons: ['Anxiety', 'CBT', 'Mindfulness'],
-    nextMeeting: 'Today, 7:00 PM',
-    type: 'virtual' as const,
-    isNew: true,
-  },
-  {
-    id: '2',
-    name: 'Chronic Fatigue Circle',
-    description: 'For those managing CFS/ME. Pacing strategies, rest advocacy, and emotional support.',
-    members: 567,
-    matchPercent: 88,
-    matchReasons: ['Chronic Fatigue', 'Self-Care'],
-    nextMeeting: 'Tomorrow, 5:30 PM',
-    type: 'virtual' as const,
-    isNew: false,
-  },
-  {
-    id: '3',
-    name: 'Mindful Depression Recovery',
-    description: 'Combining mindfulness with peer support for those working through depression.',
-    members: 1567,
-    matchPercent: 82,
-    matchReasons: ['Depression', 'Mindfulness'],
-    nextMeeting: 'Sat, 10:00 AM',
-    type: 'virtual' as const,
-    isNew: false,
-  },
-  {
-    id: '4',
-    name: 'Young Adults with Chronic Illness',
-    description: 'Navigating careers, relationships, and life goals while managing a chronic condition.',
-    members: 945,
-    matchPercent: 79,
-    matchReasons: ['Chronic Illness', 'Young Adults'],
-    nextMeeting: 'Mon, 8:00 PM',
-    type: 'in-person' as const,
-    isNew: true,
-  },
-  {
-    id: '5',
-    name: 'Holistic Healing Collective',
-    description: 'Exploring complementary therapies alongside traditional treatment. Open-minded and evidence-informed.',
-    members: 378,
-    matchPercent: 74,
-    matchReasons: ['Holistic', 'Wellness'],
-    nextMeeting: 'Wed, 6:00 PM',
-    type: 'virtual' as const,
-    isNew: false,
-  },
-];
+type Membership = {
+  id: string
+  role?: string
+  group?: Record<string, unknown> | null
+}
 
-const mockFollowing = [
-  {
-    id: '10',
-    name: 'PTSD & Trauma Support',
-    description: 'A gentle, moderated space for trauma survivors.',
-    members: 1890,
-    lastPost: '2h ago',
-    unread: 5,
-    type: 'virtual' as const,
-  },
-  {
-    id: '11',
-    name: 'Cancer Survivors Network',
-    description: 'Connecting cancer survivors and those in treatment.',
-    members: 654,
-    lastPost: '6h ago',
-    unread: 2,
-    type: 'virtual' as const,
-  },
-  {
-    id: '12',
-    name: 'Lupus & Autoimmune Alliance',
-    description: 'Supporting each other through autoimmune flare-ups and remissions.',
-    members: 432,
-    lastPost: '1d ago',
-    unread: 0,
-    type: 'in-person' as const,
-  },
-];
+const tabs: Array<{ id: Tab; label: string; icon: string }> = [
+  { id: 'for-you', label: 'For You', icon: 'ri-sparkling-line' },
+  { id: 'following', label: 'Joined', icon: 'ri-bookmark-line' },
+  { id: 'your-groups', label: 'Created', icon: 'ri-team-line' },
+]
 
-const mockYourGroups = [
-  {
-    id: '20',
-    name: 'My Anxiety Support Pod',
-    description: 'Your personal support group for anxiety management and daily check-ins.',
-    members: 12,
-    role: 'Admin',
-    lastActivity: '30 min ago',
-    type: 'virtual' as const,
-    unread: 3,
-  },
-  {
-    id: '21',
-    name: 'Fibro Friends',
-    description: 'A small close-knit group for fibromyalgia warriors to share daily experiences.',
-    members: 8,
-    role: 'Member',
-    lastActivity: '2h ago',
-    type: 'virtual' as const,
-    unread: 0,
-  },
-  {
-    id: '22',
-    name: 'Meditation & Chronic Pain',
-    description: 'Weekly meditation sessions focused on pain management techniques.',
-    members: 24,
-    role: 'Member',
-    lastActivity: '1d ago',
-    type: 'virtual' as const,
-    unread: 1,
-  },
-];
+export default function GroupsPage() {
+  const { user, loading: authLoading } = useAuth()
 
-export default function Groups() {
-  const { user, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>('for-you');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newGroupName, setNewGroupName] = useState('');
-  const [newGroupDesc, setNewGroupDesc] = useState('');
-  const [newGroupType, setNewGroupType] = useState<'virtual' | 'in-person'>('virtual');
-  const [creating, setCreating] = useState(false);
-  const [firestoreGroups, setFirestoreGroups] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<Tab>('for-you')
+  const [recommendedGroups, setRecommendedGroups] = useState<Record<string, unknown>[]>([])
+  const [memberships, setMemberships] = useState<Membership[]>([])
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [newGroupDescription, setNewGroupDescription] = useState('')
+  const [newGroupCategory, setNewGroupCategory] = useState('general')
+  const [newGroupType, setNewGroupType] = useState<'virtual' | 'in-person' | 'hybrid'>('virtual')
+  const [newGroupLocation, setNewGroupLocation] = useState('')
 
   useEffect(() => {
-    async function loadGroups() {
+    async function loadGroupsPage() {
+      if (!user) {
+        setLoading(false)
+        return
+      }
+
       try {
-        const groups = await DatabaseService.getGroups();
-        setFirestoreGroups(groups as Record<string, unknown>[]);
-      } catch (err) {
-        console.error('Failed to load groups:', err);
+        const [recommended, userMemberships] = await Promise.all([
+          DatabaseService.getRecommendedGroups(user.userId, 8),
+          DatabaseService.getUserGroupMemberships(user.userId),
+        ])
+
+        setRecommendedGroups(recommended as Record<string, unknown>[])
+        setMemberships(userMemberships as Membership[])
+      } catch (error) {
+        console.error('Failed to load groups page:', error)
+      } finally {
+        setLoading(false)
       }
     }
-    if (user) loadGroups();
-  }, [user]);
 
-  const handleCreateGroup = async () => {
-    if (!newGroupName.trim() || !user) return;
-    setCreating(true);
+    if (!authLoading) loadGroupsPage()
+  }, [authLoading, user])
+
+  const joinedGroups = useMemo(
+    () => memberships.filter((membership) => membership.group),
+    [memberships],
+  )
+
+  const createdGroups = useMemo(
+    () => memberships.filter((membership) => membership.role === 'admin' && membership.group),
+    [memberships],
+  )
+
+  async function refreshGroups() {
+    if (!user) return
+    const [recommended, userMemberships] = await Promise.all([
+      DatabaseService.getRecommendedGroups(user.userId, 8),
+      DatabaseService.getUserGroupMemberships(user.userId),
+    ])
+    setRecommendedGroups(recommended as Record<string, unknown>[])
+    setMemberships(userMemberships as Membership[])
+  }
+
+  async function handleCreateGroup() {
+    if (!user || !newGroupName.trim()) return
+    setCreating(true)
+
     try {
       await DatabaseService.createGroup(user.userId, {
         name: newGroupName.trim(),
-        description: newGroupDesc.trim(),
-        category: newGroupType,
-      });
-      const groups = await DatabaseService.getGroups();
-      setFirestoreGroups(groups as Record<string, unknown>[]);
-      setShowCreateModal(false);
-      setNewGroupName('');
-      setNewGroupDesc('');
-    } catch (err) {
-      console.error('Failed to create group:', err);
+        description: newGroupDescription.trim(),
+        category: newGroupCategory.trim().toLowerCase(),
+        type: newGroupType,
+        location: newGroupLocation.trim() || null,
+      })
+
+      await refreshGroups()
+      setShowCreateModal(false)
+      setNewGroupName('')
+      setNewGroupDescription('')
+      setNewGroupCategory('general')
+      setNewGroupType('virtual')
+      setNewGroupLocation('')
+      setActiveTab('your-groups')
+    } catch (error) {
+      console.error('Failed to create group:', error)
     } finally {
-      setCreating(false);
+      setCreating(false)
     }
-  };
+  }
 
-  const handleJoinGroup = async (groupId: string) => {
-    if (!user) return;
+  async function handleJoinGroup(groupId: string) {
+    if (!user) return
     try {
-      await DatabaseService.joinGroup(groupId, user.userId);
-    } catch (err) {
-      console.error('Failed to join group:', err);
+      await DatabaseService.joinGroup(groupId, user.userId)
+      await refreshGroups()
+      setActiveTab('following')
+    } catch (error) {
+      console.error('Failed to join group:', error)
     }
-  };
+  }
 
-  const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'for-you', label: 'For You', icon: 'ri-sparkling-line' },
-    { id: 'following', label: 'Following', icon: 'ri-bookmark-line' },
-    { id: 'your-groups', label: 'Your Groups', icon: 'ri-team-line' },
-  ];
-
-  if (loading) {
+  function renderGroupCard(group: Record<string, unknown>, action: ReactNode, badge?: ReactNode) {
     return (
-      <div className="min-h-screen bg-brand-primary pb-20">
-        <div className="px-4 pt-6 space-y-4">
-          <div className="h-8 w-36 skeleton" />
-          <div className="flex gap-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-10 w-28 skeleton rounded-full" />
-            ))}
-          </div>
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="card space-y-3">
-              <div className="h-5 w-3/4 skeleton" />
-              <div className="h-4 w-full skeleton" />
-              <div className="h-9 w-full skeleton rounded-full" />
+      <article key={group.id as string} className="card">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-[#eedfc8]">{group.name as string}</h2>
+              {badge}
             </div>
-          ))}
+            <p className="mt-1 text-xs text-[#eedfc8]/45">
+              {(group.category as string | undefined) || 'general'} • {((group.type as string | undefined) || 'virtual')}
+            </p>
+          </div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#D19A58]/16 text-[#D19A58]">
+            <i className={`${(group.icon as string | undefined) || 'ri-group-line'} text-xl`} />
+          </div>
         </div>
-        <BottomNav />
-      </div>
-    );
+
+        <p className="mt-4 text-sm leading-relaxed text-[#eedfc8]/70">
+          {(group.description as string | undefined) || 'A live group on KinSpace.'}
+        </p>
+
+        <div className="mt-4 flex items-center justify-between text-xs text-[#eedfc8]/45">
+          <span>{formatCompactNumber(group.members_count as number | undefined)} members</span>
+          {(group.location as string | undefined) && <span>{group.location as string}</span>}
+        </div>
+
+        <div className="mt-5">{action}</div>
+      </article>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-brand-primary pb-20">
-      {/* Header */}
-      <div className="px-4 pt-6 pb-3">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-[#eedfc8]">Groups</h1>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1.5 btn-primary text-xs py-2 px-3"
-          >
-            <i className="ri-add-line" />
-            Create
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1 bg-[#eedfc8]/5 rounded-xl p-1">
-          {tabs.map((tab) => (
+    <PageFrame>
+      <div className="page-grid">
+        <section className="card">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
+                Groups
+              </p>
+              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Organize the circles that matter</h1>
+              <p className="mt-2 max-w-2xl text-sm text-[#eedfc8]/60">
+                Recommendations, memberships, and the groups you create now all come from the same live data.
+              </p>
+            </div>
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all ${
-                activeTab === tab.id ? 'tab-active' : 'tab-inactive'
-              }`}
+              onClick={() => setShowCreateModal(true)}
+              className="btn-primary !py-2.5 !px-4 text-sm"
             >
-              <i className={tab.icon} />
-              {tab.label}
+              <i className="ri-add-line mr-1.5" />
+              Create group
             </button>
-          ))}
-        </div>
+          </div>
+
+          <div className="mt-6 flex gap-2 overflow-x-auto rounded-2xl bg-[#eedfc8]/5 p-1.5">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex min-w-fit items-center gap-2 rounded-2xl px-4 py-2.5 text-sm transition-all ${
+                  activeTab === tab.id ? 'tab-active' : 'tab-inactive'
+                }`}
+              >
+                <i className={tab.icon} />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {loading ? (
+          <div className="page-card-grid">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-56 skeleton rounded-3xl" />
+            ))}
+          </div>
+        ) : null}
+
+        {!loading && activeTab === 'for-you' && (
+          <section className="page-card-grid">
+            {recommendedGroups.length > 0 ? (
+              recommendedGroups.map((group) =>
+                renderGroupCard(
+                  group,
+                  <button
+                    onClick={() => handleJoinGroup(group.id as string)}
+                    className="btn-primary w-full !py-2.5 text-sm"
+                  >
+                    Join group
+                  </button>,
+                  (group.recommendation_score as number | undefined) ? (
+                    <span className="badge bg-[#D19A58]/15 text-[#D19A58]">
+                      {Math.min(99, Math.max(52, Math.round(group.recommendation_score as number)))}% fit
+                    </span>
+                  ) : undefined,
+                ),
+              )
+            ) : (
+              <div className="card-light text-center">
+                <i className="ri-sparkling-line text-3xl text-[#eedfc8]/30" />
+                <p className="mt-3 text-sm text-[#eedfc8]/60">We do not have enough signal for recommendations yet.</p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {!loading && activeTab === 'following' && (
+          <section className="page-card-grid">
+            {joinedGroups.length > 0 ? (
+              joinedGroups.map((membership) =>
+                renderGroupCard(
+                  membership.group || {},
+                  <button className="btn-secondary w-full !py-2.5 text-sm">
+                    Following
+                  </button>,
+                ),
+              )
+            ) : (
+              <div className="card-light text-center">
+                <i className="ri-bookmark-line text-3xl text-[#eedfc8]/30" />
+                <p className="mt-3 text-sm text-[#eedfc8]/60">You have not joined any groups yet.</p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {!loading && activeTab === 'your-groups' && (
+          <section className="page-card-grid">
+            {createdGroups.length > 0 ? (
+              createdGroups.map((membership) =>
+                renderGroupCard(
+                  membership.group || {},
+                  <button className="btn-secondary w-full !py-2.5 text-sm">
+                    You manage this group
+                  </button>,
+                  <span className="badge bg-[#6B8A83]/18 text-[#6B8A83]">Admin</span>,
+                ),
+              )
+            ) : (
+              <div className="card-light text-center">
+                <i className="ri-team-line text-3xl text-[#eedfc8]/30" />
+                <p className="mt-3 text-sm text-[#eedfc8]/60">You have not created a group yet.</p>
+                <button onClick={() => setShowCreateModal(true)} className="btn-primary mt-4 !py-2.5 !px-4 text-xs">
+                  Create your first group
+                </button>
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
-      {/* For You Tab */}
-      {activeTab === 'for-you' && (
-        <div className="px-4 space-y-3">
-          <p className="text-xs text-[#eedfc8]/50">
-            Recommended based on your conditions and interests
-          </p>
-
-          {mockRecommended.map((group) => (
-            <div key={group.id} className="card space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-[#eedfc8]">{group.name}</h3>
-                    {group.isNew && (
-                      <span className="badge text-[10px] bg-[#B85C3A]/20 text-[#B85C3A]">
-                        New
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-[#eedfc8]/60 mt-1">{group.description}</p>
-                </div>
-                {/* Match percentage */}
-                <div className="flex-shrink-0 w-14 h-14 rounded-full border-2 border-[#D19A58] flex items-center justify-center">
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-[#D19A58]">
-                      {group.matchPercent}%
-                    </p>
-                    <p className="text-[8px] text-[#eedfc8]/40">match</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {group.matchReasons.map((reason) => (
-                  <span key={reason} className="badge text-[10px]">
-                    <i className="ri-link mr-1" />
-                    {reason}
-                  </span>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-4 text-xs text-[#eedfc8]/50">
-                <span className="flex items-center gap-1">
-                  <i className="ri-group-line" />
-                  {group.members.toLocaleString()} members
-                </span>
-                <span className="flex items-center gap-1">
-                  <i className="ri-calendar-line" />
-                  {group.nextMeeting}
-                </span>
-                <span
-                  className={`badge text-[10px] ${
-                    group.type === 'virtual'
-                      ? 'bg-blue-500/20 text-blue-300'
-                      : 'bg-green-500/20 text-green-300'
-                  }`}
-                >
-                  {group.type === 'virtual' ? 'Virtual' : 'In-Person'}
-                </span>
-              </div>
-
-              <button className="w-full btn-primary text-sm py-2.5">Join Group</button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Following Tab */}
-      {activeTab === 'following' && (
-        <div className="px-4 space-y-3">
-          {mockFollowing.length === 0 ? (
-            <div className="card text-center py-8">
-              <i className="ri-bookmark-line text-4xl text-[#eedfc8]/20 mb-3" />
-              <p className="text-[#eedfc8]/60 text-sm">
-                You are not following any groups yet.
-              </p>
-              <button
-                onClick={() => setActiveTab('for-you')}
-                className="btn-primary text-xs mt-3"
-              >
-                Discover Groups
-              </button>
-            </div>
-          ) : (
-            mockFollowing.map((group) => (
-              <div key={group.id} className="card space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-[#eedfc8]">{group.name}</h3>
-                      {group.unread > 0 && (
-                        <span className="w-5 h-5 rounded-full bg-[#B85C3A] text-white text-[10px] flex items-center justify-center font-bold">
-                          {group.unread}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-[#eedfc8]/60 mt-0.5">
-                      {group.description}
-                    </p>
-                  </div>
-                  <span
-                    className={`badge text-[10px] flex-shrink-0 ${
-                      group.type === 'virtual'
-                        ? 'bg-blue-500/20 text-blue-300'
-                        : 'bg-green-500/20 text-green-300'
-                    }`}
-                  >
-                    {group.type === 'virtual' ? 'Virtual' : 'In-Person'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-4 text-xs text-[#eedfc8]/50">
-                  <span className="flex items-center gap-1">
-                    <i className="ri-group-line" />
-                    {group.members.toLocaleString()} members
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <i className="ri-time-line" />
-                    Last post {group.lastPost}
-                  </span>
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button className="flex-1 btn-primary text-sm py-2">View</button>
-                  <button className="btn-secondary text-sm py-2 px-4">
-                    <i className="ri-notification-off-line" />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Your Groups Tab */}
-      {activeTab === 'your-groups' && (
-        <div className="px-4 space-y-3">
-          {mockYourGroups.length === 0 ? (
-            <div className="card text-center py-8">
-              <i className="ri-team-line text-4xl text-[#eedfc8]/20 mb-3" />
-              <p className="text-[#eedfc8]/60 text-sm">
-                You have not joined or created any groups yet.
-              </p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="btn-primary text-xs mt-3"
-              >
-                Create Your First Group
-              </button>
-            </div>
-          ) : (
-            mockYourGroups.map((group) => (
-              <div key={group.id} className="card space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-[#eedfc8]">{group.name}</h3>
-                      {group.unread > 0 && (
-                        <span className="w-5 h-5 rounded-full bg-[#B85C3A] text-white text-[10px] flex items-center justify-center font-bold">
-                          {group.unread}
-                        </span>
-                      )}
-                      <span className="badge text-[10px] bg-[#D19A58]/20 text-[#D19A58]">
-                        {group.role}
-                      </span>
-                    </div>
-                    <p className="text-sm text-[#eedfc8]/60 mt-0.5">
-                      {group.description}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 text-xs text-[#eedfc8]/50">
-                  <span className="flex items-center gap-1">
-                    <i className="ri-group-line" />
-                    {group.members} members
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <i className="ri-time-line" />
-                    Active {group.lastActivity}
-                  </span>
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button className="flex-1 btn-primary text-sm py-2">Open</button>
-                  <button className="btn-secondary text-sm py-2 px-4">
-                    <i className="ri-settings-3-line" />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Create Group Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 md:p-6">
+          <button
+            aria-label="Close create group modal"
             className="absolute inset-0 bg-black/60"
             onClick={() => setShowCreateModal(false)}
           />
-          <div className="relative w-full max-w-lg bg-brand-primary border-t border-[#eedfc8]/10 rounded-t-2xl p-5 animate-slide-up">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-[#eedfc8]">Create a Group</h2>
-              <button onClick={() => setShowCreateModal(false)}>
-                <i className="ri-close-line text-[#eedfc8]/60 text-xl" />
+          <div className="relative w-full max-w-2xl rounded-t-[2rem] border border-[#eedfc8]/10 bg-brand-primary p-6 md:rounded-[2rem]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-[#eedfc8]">Create a live group</h2>
+                <p className="mt-1 text-sm text-[#eedfc8]/50">
+                  This writes directly to the real groups collection and adds you as the first member.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#eedfc8]/8 text-[#eedfc8]/60"
+              >
+                <i className="ri-close-line text-xl" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs text-[#eedfc8]/60 mb-1.5 block">
-                  Group Name
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                  Group name
                 </label>
                 <input
-                  type="text"
                   value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="Give your group a name"
+                  onChange={(event) => setNewGroupName(event.target.value)}
                   className="input-field"
+                  placeholder="Name your group"
                 />
               </div>
 
-              <div>
-                <label className="text-xs text-[#eedfc8]/60 mb-1.5 block">
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
                   Description
                 </label>
                 <textarea
-                  value={newGroupDesc}
-                  onChange={(e) => setNewGroupDesc(e.target.value)}
-                  placeholder="What is this group about?"
-                  rows={3}
+                  value={newGroupDescription}
+                  onChange={(event) => setNewGroupDescription(event.target.value)}
                   className="input-field resize-none"
+                  rows={4}
+                  placeholder="What support or conversation does this group offer?"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-[#eedfc8]/60 mb-1.5 block">Type</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setNewGroupType('virtual')}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                      newGroupType === 'virtual'
-                        ? 'bg-[#eedfc8] text-[#2A4A42]'
-                        : 'bg-[#eedfc8]/10 text-[#eedfc8]/60'
-                    }`}
-                  >
-                    <i className="ri-vidicon-line mr-1.5" />
-                    Virtual
-                  </button>
-                  <button
-                    onClick={() => setNewGroupType('in-person')}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                      newGroupType === 'in-person'
-                        ? 'bg-[#eedfc8] text-[#2A4A42]'
-                        : 'bg-[#eedfc8]/10 text-[#eedfc8]/60'
-                    }`}
-                  >
-                    <i className="ri-map-pin-line mr-1.5" />
-                    In-Person
-                  </button>
-                </div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                  Category
+                </label>
+                <input
+                  value={newGroupCategory}
+                  onChange={(event) => setNewGroupCategory(event.target.value)}
+                  className="input-field"
+                  placeholder="mental-health"
+                />
               </div>
 
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                  Location
+                </label>
+                <input
+                  value={newGroupLocation}
+                  onChange={(event) => setNewGroupLocation(event.target.value)}
+                  className="input-field"
+                  placeholder="Optional city or venue"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                Format
+              </label>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {(['virtual', 'in-person', 'hybrid'] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setNewGroupType(type)}
+                    className={`rounded-2xl border px-4 py-3 text-sm capitalize transition-all ${
+                      newGroupType === type
+                        ? 'border-[#D19A58]/40 bg-[#D19A58]/12 text-[#D19A58]'
+                        : 'border-[#eedfc8]/8 bg-[#eedfc8]/4 text-[#eedfc8]/65'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="btn-secondary flex-1 !py-3 text-sm"
+              >
+                Cancel
+              </button>
               <button
                 onClick={handleCreateGroup}
-                disabled={!newGroupName.trim() || creating}
-                className="w-full btn-primary py-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={creating || !newGroupName.trim()}
+                className="btn-primary flex-1 !py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {creating ? (
-                  <><i className="ri-loader-4-line animate-spin mr-2" />Creating...</>
-                ) : (
-                  'Create Group'
-                )}
+                {creating ? 'Creating...' : 'Create group'}
               </button>
             </div>
           </div>
@@ -519,6 +388,6 @@ export default function Groups() {
       )}
 
       <BottomNav />
-    </div>
-  );
+    </PageFrame>
+  )
 }

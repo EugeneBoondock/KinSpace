@@ -52,55 +52,62 @@ const shuffleDeck = (deck: Card[]): Card[] => {
   return shuffled
 }
 
+function createInitialUnoState() {
+  const newDeck = shuffleDeck(createDeck())
+
+  const playerHand = newDeck.splice(0, 7)
+  const aiHands = [newDeck.splice(0, 7), newDeck.splice(0, 7), newDeck.splice(0, 7)]
+
+  let topCardIndex = 0
+  while (newDeck[topCardIndex].type === 'wild' || newDeck[topCardIndex].type === 'wild4') {
+    topCardIndex++
+  }
+
+  const topCard = newDeck.splice(topCardIndex, 1)[0]
+
+  return {
+    deck: newDeck,
+    playerHand,
+    aiHands,
+    topCard,
+    currentPlayer: 0,
+    gameStatus: 'playing' as const,
+    direction: 1,
+    drawCount: 0,
+  }
+}
+
 export default function UnoPage() {
-  const [deck, setDeck] = useState<Card[]>([])
-  const [playerHand, setPlayerHand] = useState<Card[]>([])
-  const [aiHands, setAiHands] = useState<Card[][]>([])
-  const [topCard, setTopCard] = useState<Card | null>(null)
-  const [currentPlayer, setCurrentPlayer] = useState(0) // 0 = human, 1-3 = AI
-  const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>('playing')
-  const [direction, setDirection] = useState(1) // 1 = clockwise, -1 = counterclockwise
-  const [drawCount, setDrawCount] = useState(0)
+  const [initialGame] = useState(createInitialUnoState)
+  const [deck, setDeck] = useState<Card[]>(initialGame.deck)
+  const [playerHand, setPlayerHand] = useState<Card[]>(initialGame.playerHand)
+  const [aiHands, setAiHands] = useState<Card[][]>(initialGame.aiHands)
+  const [topCard, setTopCard] = useState<Card | null>(initialGame.topCard)
+  const [currentPlayer, setCurrentPlayer] = useState(initialGame.currentPlayer) // 0 = human, 1-3 = AI
+  const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>(initialGame.gameStatus)
+  const [direction, setDirection] = useState(initialGame.direction) // 1 = clockwise, -1 = counterclockwise
+  const [drawCount, setDrawCount] = useState(initialGame.drawCount)
   const [selectedCard, setSelectedCard] = useState<Card | null>(null)
   const [showColorPicker, setShowColorPicker] = useState(false)
 
   const players = [
     { name: 'You', avatar: '👤', isHuman: true },
-    { name: 'Emma', avatar: 'ET', isHuman: false },
-    { name: 'Mike', avatar: 'MC', isHuman: false },
-    { name: 'Sara', avatar: 'SW', isHuman: false }
+    { name: 'North AI', avatar: 'N1', isHuman: false },
+    { name: 'East AI', avatar: 'E2', isHuman: false },
+    { name: 'West AI', avatar: 'W3', isHuman: false }
   ]
 
-  useEffect(() => {
-    initializeGame()
-  }, [])
+  function initializeGame() {
+    const nextGame = createInitialUnoState()
 
-  const initializeGame = () => {
-    const newDeck = shuffleDeck(createDeck())
-    
-    // Deal 7 cards to each player
-    const newPlayerHand = newDeck.splice(0, 7)
-    const newAiHands = [
-      newDeck.splice(0, 7),
-      newDeck.splice(0, 7),
-      newDeck.splice(0, 7)
-    ]
-    
-    // Set top card (make sure it's not a wild card)
-    let topCardIndex = 0
-    while (newDeck[topCardIndex].type === 'wild' || newDeck[topCardIndex].type === 'wild4') {
-      topCardIndex++
-    }
-    const newTopCard = newDeck.splice(topCardIndex, 1)[0]
-    
-    setDeck(newDeck)
-    setPlayerHand(newPlayerHand)
-    setAiHands(newAiHands)
-    setTopCard(newTopCard)
-    setCurrentPlayer(0)
-    setGameStatus('playing')
-    setDirection(1)
-    setDrawCount(0)
+    setDeck(nextGame.deck)
+    setPlayerHand(nextGame.playerHand)
+    setAiHands(nextGame.aiHands)
+    setTopCard(nextGame.topCard)
+    setCurrentPlayer(nextGame.currentPlayer)
+    setGameStatus(nextGame.gameStatus)
+    setDirection(nextGame.direction)
+    setDrawCount(nextGame.drawCount)
   }
 
   const canPlayCard = (card: Card, topCard: Card): boolean => {

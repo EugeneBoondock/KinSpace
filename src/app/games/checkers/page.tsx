@@ -43,8 +43,8 @@ export default function CheckersPage() {
   const [captures, setCaptures] = useState({ red: 0, black: 0 })
 
   const players = [
-    { name: 'Emma Thompson', avatar: 'ET', color: 'red' },
-    { name: 'Michael Chen', avatar: 'MC', color: 'black' }
+    { name: 'Red side', avatar: 'R', color: 'red' },
+    { name: 'Black side', avatar: 'B', color: 'black' }
   ]
 
   const isValidSquare = (row: number, col: number) => {

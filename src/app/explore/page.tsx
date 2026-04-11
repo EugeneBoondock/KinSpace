@@ -1,346 +1,235 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import BottomNav from '@/components/BottomNav';
-import { useAuth } from '@/lib/AuthContext';
+import { useEffect, useMemo, useState } from 'react'
+import BottomNav from '@/components/BottomNav'
+import PageFrame from '@/components/PageFrame'
+import { useAuth } from '@/lib/AuthContext'
+import { DatabaseService } from '@/lib/database'
+import { formatCompactNumber } from '@/lib/platform'
 
-const categories = [
-  { id: 'all', name: 'All', count: 850 },
-  { id: 'mental-health', name: 'Mental Health', count: 245 },
-  { id: 'chronic-illness', name: 'Chronic Illness', count: 180 },
-  { id: 'diabetes', name: 'Diabetes', count: 95 },
-  { id: 'cancer', name: 'Cancer', count: 75 },
-  { id: 'anxiety', name: 'Anxiety', count: 120 },
-  { id: 'autoimmune', name: 'Autoimmune', count: 65 },
-  { id: 'rare-diseases', name: 'Rare Diseases', count: 45 },
-];
+type Group = Record<string, unknown> & { id: string }
 
-const mockGroups = [
-  {
-    id: '1',
-    name: 'Anxiety Warriors United',
-    description:
-      'A safe space for people living with anxiety disorders. Share coping strategies, celebrate wins, and support each other.',
-    members: 1243,
-    nextMeeting: 'Today, 7:00 PM',
-    type: 'virtual' as const,
-    category: 'anxiety',
-    tags: ['Anxiety', 'Support', 'CBT'],
-  },
-  {
-    id: '2',
-    name: 'Type 2 Diabetes Support Circle',
-    description:
-      'Managing diabetes together. We discuss nutrition, medication, lifestyle changes and emotional wellbeing.',
-    members: 876,
-    nextMeeting: 'Tomorrow, 6:30 PM',
-    type: 'virtual' as const,
-    category: 'diabetes',
-    tags: ['Diabetes', 'Nutrition', 'Lifestyle'],
-  },
-  {
-    id: '3',
-    name: 'Chronic Pain & Fibromyalgia',
-    description:
-      'For those navigating life with chronic pain conditions. We understand when others may not.',
-    members: 2105,
-    nextMeeting: 'Wed, 5:00 PM',
-    type: 'in-person' as const,
-    location: 'Community Center, Brooklyn',
-    category: 'chronic-illness',
-    tags: ['Chronic Pain', 'Fibromyalgia'],
-  },
-  {
-    id: '4',
-    name: 'Cancer Survivors Network',
-    description:
-      'Connecting cancer survivors and those in treatment. Find hope, share experiences, and build lasting bonds.',
-    members: 654,
-    nextMeeting: 'Thu, 4:00 PM',
-    type: 'virtual' as const,
-    category: 'cancer',
-    tags: ['Cancer', 'Survivorship'],
-  },
-  {
-    id: '5',
-    name: 'Lupus & Autoimmune Alliance',
-    description:
-      'Supporting each other through autoimmune flare-ups and remissions. Tips, research updates, and friendship.',
-    members: 432,
-    nextMeeting: 'Fri, 6:00 PM',
-    type: 'in-person' as const,
-    location: 'Healing Space, Manhattan',
-    category: 'autoimmune',
-    tags: ['Lupus', 'Autoimmune', 'Research'],
-  },
-  {
-    id: '6',
-    name: 'Mindful Depression Recovery',
-    description:
-      'Combining mindfulness practices with peer support for those working through depression. All stages welcome.',
-    members: 1567,
-    nextMeeting: 'Sat, 10:00 AM',
-    type: 'virtual' as const,
-    category: 'mental-health',
-    tags: ['Depression', 'Mindfulness', 'Recovery'],
-  },
-  {
-    id: '7',
-    name: 'Rare Disease Warriors',
-    description:
-      'When your diagnosis is rare, feeling alone is common. Connect with others who truly understand the journey.',
-    members: 289,
-    nextMeeting: 'Sun, 3:00 PM',
-    type: 'virtual' as const,
-    category: 'rare-diseases',
-    tags: ['Rare Diseases', 'Advocacy'],
-  },
-  {
-    id: '8',
-    name: 'Young Adults with Chronic Illness',
-    description:
-      'Navigating careers, relationships, and life goals while managing a chronic condition. Ages 18-35.',
-    members: 945,
-    nextMeeting: 'Mon, 8:00 PM',
-    type: 'virtual' as const,
-    category: 'chronic-illness',
-    tags: ['Young Adults', 'Chronic Illness', 'Career'],
-  },
-  {
-    id: '9',
-    name: 'PTSD & Trauma Support',
-    description:
-      'A gentle, moderated space for trauma survivors. Emphasis on safety, grounding, and gradual healing.',
-    members: 1890,
-    nextMeeting: 'Tue, 7:30 PM',
-    type: 'virtual' as const,
-    category: 'mental-health',
-    tags: ['PTSD', 'Trauma', 'Healing'],
-  },
-];
+export default function ExplorePage() {
+  const { user, loading: authLoading } = useAuth()
 
-export default function Explore() {
-  const { loading } = useAuth();
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [joinedGroups, setJoinedGroups] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true)
+  const [groups, setGroups] = useState<Group[]>([])
+  const [joinedGroupIds, setJoinedGroupIds] = useState<Set<string>>(new Set())
+  const [activeCategory, setActiveCategory] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const filteredGroups = mockGroups.filter((group) => {
-    const matchesCategory =
-      activeCategory === 'all' || group.category === activeCategory;
-    const matchesSearch =
-      !searchQuery ||
-      group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      group.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      group.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesCategory && matchesSearch;
-  });
+  useEffect(() => {
+    async function loadExplore() {
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
-  const handleJoinGroup = (groupId: string) => {
-    setJoinedGroups((prev) =>
-      prev.includes(groupId)
-        ? prev.filter((id) => id !== groupId)
-        : [...prev, groupId]
-    );
-  };
+      try {
+        const [allGroups, memberships] = await Promise.all([
+          DatabaseService.getGroups(),
+          DatabaseService.getUserGroupMemberships(user.userId),
+        ])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-brand-primary pb-20">
-        <div className="px-4 pt-6 space-y-4">
-          <div className="h-8 w-48 skeleton" />
-          <div className="h-12 w-full skeleton rounded-xl" />
-          <div className="flex gap-2 overflow-x-auto">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-9 w-24 skeleton rounded-full flex-shrink-0" />
-            ))}
-          </div>
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="card space-y-3">
-              <div className="h-5 w-3/4 skeleton" />
-              <div className="h-4 w-full skeleton" />
-              <div className="h-4 w-1/2 skeleton" />
-              <div className="flex gap-2">
-                <div className="h-9 w-28 skeleton rounded-full" />
-                <div className="h-9 w-28 skeleton rounded-full" />
-              </div>
-            </div>
-          ))}
-        </div>
-        <BottomNav />
-      </div>
-    );
+        setGroups(allGroups as Group[])
+        setJoinedGroupIds(
+          new Set(
+            (memberships as Array<{ group?: { id?: string } | null }>)
+              .map((membership) => membership.group?.id)
+              .filter(Boolean) as string[],
+          ),
+        )
+      } catch (error) {
+        console.error('Failed to load explore page:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (!authLoading) loadExplore()
+  }, [authLoading, user])
+
+  const categories = useMemo(() => {
+    const counts = groups.reduce<Record<string, number>>((accumulator, group) => {
+      const category = (group.category as string | undefined) || 'general'
+      accumulator[category] = (accumulator[category] || 0) + 1
+      return accumulator
+    }, {})
+
+    return [
+      { id: 'all', label: 'All', count: groups.length },
+      ...Object.entries(counts)
+        .sort((first, second) => second[1] - first[1])
+        .map(([id, count]) => ({
+          id,
+          label: id.replace(/[-_]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()),
+          count,
+        })),
+    ]
+  }, [groups])
+
+  const filteredGroups = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    return groups.filter((group) => {
+      const matchesCategory = activeCategory === 'all' || group.category === activeCategory
+      const matchesQuery =
+        !query ||
+        [group.name, group.description, group.category, ...(group.tags as string[] | undefined || [])]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query))
+
+      return matchesCategory && matchesQuery
+    })
+  }, [activeCategory, groups, searchQuery])
+
+  async function handleJoinGroup(groupId: string) {
+    if (!user) return
+    if (joinedGroupIds.has(groupId)) return
+
+    setJoinedGroupIds((current) => new Set(current).add(groupId))
+    try {
+      await DatabaseService.joinGroup(groupId, user.userId)
+      const refreshedGroups = await DatabaseService.getGroups()
+      setGroups(refreshedGroups as Group[])
+    } catch (error) {
+      console.error('Failed to join group:', error)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-brand-primary pb-20">
-      {/* Header */}
-      <div className="px-4 pt-6 pb-2">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-[#eedfc8]">Explore</h1>
-          <button className="w-10 h-10 rounded-full bg-[#eedfc8]/10 flex items-center justify-center">
-            <i className="ri-filter-3-line text-[#eedfc8] text-lg" />
-          </button>
-        </div>
+    <PageFrame>
+      <div className="page-grid">
+        <section className="card">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
+                Explore
+              </p>
+              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Find the right room to walk into</h1>
+              <p className="mt-2 max-w-2xl text-sm text-[#eedfc8]/60">
+                Every group listed here is coming from the live platform now. Join what fits, skip what does not.
+              </p>
+            </div>
+            <div className="w-full max-w-sm">
+              <div className="relative">
+                <i className="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-[#eedfc8]/35" />
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search groups, topics, or tags"
+                  className="input-field !pl-11"
+                />
+              </div>
+            </div>
+          </div>
 
-        {/* Search Bar */}
-        <div className="relative mb-4">
-          <i className="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#eedfc8]/40" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search support groups..."
-            className="input-field pl-10 pr-4"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2"
-            >
-              <i className="ri-close-circle-fill text-[#eedfc8]/40" />
-            </button>
-          )}
-        </div>
-
-        {/* Category Filter Chips */}
-        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-all flex-shrink-0 ${
-                activeCategory === cat.id
-                  ? 'bg-[#eedfc8] text-[#2A4A42] font-semibold'
-                  : 'bg-[#eedfc8]/10 text-[#eedfc8]/70'
-              }`}
-            >
-              {cat.name}
-              <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                  activeCategory === cat.id
-                    ? 'bg-[#2A4A42]/15 text-[#2A4A42]'
-                    : 'bg-[#eedfc8]/10 text-[#eedfc8]/50'
+          <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => setActiveCategory(category.id)}
+                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all ${
+                  activeCategory === category.id
+                    ? 'bg-[#eedfc8] text-[#2A4A42]'
+                    : 'bg-[#eedfc8]/8 text-[#eedfc8]/65'
                 }`}
               >
-                {cat.count}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Results count */}
-      <div className="px-4 py-2">
-        <p className="text-xs text-[#eedfc8]/50">
-          {filteredGroups.length} group{filteredGroups.length !== 1 ? 's' : ''} found
-        </p>
-      </div>
-
-      {/* Group Cards */}
-      <div className="px-4 space-y-3">
-        {filteredGroups.length === 0 ? (
-          <div className="card text-center py-8">
-            <i className="ri-search-line text-4xl text-[#eedfc8]/20 mb-3" />
-            <p className="text-[#eedfc8]/60 text-sm">
-              No groups found matching your search.
-            </p>
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setActiveCategory('all');
-              }}
-              className="btn-secondary text-xs mt-3"
-            >
-              Clear Filters
-            </button>
+                {category.label}
+                <span className="rounded-full bg-black/10 px-2 py-0.5 text-[10px]">
+                  {category.count}
+                </span>
+              </button>
+            ))}
           </div>
-        ) : (
-          filteredGroups.map((group) => {
-            const joined = joinedGroups.includes(group.id);
-            return (
-              <div key={group.id} className="card space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-[#eedfc8] leading-tight">
-                      {group.name}
-                    </h3>
-                  </div>
-                  <span
-                    className={`badge text-[10px] flex-shrink-0 ${
-                      group.type === 'virtual'
-                        ? 'bg-blue-500/20 text-blue-300'
-                        : 'bg-green-500/20 text-green-300'
-                    }`}
-                  >
-                    <i
-                      className={`${
-                        group.type === 'virtual'
-                          ? 'ri-vidicon-line'
-                          : 'ri-map-pin-line'
-                      } mr-1`}
-                    />
-                    {group.type === 'virtual' ? 'Virtual' : 'In-Person'}
-                  </span>
-                </div>
+        </section>
 
-                <p className="text-sm text-[#eedfc8]/60 leading-relaxed">
-                  {group.description}
-                </p>
+        <section className="page-grid">
+          <div className="flex items-center justify-between text-sm text-[#eedfc8]/45">
+            <p>{filteredGroups.length} live group{filteredGroups.length === 1 ? '' : 's'} found</p>
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="text-[#D19A58]">
+                Clear search
+              </button>
+            )}
+          </div>
 
-                <div className="flex flex-wrap gap-1.5">
-                  {group.tags.map((tag) => (
-                    <span key={tag} className="badge text-[10px]">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+          {loading ? (
+            <div className="page-card-grid">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="h-56 skeleton rounded-3xl" />
+              ))}
+            </div>
+          ) : filteredGroups.length > 0 ? (
+            <div className="page-card-grid">
+              {filteredGroups.map((group) => {
+                const joined = joinedGroupIds.has(group.id)
+                const groupType = (group.type as string | undefined) || 'virtual'
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#eedfc8]/50">
-                  <span className="flex items-center gap-1">
-                    <i className="ri-group-line" />
-                    {group.members.toLocaleString()} members
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <i className="ri-calendar-line" />
-                    {group.nextMeeting}
-                  </span>
-                  {'location' in group && group.location && (
-                    <span className="flex items-center gap-1">
-                      <i className="ri-map-pin-2-line" />
-                      {group.location}
-                    </span>
-                  )}
-                </div>
+                return (
+                  <article key={group.id} className="card">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-lg font-semibold text-[#eedfc8]">{group.name as string}</h2>
+                          {joined && (
+                            <span className="badge bg-[#D19A58]/15 text-[#D19A58]">Joined</span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-[#eedfc8]/45">
+                          {(group.category as string | undefined) || 'General'} • {groupType}
+                        </p>
+                      </div>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#6B8A83]/16 text-[#6B8A83]">
+                        <i className={`${(group.icon as string | undefined) || 'ri-group-line'} text-xl`} />
+                      </div>
+                    </div>
 
-                <div className="flex gap-2 pt-1">
-                  <button
-                    onClick={() => handleJoinGroup(group.id)}
-                    className={`flex-1 text-sm py-2.5 rounded-full font-semibold transition-all ${
-                      joined
-                        ? 'bg-[#D19A58]/20 text-[#D19A58] border border-[#D19A58]/30'
-                        : 'btn-primary'
-                    }`}
-                  >
-                    {joined ? (
-                      <span className="flex items-center justify-center gap-1.5">
-                        <i className="ri-check-line" /> Joined
-                      </span>
-                    ) : (
-                      'Join Group'
+                    <p className="mt-4 text-sm leading-relaxed text-[#eedfc8]/70">
+                      {(group.description as string | undefined) || 'A live support group on KinSpace.'}
+                    </p>
+
+                    {Array.isArray(group.tags) && group.tags.length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {(group.tags as string[]).slice(0, 4).map((tag) => (
+                          <span key={tag} className="badge text-[10px]">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     )}
-                  </button>
-                  <button className="btn-secondary text-sm py-2.5 px-4">
-                    Learn More
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
+
+                    <div className="mt-5 flex items-center justify-between text-xs text-[#eedfc8]/45">
+                      <span>{formatCompactNumber(group.members_count as number | undefined)} members</span>
+                      {(group.location as string | undefined) && <span>{group.location as string}</span>}
+                    </div>
+
+                    <div className="mt-5 flex gap-2">
+                      <button
+                        onClick={() => handleJoinGroup(group.id)}
+                        disabled={joined}
+                        className={`flex-1 rounded-full py-2.5 text-sm font-semibold transition-all ${
+                          joined
+                            ? 'border border-[#D19A58]/30 bg-[#D19A58]/15 text-[#D19A58]'
+                            : 'btn-primary'
+                        }`}
+                      >
+                        {joined ? 'Already joined' : 'Join group'}
+                      </button>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="card-light text-center">
+              <i className="ri-search-line text-4xl text-[#eedfc8]/25" />
+              <p className="mt-3 text-sm text-[#eedfc8]/60">No groups match that search yet.</p>
+            </div>
+          )}
+        </section>
       </div>
 
       <BottomNav />
-    </div>
-  );
+    </PageFrame>
+  )
 }

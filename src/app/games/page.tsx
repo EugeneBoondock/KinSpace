@@ -1,406 +1,474 @@
-
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
+import PageFrame from '@/components/PageFrame'
+import { useAuth } from '@/lib/AuthContext'
+import { DatabaseService } from '@/lib/database'
+import { gameCatalog, getGameDefinition, getGameHref, type GameDifficulty, type GameId } from '@/lib/games'
+import { formatCompactNumber, formatRelativeTime } from '@/lib/platform'
 
-const gameTypes = [
-  {
-    id: 'chess',
-    name: 'Chess',
-    icon: '♛',
-    players: '2 players',
-    duration: '15-60 min',
-    difficulty: 'Advanced',
-    description: 'Strategic board game with pieces having unique movements',
-    aiAvailable: true
-  },
-  {
-    id: 'checkers',
-    name: 'Checkers',
-    icon: '⚫',
-    players: '2 players',
-    duration: '10-30 min',
-    difficulty: 'Medium',
-    description: 'Classic strategy game with diagonal moves and captures',
-    aiAvailable: true
-  },
-  {
-    id: 'tictactoe',
-    name: 'Tic Tac Toe',
-    icon: '⭕',
-    players: '2 players',
-    duration: '2-5 min',
-    difficulty: 'Easy',
-    description: 'Simple game to get three in a row',
-    aiAvailable: true
-  },
-  {
-    id: 'wordle',
-    name: 'Wordle',
-    icon: '🔤',
-    players: '1-4 players',
-    duration: '5-15 min',
-    difficulty: 'Medium',
-    description: 'Guess the 5-letter word in 6 tries',
-    aiAvailable: false
-  },
-  {
-    id: 'uno',
-    name: 'UNO Cards',
-    icon: '🎴',
-    players: '2-6 players',
-    duration: '15-45 min',
-    difficulty: 'Easy',
-    description: 'Match colors and numbers, use special cards',
-    aiAvailable: true
-  },
-  {
-    id: 'drawing',
-    name: 'Guess Drawing',
-    icon: '🎨',
-    players: '3-8 players',
-    duration: '10-20 min',
-    difficulty: 'Fun',
-    description: 'Draw and guess what others are sketching',
-    aiAvailable: false
-  }
+type ActiveTab = 'practice' | 'rooms'
+
+type GameRoom = Record<string, unknown> & {
+  id: string
+  host?: Record<string, unknown> | null
+}
+
+const tabs: Array<{ id: ActiveTab; label: string; icon: string }> = [
+  { id: 'practice', label: 'Practice', icon: 'ri-gamepad-line' },
+  { id: 'rooms', label: 'Live rooms', icon: 'ri-group-line' },
 ]
 
-const activeGames = [
-  {
-    id: '1',
-    type: 'chess',
-    host: 'Emma Thompson',
-    players: 1,
-    maxPlayers: 2,
-    status: 'waiting',
-    timeAgo: '2 min ago'
-  },
-  {
-    id: '2',
-    type: 'wordle',
-    host: 'Michael Chen',
-    players: 2,
-    maxPlayers: 4,
-    status: 'waiting',
-    timeAgo: '5 min ago'
-  },
-  {
-    id: '3',
-    type: 'drawing',
-    host: 'Sarah Wilson',
-    players: 4,
-    maxPlayers: 6,
-    status: 'active',
-    timeAgo: '1 min ago'
-  },
-  {
-    id: '4',
-    type: 'uno',
-    host: 'David Park',
-    players: 3,
-    maxPlayers: 6,
-    status: 'waiting',
-    timeAgo: '8 min ago'
-  }
-]
+function getHostName(room: GameRoom) {
+  const host = room.host ?? {}
+  return (
+    (host.full_name as string | undefined) ||
+    (host.username as string | undefined) ||
+    'Community host'
+  )
+}
 
 export default function GamesPage() {
-  const [selectedTab, setSelectedTab] = useState('browse')
-  const [selectedGame, setSelectedGame] = useState<string | null>(null)
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [gameMode, setGameMode] = useState<'multiplayer' | 'ai'>('multiplayer')
-  const [aiDifficulty, setAiDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
 
-  const handlePlayWithAI = (gameId: string) => {
-    // Navigate to AI game based on game type
-    if (gameId === 'chess') {
-      window.location.href = '/games/chess?mode=ai&difficulty=' + aiDifficulty
-    } else if (gameId === 'tictactoe') {
-      window.location.href = '/games/tictactoe?mode=ai&difficulty=' + aiDifficulty
-    } else {
-      setSelectedGame(gameId)
-      setGameMode('ai')
-      setShowCreateModal(true)
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<ActiveTab>('practice')
+  const [rooms, setRooms] = useState<GameRoom[]>([])
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [selectedGameId, setSelectedGameId] = useState<GameId>('chess')
+  const [selectedCapacity, setSelectedCapacity] = useState(2)
+  const [creatingRoom, setCreatingRoom] = useState(false)
+  const [refreshingRooms, setRefreshingRooms] = useState(false)
+  const [practiceDifficulty, setPracticeDifficulty] = useState<Record<GameId, GameDifficulty>>({
+    chess: 'medium',
+    checkers: 'medium',
+    tictactoe: 'medium',
+    wordle: 'medium',
+    uno: 'medium',
+    drawing: 'medium',
+  })
+
+  const selectedGame = useMemo(
+    () => gameCatalog.find((game) => game.id === selectedGameId) ?? gameCatalog[0],
+    [selectedGameId],
+  )
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/login')
+    }
+  }, [authLoading, router, user])
+
+  const loadRooms = useCallback(
+    async (options?: { quiet?: boolean }) => {
+      if (!user) return
+
+      if (options?.quiet) setRefreshingRooms(true)
+      else setLoading(true)
+
+      try {
+        const openRooms = await DatabaseService.getActiveGames()
+        setRooms(openRooms as GameRoom[])
+      } catch (error) {
+        console.error('Failed to load games:', error)
+      } finally {
+        setLoading(false)
+        setRefreshingRooms(false)
+      }
+    },
+    [user],
+  )
+
+  useEffect(() => {
+    if (user) {
+      void loadRooms()
+    }
+  }, [loadRooms, user])
+
+  function openCreateModal(gameId: GameId) {
+    const game = gameCatalog.find((item) => item.id === gameId) ?? gameCatalog[0]
+    setSelectedGameId(game.id)
+    setSelectedCapacity(game.maxPlayers)
+    setShowCreateModal(true)
+  }
+
+  async function handleCreateRoom() {
+    if (!user) return
+
+    setCreatingRoom(true)
+    try {
+      const room = await DatabaseService.createGame(
+        user.userId,
+        selectedGame.id,
+        selectedCapacity,
+        false,
+      )
+
+      setShowCreateModal(false)
+      await loadRooms({ quiet: true })
+      router.push(`/games/rooms/${room.id}`)
+    } catch (error) {
+      console.error('Failed to create game room:', error)
+    } finally {
+      setCreatingRoom(false)
     }
   }
 
-  return (
-    <div className="min-h-screen bg-brand-primary text-brand-background">
-      <div className="fixed top-0 left-0 right-0 bg-brand-primary/95 backdrop-blur-md z-50 px-4 py-3 border-b border-[#eedfc8]/20">
-        <div className="flex items-center justify-between max-w-sm mx-auto">
-          <Link href="/explore" className="w-8 h-8 flex items-center justify-center">
-            <i className="ri-arrow-left-line text-xl text-brand-background"></i>
-          </Link>
-          <h1 className="text-lg font-semibold text-brand-background">Play Together</h1>
-          <button 
-            onClick={() => setShowCreateModal(true)}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#eedfc8] text-[#2A4A42]"
-          >
-            <i className="ri-add-line text-lg"></i>
-          </button>
+  const openSeats = useMemo(
+    () =>
+      rooms.reduce(
+        (total, room) =>
+          total +
+          Math.max(
+            0,
+            ((room.max_players as number | undefined) ?? 0) -
+              ((room.current_players as number | undefined) ?? 0),
+          ),
+        0,
+      ),
+    [rooms],
+  )
+
+  const gamesWithRooms = useMemo(() => {
+    const counts = new Map<string, number>()
+    rooms.forEach((room) => {
+      const gameType = room.game_type as string | undefined
+      if (!gameType) return
+      counts.set(gameType, (counts.get(gameType) ?? 0) + 1)
+    })
+    return counts
+  }, [rooms])
+
+  if (authLoading || loading || (!user && !authLoading)) {
+    return (
+      <PageFrame>
+        <div className="space-y-5">
+          <div className="h-28 skeleton rounded-3xl" />
+          <div className="h-14 skeleton rounded-full" />
+          <div className="page-card-grid">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-56 skeleton rounded-3xl" />
+            ))}
+          </div>
         </div>
-      </div>
+        <BottomNav />
+      </PageFrame>
+    )
+  }
 
-      <div className="pt-16 pb-20 px-4">
-        <div className="max-w-sm mx-auto space-y-6">
-          <div className="bg-[#2A4A42]/60 rounded-xl p-6 text-brand-background border border-brand-background/20">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-bold">Game Zone</h2>
-                <p className="text-brand-background/80 text-sm">Connect through play</p>
-              </div>
-              <div className="w-12 h-12 bg-brand-background/10 rounded-full flex items-center justify-center">
-                <i className="ri-gamepad-line text-2xl text-brand-background"></i>
+  return (
+    <PageFrame>
+      <div className="page-grid">
+        <section className="card overflow-hidden !p-0">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_20rem]">
+            <div className="p-6 md:p-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
+                Games
+              </p>
+              <h1 className="mt-3 text-3xl font-bold text-[#eedfc8]">
+                Play together without the fake lobby
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#eedfc8]/60">
+                Practice solo, challenge the AI, or open real rooms backed by Firestore so
+                people can actually gather before a session.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-3 text-xs text-[#eedfc8]/50">
+                <span className="badge">Games {formatCompactNumber(gameCatalog.length)}</span>
+                <span className="badge">Open rooms {formatCompactNumber(rooms.length)}</span>
+                <span className="badge">Seats open {formatCompactNumber(openSeats)}</span>
               </div>
             </div>
-            <div className="flex gap-4 text-sm">
-              <div>
-                <div className="font-semibold">24</div>
-                <div className="text-brand-background/70">Active Games</div>
-              </div>
-              <div>
-                <div className="font-semibold">156</div>
-                <div className="text-brand-background/70">Players Online</div>
+
+            <div className="border-t border-[#eedfc8]/10 bg-[#eedfc8]/4 p-6 lg:border-l lg:border-t-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
+                Live snapshot
+              </p>
+              <div className="mt-4 space-y-3">
+                <div className="card-light !p-4">
+                  <p className="text-xs text-[#eedfc8]/45">Rooms waiting for players</p>
+                  <p className="mt-2 text-3xl font-bold text-[#D19A58]">
+                    {formatCompactNumber(rooms.length)}
+                  </p>
+                </div>
+                <div className="card-light !p-4">
+                  <p className="text-xs text-[#eedfc8]/45">Most active game</p>
+                  <p className="mt-2 text-sm font-semibold text-[#eedfc8]">
+                    {gameCatalog
+                      .slice()
+                      .sort(
+                        (first, second) =>
+                          (gamesWithRooms.get(second.id) ?? 0) -
+                          (gamesWithRooms.get(first.id) ?? 0),
+                      )[0]?.name ?? 'No live rooms yet'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
+        </section>
 
-          <div className="flex bg-brand-background/10 rounded-full p-1 border border-brand-background/20">
-            <button
-              onClick={() => setSelectedTab('browse')}
-              className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${
-                selectedTab === 'browse' 
-                  ? 'bg-brand-background text-brand-primary shadow-sm' 
-                  : 'text-brand-background/70'
-              }`}
-            >
-              Browse Games
-            </button>
-            <button
-              onClick={() => setSelectedTab('active')}
-              className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${
-                selectedTab === 'active' 
-                  ? 'bg-brand-background text-brand-primary shadow-sm' 
-                  : 'text-brand-background/70'
-              }`}
-            >
-              Join Game
-            </button>
+        <section className="card">
+          <div className="flex gap-2 overflow-x-auto rounded-2xl bg-[#eedfc8]/5 p-1.5">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex min-w-fit items-center gap-2 rounded-2xl px-4 py-2.5 text-sm transition-all ${
+                  activeTab === tab.id ? 'tab-active' : 'tab-inactive'
+                }`}
+              >
+                <i className={tab.icon} />
+                {tab.label}
+              </button>
+            ))}
           </div>
+        </section>
 
-          {selectedTab === 'browse' && (
-            <div className="space-y-3">
-              <h3 className="font-semibold text-brand-background">Choose Your Game</h3>
-              {gameTypes.map((game) => (
-                <div key={game.id} className="bg-[#2A4A42]/50 rounded-xl p-4 shadow-sm border border-brand-background/20">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-brand-background/10 rounded-xl flex items-center justify-center text-2xl text-brand-primary">
-                      {game.icon}
+        {activeTab === 'practice' ? (
+          <section className="page-card-grid">
+            {gameCatalog.map((game) => (
+              <article key={game.id} className="card">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eedfc8]/10 text-3xl">
+                    {game.icon}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-semibold text-[#eedfc8]">{game.name}</h2>
+                      <span className="badge text-[10px]">{game.difficultyLabel}</span>
+                      {(gamesWithRooms.get(game.id) ?? 0) > 0 && (
+                        <span className="badge bg-[#D19A58]/12 text-[10px] text-[#D19A58]">
+                          {formatCompactNumber(gamesWithRooms.get(game.id))}
+                          {' '}live room
+                          {(gamesWithRooms.get(game.id) ?? 0) === 1 ? '' : 's'}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold text-brand-background">{game.name}</h4>
-                        <span className={`text-xs px-2 py-1 rounded-full border border-brand-background/30 ${
-                          game.difficulty === 'Easy' ? 'bg-brand-background/15 text-brand-primary' :
-                          game.difficulty === 'Medium' ? 'bg-brand-accent2/25 text-brand-background' :
-                          game.difficulty === 'Advanced' ? 'bg-brand-accent1/30 text-brand-background' :
-                          'bg-brand-background/15 text-brand-background'
-                        }`}>
-                          {game.difficulty}
-                        </span>
-                      </div>
-                      <p className="text-sm text-brand-background/80 mb-3">{game.description}</p>
-                      <div className="flex items-center gap-4 text-xs text-brand-background/70 mb-3">
-                        <span className="flex items-center gap-1">
-                          <i className="ri-user-line"></i>
-                          {game.players}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <i className="ri-time-line"></i>
-                          {game.duration}
-                        </span>
-                        {game.aiAvailable && (
-                          <span className="flex items-center gap-1 text-brand-background">
-                            <i className="ri-robot-line"></i>
-                            AI Available
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => {
-                            setSelectedGame(game.id)
-                            setGameMode('multiplayer')
-                            setShowCreateModal(true)
-                          }}
-                          className="flex-1 py-2 px-3 bg-brand-background text-brand-primary rounded-lg text-sm font-semibold rounded-lg border border-brand-primary/40 hover:bg-brand-background/90"
-                        >
-                          Multiplayer
-                        </button>
-                        {game.aiAvailable && (
-                          <button 
-                            onClick={() => handlePlayWithAI(game.id)}
-                            className="flex-1 py-2 px-3 bg-[#2A4A42] text-brand-background rounded-lg text-sm font-semibold rounded-lg border border-brand-background/30 hover:bg-[#2A4A42]/80"
-                          >
-                            vs AI
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-[#eedfc8]/65">
+                      {game.description}
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
 
-          {selectedTab === 'active' && (
-            <div className="space-y-3">
-              <h3 className="font-semibold text-brand-background">Join Active Games</h3>
-              {activeGames.map((game) => {
-                const gameInfo = gameTypes.find(g => g.id === game.type)
-                return (
-                  <div key={game.id} className="bg-[#2A4A42]/50 rounded-xl p-4 shadow-sm border border-brand-background/20">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-brand-background/10 rounded-lg flex items-center justify-center text-lg text-brand-primary">
-                        {gameInfo?.icon}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="font-medium text-brand-background">{gameInfo?.name}</h4>
-                          <span className={`text-xs px-2 py-1 rounded-full border border-brand-background/30 ${
-                            game.status === 'waiting' ? 'bg-brand-background/15 text-brand-primary' : 'bg-brand-accent1/30 text-brand-background'
-                          }`}>
-                            {game.status === 'waiting' ? 'Waiting' : 'In Progress'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="text-brand-background/80">
-                            Host: {game.host} • {game.timeAgo}
-                          </div>
-                          <div className="text-brand-background font-medium">
-                            {game.players}/{game.maxPlayers} players
-                          </div>
-                        </div>
-                      </div>
+                <div className="mt-4 flex flex-wrap gap-4 text-xs text-[#eedfc8]/45">
+                  <span className="flex items-center gap-1.5">
+                    <i className="ri-user-line" />
+                    {game.playersLabel}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <i className="ri-time-line" />
+                    {game.duration}
+                  </span>
+                </div>
+
+                {game.supportsDifficulty && (
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#eedfc8]/35">
+                      Difficulty
+                    </p>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {(['easy', 'medium', 'hard'] as GameDifficulty[]).map((level) => (
+                        <button
+                          key={level}
+                          onClick={() =>
+                            setPracticeDifficulty((current) => ({
+                              ...current,
+                              [game.id]: level,
+                            }))
+                          }
+                          className={`rounded-2xl border px-3 py-2 text-xs font-semibold capitalize transition-colors ${
+                            practiceDifficulty[game.id] === level
+                              ? 'border-[#D19A58]/50 bg-[#D19A58]/12 text-[#D19A58]'
+                              : 'border-[#eedfc8]/10 bg-[#eedfc8]/4 text-[#eedfc8]/55 hover:bg-[#eedfc8]/8'
+                          }`}
+                        >
+                          {level}
+                        </button>
+                      ))}
                     </div>
-                    <button 
-                      disabled={game.status === 'active' && game.players >= game.maxPlayers}
-                      className="w-full mt-3 py-2 px-4 bg-brand-background text-brand-primary hover:bg-brand-background/90 disabled:bg-[#2A4A42]/50 disabled:text-brand-background/60 disabled:cursor-not-allowed rounded-lg text-sm font-semibold rounded-lg transition-colors"
-                    >
-                      {game.status === 'waiting' ? 'Join Game' : 'Watch Game'}
-                    </button>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+                )}
+
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  <Link
+                    href={getGameHref(game.id, {
+                      difficulty: practiceDifficulty[game.id],
+                    })}
+                    className="btn-primary flex-1 !rounded-2xl !py-3 text-center text-sm"
+                  >
+                    {game.practiceLabel}
+                  </Link>
+                  {game.maxPlayers > 1 && (
+                    <button
+                      onClick={() => openCreateModal(game.id)}
+                      className="btn-secondary flex-1 !rounded-2xl !py-3 text-sm"
+                    >
+                      Open live room
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </section>
+        ) : (
+          <div className="page-grid lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-start">
+            <section className="space-y-4">
+              {rooms.length > 0 ? (
+                rooms.map((room) => {
+                  const game = getGameDefinition(room.game_type as string | undefined)
+
+                  return (
+                    <article key={room.id} className="card">
+                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eedfc8]/10 text-3xl">
+                            {game?.icon ?? '🎮'}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h2 className="text-xl font-semibold text-[#eedfc8]">
+                                {game?.name ?? 'Game room'}
+                              </h2>
+                              <span className="badge text-[10px]">
+                                {(room.status as string | undefined) ?? 'waiting'}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm text-[#eedfc8]/60">
+                              Hosted by {getHostName(room)} · Opened{' '}
+                              {formatRelativeTime(room.created_at)}
+                            </p>
+                            <p className="mt-3 text-sm leading-relaxed text-[#eedfc8]/65">
+                              {(room.current_players as number | undefined) ?? 0} of{' '}
+                              {(room.max_players as number | undefined) ?? 0} seats filled.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-start gap-3 md:items-end">
+                          <div className="rounded-2xl bg-[#eedfc8]/6 px-4 py-3 text-sm text-[#eedfc8]/70">
+                            Room {room.room_code ? `#${room.room_code as string}` : 'is public'}
+                          </div>
+                          <Link
+                            href={`/games/rooms/${room.id}`}
+                            className="btn-primary !rounded-2xl !px-4 !py-2.5 text-sm"
+                          >
+                            Open room
+                          </Link>
+                        </div>
+                      </div>
+                    </article>
+                  )
+                })
+              ) : (
+                <div className="card-light text-center">
+                  <i className="ri-group-line text-3xl text-[#eedfc8]/30" />
+                  <p className="mt-3 text-sm text-[#eedfc8]/60">
+                    No live rooms are waiting right now.
+                  </p>
+                  <p className="mt-1 text-xs text-[#eedfc8]/40">
+                    Open one from the practice tab and it will appear here immediately.
+                  </p>
+                </div>
+              )}
+            </section>
+
+            <aside className="space-y-4">
+              <section className="card">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="section-title !mb-0">Room tools</h2>
+                  <button
+                    onClick={() => void loadRooms({ quiet: true })}
+                    className="text-sm font-medium text-[#D19A58]"
+                  >
+                    {refreshingRooms ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                </div>
+                <div className="mt-4 space-y-3">
+                  <div className="card-light !p-4">
+                    <p className="text-xs text-[#eedfc8]/45">Open seats</p>
+                    <p className="mt-1 text-xl font-semibold text-[#eedfc8]">
+                      {formatCompactNumber(openSeats)}
+                    </p>
+                  </div>
+                  <div className="card-light !p-4">
+                    <p className="text-xs text-[#eedfc8]/45">Recommended move</p>
+                    <p className="mt-1 text-sm font-semibold text-[#eedfc8]">
+                      {rooms.length > 0
+                        ? 'Jump into a room with open seats'
+                        : 'Create the first room for your game'}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </aside>
+          </div>
+        )}
       </div>
 
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end z-50">
-          <div className="bg-brand-primary rounded-t-xl w-full max-h-[80vh] overflow-y-auto text-brand-background border border-brand-background/20">
-            <div className="sticky top-0 bg-brand-primary/95 border-b border-brand-background/20 px-4 py-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-brand-background">
-                  {gameMode === 'ai' ? 'Play vs AI' : 'Create Game Room'}
-                </h3>
-                <button 
-                  onClick={() => setShowCreateModal(false)}
-                  className="w-8 h-8 flex items-center justify-center text-brand-background/70"
-                >
-                  <i className="ri-close-line text-xl"></i>
-                </button>
+        <div className="fixed inset-0 z-50 flex items-end bg-black/55 p-4 md:items-center md:justify-center">
+          <div className="w-full max-w-lg rounded-[1.75rem] border border-[#eedfc8]/10 bg-[#24423b] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#eedfc8]/10 px-5 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/35">
+                  New room
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-[#eedfc8]">
+                  {selectedGame.name}
+                </h2>
               </div>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#eedfc8]/6 text-[#eedfc8]/65"
+              >
+                <i className="ri-close-line text-xl" />
+              </button>
             </div>
 
-            <div className="p-4 space-y-4">
+            <div className="space-y-5 px-5 py-5">
+              <div className="rounded-2xl bg-[#eedfc8]/6 p-4">
+                <p className="text-sm leading-relaxed text-[#eedfc8]/65">
+                  This creates a real room document in Firestore and adds you as the host.
+                  People can join it from the live rooms list right away.
+                </p>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium text-brand-background mb-2">Game Type</label>
-                <select className="w-full p-3 border border-brand-background/20 rounded-lg bg-[#2A4A42] text-brand-background">
-                  {gameTypes.map((game) => (
-                    <option key={game.id} value={game.id} selected={selectedGame === game.id}>
-                      {game.name} - {game.players}
+                <label className="text-sm font-semibold text-[#eedfc8]">Capacity</label>
+                <select
+                  value={selectedCapacity}
+                  onChange={(event) => setSelectedCapacity(Number(event.target.value))}
+                  className="input-field mt-2"
+                >
+                  {Array.from(
+                    { length: Math.max(0, selectedGame.maxPlayers - 1) },
+                    (_, index) => index + 2,
+                  ).map((count) => (
+                    <option key={count} value={count}>
+                      {count} players
                     </option>
                   ))}
                 </select>
               </div>
 
-              {gameMode === 'multiplayer' && (
-                <div>
-                  <label className="block text-sm font-medium text-brand-background mb-2">Room Settings</label>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-brand-background/80">Private Room</span>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" />
-                        <div className="w-11 h-6 bg-[#2A4A42] border border-brand-background/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-brand-background after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-background"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-brand-background/80">Allow Spectators</span>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-[#2A4A42] border border-brand-background/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-brand-background after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-background"></div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {gameMode === 'ai' && (
-                <div>
-                  <label className="block text-sm font-medium text-brand-background mb-2">AI Difficulty</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {['easy', 'medium', 'hard'].map((difficulty) => (
-                      <button
-                        key={difficulty}
-                        onClick={() => setAiDifficulty(difficulty as 'easy' | 'medium' | 'hard')}
-                        className={`py-2 px-3 rounded-lg text-sm font-medium rounded-lg transition-colors ${
-                          aiDifficulty === difficulty
-                            ? 'bg-brand-background text-brand-primary'
-                            : 'bg-[#2A4A42]/60 text-brand-background hover:bg-[#2A4A42]/50'
-                        }`}
-                      >
-                        {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="mt-3 p-3 bg-brand-background/10 rounded-lg">
-                    <div className="flex items-start gap-2 text-brand-background">
-                      <i className="ri-robot-line mt-0.5"></i>
-                      <div className="text-sm">
-                        <div className="font-medium text-brand-background">AI Opponent</div>
-                        <div className="text-brand-background/80">
-                          {aiDifficulty === 'easy' && 'Perfect for beginners, makes some mistakes'}
-                          {aiDifficulty === 'medium' && 'Balanced gameplay, challenging but fair'}
-                          {aiDifficulty === 'hard' && 'Expert level AI, very challenging'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
-                <button 
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 py-3 px-4 border border-brand-background/30 text-brand-background rounded-lg font-medium rounded-lg"
+                  className="btn-secondary flex-1 !rounded-2xl !py-3 text-sm"
                 >
                   Cancel
                 </button>
-                <button 
-                  className={`flex-1 py-3 px-4 text-white rounded-lg font-medium rounded-lg ${
-                    gameMode === 'ai' 
-                      ? 'bg-brand-background text-brand-primary'
-                      : 'bg-[#2A4A42] text-brand-background border border-brand-background/30'
-                  }`}
+                <button
+                  onClick={handleCreateRoom}
+                  disabled={creatingRoom}
+                  className="btn-primary flex-1 !rounded-2xl !py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {gameMode === 'ai' ? 'Start AI Game' : 'Create Room'}
+                  {creatingRoom ? 'Creating...' : 'Create room'}
                 </button>
               </div>
             </div>
@@ -409,6 +477,6 @@ export default function GamesPage() {
       )}
 
       <BottomNav />
-    </div>
+    </PageFrame>
   )
 }

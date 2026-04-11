@@ -80,10 +80,10 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   useEffect(() => {
     async function fetchProfile() {
       try {
-        const [profileData, allPosts, allGroups] = await Promise.all([
+        const [profileData, userPosts, memberships] = await Promise.all([
           DatabaseService.getProfile(userId),
-          DatabaseService.getCommunityPosts(10),
-          DatabaseService.getGroups(),
+          DatabaseService.getCommunityPosts(20, { userId }),
+          DatabaseService.getUserGroupMemberships(userId),
         ])
 
         if (profileData) {
@@ -118,12 +118,12 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
           setProfile(null)
         }
 
-        // Filter posts by this user
-        const userPosts = (allPosts as Post[]).filter(
-          (p) => (p as { user_id?: string }).user_id === userId
+        setPosts(userPosts as Post[])
+        setGroups(
+          (memberships as Array<{ group?: Group | null }>)
+            .map((membership) => membership.group)
+            .filter(Boolean) as Group[],
         )
-        setPosts(userPosts)
-        setGroups((allGroups as Group[]).slice(0, 6))
       } catch (err) {
         console.error('Failed to fetch profile:', err)
       } finally {
@@ -136,14 +136,16 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-brand-primary pb-20">
-        {/* Skeleton cover */}
-        <div className="h-36 skeleton" />
-        <div className="px-4 -mt-12">
-          <div className="w-24 h-24 rounded-full skeleton border-4 border-brand-primary" />
-          <div className="mt-3 space-y-2">
-            <div className="h-6 w-40 skeleton rounded" />
-            <div className="h-4 w-28 skeleton rounded" />
-            <div className="h-4 w-full skeleton rounded mt-3" />
+        <div className="mx-auto w-full max-w-5xl">
+          {/* Skeleton cover */}
+          <div className="h-36 skeleton" />
+          <div className="px-4 -mt-12">
+            <div className="w-24 h-24 rounded-full skeleton border-4 border-brand-primary" />
+            <div className="mt-3 space-y-2">
+              <div className="h-6 w-40 skeleton rounded" />
+              <div className="h-4 w-28 skeleton rounded" />
+              <div className="h-4 w-full skeleton rounded mt-3" />
+            </div>
           </div>
         </div>
         <BottomNav />
@@ -174,32 +176,33 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
   return (
     <div className="min-h-screen bg-brand-primary pb-20">
-      {/* Cover Area */}
-      <div className="relative h-36 bg-gradient-to-br from-brand-accent3/40 via-brand-primary to-brand-accent1/20 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-        <div className="absolute top-4 left-4">
-          <button
-            onClick={() => router.back()}
-            className="w-9 h-9 rounded-full bg-brand-primary/60 backdrop-blur-sm flex items-center justify-center text-[#eedfc8] hover:bg-brand-primary/80 transition-colors"
-          >
-            <i className="ri-arrow-left-line text-lg" />
-          </button>
-        </div>
-        {isOwnProfile && (
-          <div className="absolute top-4 right-4">
-            <Link
-              href="/settings"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-primary/60 backdrop-blur-sm text-[#eedfc8] text-xs font-medium hover:bg-brand-primary/80 transition-colors"
+      <div className="mx-auto w-full max-w-5xl">
+        {/* Cover Area */}
+        <div className="relative h-36 overflow-hidden bg-gradient-to-br from-brand-accent3/40 via-brand-primary to-brand-accent1/20">
+          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
+          <div className="absolute top-4 left-4">
+            <button
+              onClick={() => router.back()}
+              className="w-9 h-9 rounded-full bg-brand-primary/60 backdrop-blur-sm flex items-center justify-center text-[#eedfc8] hover:bg-brand-primary/80 transition-colors"
             >
-              <i className="ri-edit-line text-sm" />
-              Edit Profile
-            </Link>
+              <i className="ri-arrow-left-line text-lg" />
+            </button>
           </div>
-        )}
-      </div>
+          {isOwnProfile && (
+            <div className="absolute top-4 right-4">
+              <Link
+                href="/settings"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-primary/60 backdrop-blur-sm text-[#eedfc8] text-xs font-medium hover:bg-brand-primary/80 transition-colors"
+              >
+                <i className="ri-edit-line text-sm" />
+                Edit Profile
+              </Link>
+            </div>
+          )}
+        </div>
 
-      {/* Avatar + Info */}
-      <div className="px-4 -mt-12 relative z-10">
+        {/* Avatar + Info */}
+        <div className="relative z-10 px-4 -mt-12">
         {/* Avatar */}
         <div className="mb-3">
           {profile.avatar_url ? (
@@ -458,6 +461,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
             )}
           </div>
         )}
+        </div>
       </div>
 
       <BottomNav />

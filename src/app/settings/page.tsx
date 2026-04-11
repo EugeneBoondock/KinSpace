@@ -217,7 +217,7 @@ export default function Settings() {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-brand-primary pb-20">
-        <div className="px-4 pt-14 space-y-6">
+        <div className="mx-auto w-full max-w-4xl px-4 pt-14 space-y-6">
           <div className="h-8 w-32 skeleton rounded-lg" />
           <div className="h-20 skeleton rounded-xl" />
           <div className="space-y-4">
@@ -246,7 +246,7 @@ export default function Settings() {
       )}
 
       {/* Header */}
-      <div className="px-4 pt-14 pb-4">
+      <div className="mx-auto w-full max-w-4xl px-4 pt-14 pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
@@ -275,7 +275,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="px-4 space-y-6">
+      <div className="mx-auto w-full max-w-4xl px-4 space-y-6">
         {/* Profile Section */}
         <section>
           <h2 className="section-title flex items-center gap-2">

@@ -1,436 +1,231 @@
-'use client';
+'use client'
 
-import { useState, useCallback } from 'react';
-import BottomNav from '@/components/BottomNav';
-import { useAuth } from '@/lib/AuthContext';
+import { useEffect, useState } from 'react'
+import BottomNav from '@/components/BottomNav'
+import PageFrame from '@/components/PageFrame'
+import { useAuth } from '@/lib/AuthContext'
+import { DatabaseService } from '@/lib/database'
+import { formatRelativeTime, getInitials } from '@/lib/platform'
 
-interface MatchProfile {
-  id: string;
-  name: string;
-  age: number;
-  matchPercent: number;
-  conditions: string[];
-  bio: string;
-  interests: string[];
-  location: string;
-}
+type Candidate = Record<string, unknown> & { id: string }
+type Request = Record<string, unknown> & { id: string }
 
-const mockProfiles: MatchProfile[] = [
-  {
-    id: '1',
-    name: 'Jordan S.',
-    age: 28,
-    matchPercent: 94,
-    conditions: ['Anxiety', 'Chronic Fatigue'],
-    bio: 'Navigating life with anxiety and CFS. Love cooking, board games, and long conversations about absolutely nothing. Looking for people who get it.',
-    interests: ['Cooking', 'Board Games', 'Mindfulness'],
-    location: 'Brooklyn, NY',
-  },
-  {
-    id: '2',
-    name: 'Riley M.',
-    age: 31,
-    matchPercent: 89,
-    conditions: ['Depression', 'Fibromyalgia'],
-    bio: 'Artist and fibro warrior. I paint my pain and find beauty in the struggle. Seeking connections who understand the invisible battles.',
-    interests: ['Art', 'Music', 'Yoga'],
-    location: 'Portland, OR',
-  },
-  {
-    id: '3',
-    name: 'Taylor K.',
-    age: 25,
-    matchPercent: 86,
-    conditions: ['Anxiety', 'IBS'],
-    bio: 'Software developer by day, anxious human by night. Working on being kinder to myself. Would love to connect with fellow warriors.',
-    interests: ['Tech', 'Hiking', 'Reading'],
-    location: 'Austin, TX',
-  },
-  {
-    id: '4',
-    name: 'Morgan P.',
-    age: 33,
-    matchPercent: 82,
-    conditions: ['PTSD', 'Chronic Pain'],
-    bio: 'Trauma survivor on a healing journey. I believe in the power of connection and shared experience. One day at a time.',
-    interests: ['Gardening', 'Meditation', 'Podcasts'],
-    location: 'Denver, CO',
-  },
-  {
-    id: '5',
-    name: 'Casey L.',
-    age: 27,
-    matchPercent: 79,
-    conditions: ['Lupus', 'Anxiety'],
-    bio: 'Living boldly with lupus. Flare-ups do not define me, but they sure make for interesting stories. Let us be friends who understand.',
-    interests: ['Photography', 'Coffee', 'Dogs'],
-    location: 'Seattle, WA',
-  },
-  {
-    id: '6',
-    name: 'Avery D.',
-    age: 30,
-    matchPercent: 75,
-    conditions: ['Diabetes', 'Depression'],
-    bio: 'Type 1 diabetic and mental health advocate. I believe vulnerability is strength. Looking for authentic connections who keep it real.',
-    interests: ['Running', 'Writing', 'Volunteering'],
-    location: 'Chicago, IL',
-  },
-  {
-    id: '7',
-    name: 'Quinn W.',
-    age: 26,
-    matchPercent: 72,
-    conditions: ['Chronic Fatigue', 'Autoimmune'],
-    bio: 'Spoonie life chose me. Making the most of good days and being gentle on bad ones. Let us share our journeys.',
-    interests: ['Movies', 'Crafts', 'Cat Videos'],
-    location: 'Nashville, TN',
-  },
-];
+export default function TraumaBondingPage() {
+  const { user, loading: authLoading } = useAuth()
+  const [loading, setLoading] = useState(true)
+  const [candidates, setCandidates] = useState<Candidate[]>([])
+  const [receivedRequests, setReceivedRequests] = useState<Request[]>([])
+  const [sendingIds, setSendingIds] = useState<Set<string>>(new Set())
+  const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set())
 
-function MatchBadge({ percent }: { percent: number }) {
-  const color =
-    percent >= 90
-      ? 'text-green-400 border-green-400/40'
-      : percent >= 80
-        ? 'text-[#D19A58] border-[#D19A58]/40'
-        : 'text-[#eedfc8]/60 border-[#eedfc8]/20';
-  return (
-    <div
-      className={`w-16 h-16 rounded-full border-2 ${color} flex items-center justify-center`}
-    >
-      <div className="text-center">
-        <p className={`text-lg font-bold ${color.split(' ')[0]}`}>{percent}%</p>
-        <p className="text-[8px] text-[#eedfc8]/40">match</p>
-      </div>
-    </div>
-  );
-}
+  useEffect(() => {
+    async function loadConnections() {
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
-export default function TraumaBonding() {
-  const { loading } = useAuth();
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [showMatch, setShowMatch] = useState(false);
-  const [matchedProfile, setMatchedProfile] = useState<MatchProfile | null>(null);
-  const [likedProfiles, setLikedProfiles] = useState<string[]>([]);
-  const [passedProfiles, setPassedProfiles] = useState<string[]>([]);
-  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
-
-  const currentProfile =
-    currentIndex < mockProfiles.length ? mockProfiles[currentIndex] : null;
-
-  const goToNext = useCallback(() => {
-    setSwipeDirection(null);
-    if (currentIndex < mockProfiles.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
+      try {
+        const [candidateResults, incomingRequests] = await Promise.all([
+          DatabaseService.getConnectionCandidates(user.userId, 12),
+          DatabaseService.getReceivedConnectionRequests(user.userId),
+        ])
+        setCandidates(candidateResults as Candidate[])
+        setReceivedRequests(
+          (incomingRequests as Request[]).filter((request) => request.status === 'pending'),
+        )
+      } catch (error) {
+        console.error('Failed to load connection finder:', error)
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [currentIndex]);
 
-  const handleLike = useCallback(() => {
-    if (!currentProfile) return;
-    setSwipeDirection('right');
-    setLikedProfiles((prev) => [...prev, currentProfile.id]);
+    if (!authLoading) loadConnections()
+  }, [authLoading, user])
 
-    // Simulate a match on profiles with 85%+ match
-    if (currentProfile.matchPercent >= 85) {
-      setTimeout(() => {
-        setMatchedProfile(currentProfile);
-        setShowMatch(true);
-        setTimeout(() => {
-          setShowMatch(false);
-          setMatchedProfile(null);
-          goToNext();
-        }, 3000);
-      }, 300);
-    } else {
-      setTimeout(goToNext, 300);
+  async function handleConnect(targetUserId: string) {
+    if (!user) return
+    setSendingIds((current) => new Set(current).add(targetUserId))
+
+    try {
+      await DatabaseService.sendConnectionRequest(user.userId, targetUserId)
+      setCandidates((current) => current.filter((candidate) => candidate.id !== targetUserId))
+    } catch (error) {
+      console.error('Failed to send connection request:', error)
+    } finally {
+      setSendingIds((current) => {
+        const next = new Set(current)
+        next.delete(targetUserId)
+        return next
+      })
     }
-  }, [currentProfile, goToNext]);
+  }
 
-  const handlePass = useCallback(() => {
-    if (!currentProfile) return;
-    setSwipeDirection('left');
-    setPassedProfiles((prev) => [...prev, currentProfile.id]);
-    setTimeout(goToNext, 300);
-  }, [currentProfile, goToNext]);
+  async function handleUpdateRequest(requestId: string, status: 'accepted' | 'declined') {
+    setUpdatingIds((current) => new Set(current).add(requestId))
 
-  const resetProfiles = () => {
-    setCurrentIndex(0);
-    setLikedProfiles([]);
-    setPassedProfiles([]);
-    setSwipeDirection(null);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-brand-primary pb-20">
-        <div className="px-4 pt-6 space-y-4">
-          <div className="h-8 w-48 skeleton" />
-          <div className="card space-y-4 py-8">
-            <div className="w-20 h-20 skeleton rounded-full mx-auto" />
-            <div className="h-6 w-32 skeleton mx-auto" />
-            <div className="h-4 w-48 skeleton mx-auto" />
-            <div className="h-20 w-full skeleton" />
-            <div className="flex justify-center gap-6">
-              <div className="w-16 h-16 skeleton rounded-full" />
-              <div className="w-16 h-16 skeleton rounded-full" />
-            </div>
-          </div>
-        </div>
-        <BottomNav />
-      </div>
-    );
+    try {
+      await DatabaseService.updateConnectionRequest(requestId, status)
+      setReceivedRequests((current) => current.filter((request) => request.id !== requestId))
+    } catch (error) {
+      console.error('Failed to update connection request:', error)
+    } finally {
+      setUpdatingIds((current) => {
+        const next = new Set(current)
+        next.delete(requestId)
+        return next
+      })
+    }
   }
 
   return (
-    <div className="min-h-screen bg-brand-primary pb-20">
-      {/* Header */}
-      <div className="px-4 pt-6 pb-3">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-2xl font-bold text-[#eedfc8]">Connect</h1>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[#eedfc8]/50">
-              {likedProfiles.length} liked
-            </span>
-            <button className="w-10 h-10 rounded-full bg-[#eedfc8]/10 flex items-center justify-center">
-              <i className="ri-settings-3-line text-[#eedfc8] text-lg" />
-            </button>
-          </div>
-        </div>
-        <p className="text-sm text-[#eedfc8]/60">
-          Find people who share your journey. Matched by conditions, interests, and
-          experiences.
-        </p>
-      </div>
+    <PageFrame>
+      <div className="page-grid">
+        <section className="card">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
+            Connections
+          </p>
+          <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Find real people, not simulated matches</h1>
+          <p className="mt-2 max-w-2xl text-sm text-[#eedfc8]/60">
+            This feed now uses live profiles, shared group overlap, and real connection requests.
+          </p>
+        </section>
 
-      {/* Match Card Area */}
-      <div className="px-4 mt-2">
-        {!currentProfile ? (
-          // No more profiles
-          <div className="card text-center py-12">
-            <i className="ri-emotion-happy-line text-5xl text-[#D19A58] mb-4" />
-            <h2 className="text-lg font-bold text-[#eedfc8] mb-2">
-              You have seen everyone!
-            </h2>
-            <p className="text-sm text-[#eedfc8]/60 mb-4">
-              Check back later for new connections, or review your matches.
-            </p>
-            <div className="flex gap-2 justify-center">
-              <button onClick={resetProfiles} className="btn-primary text-sm">
-                Start Over
-              </button>
-              <button className="btn-secondary text-sm">View Matches</button>
-            </div>
-          </div>
-        ) : (
-          // Profile card
-          <div
-            className={`card space-y-4 transition-all duration-300 ${
-              swipeDirection === 'left'
-                ? 'opacity-0 -translate-x-20'
-                : swipeDirection === 'right'
-                  ? 'opacity-0 translate-x-20'
-                  : 'opacity-100 translate-x-0'
-            }`}
-          >
-            {/* Profile Header */}
-            <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#D19A58]/30 to-[#B85C3A]/30 flex items-center justify-center flex-shrink-0">
-                <span className="text-2xl font-bold text-[#D19A58]">
-                  {currentProfile.name[0]}
-                </span>
+        <div className="page-grid lg:grid-cols-[minmax(0,1.1fr)_22rem] lg:items-start">
+          <section className="page-grid">
+            {loading ? (
+              <div className="page-card-grid">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="h-64 skeleton rounded-3xl" />
+                ))}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-[#eedfc8]">
-                    {currentProfile.name}
-                  </h2>
-                  <span className="text-sm text-[#eedfc8]/50">
-                    {currentProfile.age}
-                  </span>
-                </div>
-                <p className="text-xs text-[#eedfc8]/50 flex items-center gap-1 mt-0.5">
-                  <i className="ri-map-pin-2-line" />
-                  {currentProfile.location}
+            ) : candidates.length > 0 ? (
+              <div className="page-card-grid">
+                {candidates.map((candidate) => {
+                  const displayName =
+                    (candidate.full_name as string | undefined) ||
+                    (candidate.username as string | undefined) ||
+                    'KinSpace member'
+                  const sending = sendingIds.has(candidate.id)
+
+                  return (
+                    <article key={candidate.id} className="card">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-[#D19A58]/18 text-lg font-bold text-[#D19A58]">
+                          {candidate.avatar_url ? (
+                            <img
+                              src={candidate.avatar_url as string}
+                              alt={displayName}
+                              className="h-16 w-16 rounded-3xl object-cover"
+                            />
+                          ) : (
+                            getInitials(displayName)
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <h2 className="truncate text-lg font-semibold text-[#eedfc8]">{displayName}</h2>
+                            <span className="badge bg-[#D19A58]/15 text-[#D19A58]">
+                              {candidate.match_score as number}% fit
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-[#eedfc8]/45">
+                            {(candidate.location as string | undefined) || 'Location hidden'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <p className="mt-4 text-sm leading-relaxed text-[#eedfc8]/70">
+                        {(candidate.bio as string | undefined) || 'No bio shared yet.'}
+                      </p>
+
+                      {Array.isArray(candidate.connection_highlights) && candidate.connection_highlights.length > 0 && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {(candidate.connection_highlights as string[]).map((highlight) => (
+                            <span key={highlight} className="badge text-[10px]">
+                              {highlight}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="mt-5 flex gap-2">
+                        <button
+                          onClick={() => handleConnect(candidate.id)}
+                          disabled={sending}
+                          className="btn-primary flex-1 !py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {sending ? 'Sending...' : 'Send connection request'}
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="card-light text-center">
+                <i className="ri-user-search-line text-4xl text-[#eedfc8]/25" />
+                <p className="mt-3 text-sm text-[#eedfc8]/60">
+                  No new connection suggestions are available right now.
                 </p>
               </div>
-              <MatchBadge percent={currentProfile.matchPercent} />
-            </div>
+            )}
+          </section>
 
-            {/* Shared Conditions */}
-            <div>
-              <p className="text-xs text-[#eedfc8]/40 mb-1.5 font-medium uppercase tracking-wider">
-                Shared Conditions
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {currentProfile.conditions.map((condition) => (
-                  <span
-                    key={condition}
-                    className="badge text-xs bg-[#B85C3A]/15 text-[#B85C3A] border border-[#B85C3A]/20"
-                  >
-                    <i className="ri-heart-pulse-line mr-1" />
-                    {condition}
-                  </span>
-                ))}
+          <aside className="space-y-4">
+            <section className="card">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="section-title !mb-0">Incoming requests</h2>
+                <span className="text-xs text-[#eedfc8]/45">{receivedRequests.length}</span>
               </div>
-            </div>
 
-            {/* Bio */}
-            <div>
-              <p className="text-sm text-[#eedfc8]/80 leading-relaxed">
-                {currentProfile.bio}
-              </p>
-            </div>
-
-            {/* Interests */}
-            <div>
-              <p className="text-xs text-[#eedfc8]/40 mb-1.5 font-medium uppercase tracking-wider">
-                Interests
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {currentProfile.interests.map((interest) => (
-                  <span key={interest} className="badge text-xs">
-                    {interest}
-                  </span>
-                ))}
+              <div className="mt-4 space-y-3">
+                {receivedRequests.length > 0 ? (
+                  receivedRequests.map((request) => {
+                    const busy = updatingIds.has(request.id)
+                    return (
+                      <div key={request.id} className="card-light !p-4">
+                        <p className="text-sm font-semibold text-[#eedfc8]">New connection request</p>
+                        <p className="mt-1 text-xs text-[#eedfc8]/45">
+                          Received {formatRelativeTime(request.created_at)}
+                        </p>
+                        <div className="mt-4 flex gap-2">
+                          <button
+                            onClick={() => handleUpdateRequest(request.id, 'accepted')}
+                            disabled={busy}
+                            className="btn-primary flex-1 !py-2 text-xs disabled:opacity-50"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => handleUpdateRequest(request.id, 'declined')}
+                            disabled={busy}
+                            className="btn-secondary flex-1 !py-2 text-xs disabled:opacity-50"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <p className="text-sm text-[#eedfc8]/55">No pending requests yet.</p>
+                )}
               </div>
-            </div>
+            </section>
 
-            {/* Action Buttons */}
-            <div className="flex items-center justify-center gap-6 pt-2">
-              <button
-                onClick={handlePass}
-                className="w-16 h-16 rounded-full bg-[#eedfc8]/10 border border-[#eedfc8]/20 flex items-center justify-center transition-all hover:bg-red-500/20 hover:border-red-400/30 active:scale-90"
-              >
-                <i className="ri-close-line text-2xl text-[#eedfc8]/60" />
-              </button>
-              <button
-                onClick={handleLike}
-                className="w-20 h-20 rounded-full bg-[#B85C3A]/20 border-2 border-[#B85C3A]/40 flex items-center justify-center transition-all hover:bg-[#B85C3A]/30 active:scale-90"
-              >
-                <i className="ri-heart-fill text-3xl text-[#B85C3A]" />
-              </button>
-              <button className="w-16 h-16 rounded-full bg-[#eedfc8]/10 border border-[#eedfc8]/20 flex items-center justify-center transition-all hover:bg-[#D19A58]/20 hover:border-[#D19A58]/30 active:scale-90">
-                <i className="ri-star-line text-2xl text-[#D19A58]" />
-              </button>
-            </div>
-
-            {/* Progress indicator */}
-            <div className="flex justify-center gap-1.5 pt-1">
-              {mockProfiles.map((_, idx) => (
-                <div
-                  key={idx}
-                  className={`h-1 rounded-full transition-all ${
-                    idx === currentIndex
-                      ? 'w-6 bg-[#D19A58]'
-                      : idx < currentIndex
-                        ? 'w-1.5 bg-[#eedfc8]/30'
-                        : 'w-1.5 bg-[#eedfc8]/10'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Stats row */}
-      <div className="px-4 mt-4">
-        <div className="flex gap-3">
-          <div className="card-light flex-1 text-center py-3">
-            <p className="text-lg font-bold text-[#D19A58]">{likedProfiles.length}</p>
-            <p className="text-[10px] text-[#eedfc8]/50 uppercase tracking-wider">
-              Liked
-            </p>
-          </div>
-          <div className="card-light flex-1 text-center py-3">
-            <p className="text-lg font-bold text-[#eedfc8]/60">
-              {passedProfiles.length}
-            </p>
-            <p className="text-[10px] text-[#eedfc8]/50 uppercase tracking-wider">
-              Passed
-            </p>
-          </div>
-          <div className="card-light flex-1 text-center py-3">
-            <p className="text-lg font-bold text-green-400">
-              {mockProfiles.length - currentIndex}
-            </p>
-            <p className="text-[10px] text-[#eedfc8]/50 uppercase tracking-wider">
-              Remaining
-            </p>
-          </div>
+            <section className="card-light">
+              <p className="text-sm font-semibold text-[#eedfc8]">How suggestions work</p>
+              <p className="mt-2 text-sm text-[#eedfc8]/60">
+                KinSpace now ranks suggestions using real profile overlap like shared groups, location, and communication preferences.
+              </p>
+            </section>
+          </aside>
         </div>
       </div>
-
-      {/* Match Celebration Overlay */}
-      {showMatch && matchedProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
-          <div className="text-center px-8 animate-slide-up">
-            {/* Connection animation */}
-            <div className="relative mb-6">
-              <div className="flex items-center justify-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-[#D19A58]/20 border-2 border-[#D19A58] flex items-center justify-center">
-                  <i className="ri-user-line text-[#D19A58] text-2xl" />
-                </div>
-                <div className="flex items-center">
-                  <div className="w-8 h-0.5 bg-[#D19A58]" />
-                  <i className="ri-heart-fill text-[#B85C3A] text-2xl mx-1 hero-glow rounded-full" />
-                  <div className="w-8 h-0.5 bg-[#D19A58]" />
-                </div>
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#D19A58]/30 to-[#B85C3A]/30 border-2 border-[#D19A58] flex items-center justify-center">
-                  <span className="text-2xl font-bold text-[#D19A58]">
-                    {matchedProfile.name[0]}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <h2 className="text-2xl font-bold text-[#eedfc8] mb-2">
-              It&apos;s a Connection!
-            </h2>
-            <p className="text-sm text-[#eedfc8]/70 mb-1">
-              You and {matchedProfile.name} share {matchedProfile.matchPercent}% in
-              common
-            </p>
-            <div className="flex flex-wrap justify-center gap-1.5 mb-6">
-              {matchedProfile.conditions.map((c) => (
-                <span
-                  key={c}
-                  className="badge text-xs bg-[#D19A58]/20 text-[#D19A58]"
-                >
-                  {c}
-                </span>
-              ))}
-            </div>
-
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => {
-                  setShowMatch(false);
-                  setMatchedProfile(null);
-                  goToNext();
-                }}
-                className="btn-secondary text-sm"
-              >
-                Keep Browsing
-              </button>
-              <button
-                onClick={() => {
-                  setShowMatch(false);
-                  setMatchedProfile(null);
-                  goToNext();
-                }}
-                className="btn-primary text-sm"
-              >
-                <i className="ri-chat-1-line mr-1.5" />
-                Say Hello
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <BottomNav />
-    </div>
-  );
+    </PageFrame>
+  )
 }

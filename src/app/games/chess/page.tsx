@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
 type Piece = 'k' | 'q' | 'r' | 'b' | 'n' | 'p' | 'K' | 'Q' | 'R' | 'B' | 'N' | 'P' | null
 
@@ -143,24 +144,24 @@ function minimax(board: Piece[][], depth: number, maximizing: boolean, alpha: nu
   }
 }
 
+function getDifficultyFromParam(value: string | null) {
+  if (value === 'easy') return 1
+  if (value === 'hard') return 3
+  return 2
+}
+
 // --- Component ---
 export default function ChessGame() {
+  const searchParams = useSearchParams()
   const [fen, setFen] = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
   const [whitesTurn, setWhitesTurn] = useState(true)
   const [selected, setSelected] = useState<string | null>(null)
   const [valid, setValid] = useState<string[]>([])
   const [moves, setMoves] = useState<string[]>([])
   const [status, setStatus] = useState<'playing' | 'checkmate' | 'stalemate'>('playing')
-  const [difficulty, setDifficulty] = useState(2)
-  const [aiThinking, setAiThinking] = useState(false)
   const [captured, setCaptured] = useState<{ white: string[]; black: string[] }>({ white: [], black: [] })
-
-  useEffect(() => {
-    const d = new URLSearchParams(window.location.search).get('difficulty')
-    if (d === 'easy') setDifficulty(1)
-    else if (d === 'hard') setDifficulty(3)
-    else setDifficulty(2)
-  }, [])
+  const difficulty = getDifficultyFromParam(searchParams.get('difficulty'))
+  const aiThinking = !whitesTurn && status === 'playing'
 
   const board = parseFEN(fen)
 
@@ -194,11 +195,13 @@ export default function ChessGame() {
   // AI move
   useEffect(() => {
     if (whitesTurn || status !== 'playing') return
-    setAiThinking(true)
     const timer = setTimeout(() => {
       const b = parseFEN(fen)
       const mvs = allMoves(b, false) // black = AI
-      if (mvs.length === 0) { setStatus('stalemate'); setAiThinking(false); return }
+      if (mvs.length === 0) {
+        setStatus('stalemate')
+        return
+      }
 
       let best = mvs[0], bestVal = -Infinity
       if (difficulty === 1 && Math.random() < 0.4) {
@@ -210,7 +213,6 @@ export default function ChessGame() {
         }
       }
       doMove(best.from, best.to)
-      setAiThinking(false)
     }, 600)
     return () => clearTimeout(timer)
   }, [whitesTurn, fen, status, difficulty, doMove])

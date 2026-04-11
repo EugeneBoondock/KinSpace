@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
 type Cell = 'X' | 'O' | null
 type Status = 'playing' | 'win' | 'draw'
@@ -67,26 +68,25 @@ function getAiMove(b: Cell[], difficulty: number): number {
   return bestMove
 }
 
+function getDifficultyFromParam(value: string | null) {
+  if (value === 'easy') return 1
+  if (value === 'hard') return 3
+  return 2
+}
+
 export default function TicTacToe() {
+  const searchParams = useSearchParams()
   const [board, setBoard] = useState<Cell[]>(Array(9).fill(null))
   const [xTurn, setXTurn] = useState(true)
   const [status, setStatus] = useState<Status>('playing')
   const [winLine, setWinLine] = useState<number[] | null>(null)
   const [score, setScore] = useState({ player: 0, ai: 0, draw: 0 })
-  const [difficulty, setDifficulty] = useState(2)
-  const [aiThinking, setAiThinking] = useState(false)
-
-  useEffect(() => {
-    const d = new URLSearchParams(window.location.search).get('difficulty')
-    if (d === 'easy') setDifficulty(1)
-    else if (d === 'hard') setDifficulty(3)
-    else setDifficulty(2)
-  }, [])
+  const difficulty = getDifficultyFromParam(searchParams.get('difficulty'))
+  const aiThinking = !xTurn && status === 'playing'
 
   // AI move
   useEffect(() => {
     if (xTurn || status !== 'playing') return
-    setAiThinking(true)
     const timer = setTimeout(() => {
       const b = [...board]
       const move = getAiMove(b, difficulty)
@@ -105,7 +105,6 @@ export default function TicTacToe() {
           setXTurn(true)
         }
       }
-      setAiThinking(false)
     }, 500)
     return () => clearTimeout(timer)
   }, [xTurn, board, status, difficulty])
