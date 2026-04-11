@@ -1,133 +1,436 @@
 'use client';
 
-import React from 'react';
+import { useState, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
-import Image from 'next/image';
+import { useAuth } from '@/lib/AuthContext';
 
-// Placeholder icons - replace with actual icon components or imports if available
-const FilterIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 6H20M7 12H17M10 18H14" stroke="#0D141C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
+interface MatchProfile {
+  id: string;
+  name: string;
+  age: number;
+  matchPercent: number;
+  conditions: string[];
+  bio: string;
+  interests: string[];
+  location: string;
+}
 
-const HeartIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" fillRule="evenodd" clipRule="evenodd" viewBox="0 0 24 24">
-        <path d="M12 4.248c-3.148-5.402-12-3.825-12 2.944 0 4.661 5.571 9.427 12 15.808 6.43-6.381 12-11.147 12-15.808 0-6.792-8.875-8.306-12-2.944z" />
-    </svg>
-);
-
-const XIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" fillRule="evenodd" clipRule="evenodd" viewBox="0 0 24 24">
-        <path d="M12 11.293l10.293-10.293.707.707-10.293 10.293 10.293 10.293-.707.707-10.293-10.293-10.293 10.293-.707-.707 10.293-10.293-10.293-10.293.707-.707 10.293 10.293z" />
-    </svg>
-);
-
-// Mock data for potential matches
-const mockMatches = [
+const mockProfiles: MatchProfile[] = [
   {
-    id: 'match1',
-    name: 'Alex P.',
+    id: '1',
+    name: 'Jordan S.',
     age: 28,
-    bio: 'Seeking a kind soul who understands the ups and downs. Loves hiking and art.',
-    imageUrl: '/images/match1-placeholder.jpg', // Replace with actual image path
-    commonConditions: ['Lupus', 'Anxiety'],
-    matchPercentage: 85,
+    matchPercent: 94,
+    conditions: ['Anxiety', 'Chronic Fatigue'],
+    bio: 'Navigating life with anxiety and CFS. Love cooking, board games, and long conversations about absolutely nothing. Looking for people who get it.',
+    interests: ['Cooking', 'Board Games', 'Mindfulness'],
+    location: 'Brooklyn, NY',
   },
   {
-    id: 'match2',
-    name: 'Jamie L.',
-    age: 32,
-    bio: 'Creative spirit, enjoys quiet nights in and meaningful conversations. Cat parent.',
-    imageUrl: '/images/match2-placeholder.jpg', // Replace with actual image path
-    commonConditions: ['Fibromyalgia', "Raynaud's"],
-    matchPercentage: 78,
+    id: '2',
+    name: 'Riley M.',
+    age: 31,
+    matchPercent: 89,
+    conditions: ['Depression', 'Fibromyalgia'],
+    bio: 'Artist and fibro warrior. I paint my pain and find beauty in the struggle. Seeking connections who understand the invisible battles.',
+    interests: ['Art', 'Music', 'Yoga'],
+    location: 'Portland, OR',
   },
   {
-    id: 'match3',
-    name: 'Sam K.',
+    id: '3',
+    name: 'Taylor K.',
     age: 25,
-    bio: 'Tech enthusiast and gamer. Looking for someone to share laughs and support.',
-    imageUrl: '/images/match3-placeholder.jpg', // Replace with actual image path
-    commonConditions: ['Chronic Fatigue', 'Depression'],
-    matchPercentage: 92,
+    matchPercent: 86,
+    conditions: ['Anxiety', 'IBS'],
+    bio: 'Software developer by day, anxious human by night. Working on being kinder to myself. Would love to connect with fellow warriors.',
+    interests: ['Tech', 'Hiking', 'Reading'],
+    location: 'Austin, TX',
+  },
+  {
+    id: '4',
+    name: 'Morgan P.',
+    age: 33,
+    matchPercent: 82,
+    conditions: ['PTSD', 'Chronic Pain'],
+    bio: 'Trauma survivor on a healing journey. I believe in the power of connection and shared experience. One day at a time.',
+    interests: ['Gardening', 'Meditation', 'Podcasts'],
+    location: 'Denver, CO',
+  },
+  {
+    id: '5',
+    name: 'Casey L.',
+    age: 27,
+    matchPercent: 79,
+    conditions: ['Lupus', 'Anxiety'],
+    bio: 'Living boldly with lupus. Flare-ups do not define me, but they sure make for interesting stories. Let us be friends who understand.',
+    interests: ['Photography', 'Coffee', 'Dogs'],
+    location: 'Seattle, WA',
+  },
+  {
+    id: '6',
+    name: 'Avery D.',
+    age: 30,
+    matchPercent: 75,
+    conditions: ['Diabetes', 'Depression'],
+    bio: 'Type 1 diabetic and mental health advocate. I believe vulnerability is strength. Looking for authentic connections who keep it real.',
+    interests: ['Running', 'Writing', 'Volunteering'],
+    location: 'Chicago, IL',
+  },
+  {
+    id: '7',
+    name: 'Quinn W.',
+    age: 26,
+    matchPercent: 72,
+    conditions: ['Chronic Fatigue', 'Autoimmune'],
+    bio: 'Spoonie life chose me. Making the most of good days and being gentle on bad ones. Let us share our journeys.',
+    interests: ['Movies', 'Crafts', 'Cat Videos'],
+    location: 'Nashville, TN',
   },
 ];
 
-const TraumaBondingPage = () => {
-  // In a real app, you'd fetch matches from an API
-  const matches = mockMatches;
-
+function MatchBadge({ percent }: { percent: number }) {
+  const color =
+    percent >= 90
+      ? 'text-green-400 border-green-400/40'
+      : percent >= 80
+        ? 'text-[#D19A58] border-[#D19A58]/40'
+        : 'text-[#eedfc8]/60 border-[#eedfc8]/20';
   return (
-    <div className="@container/main flex min-h-screen flex-col bg-slate-50 pb-24 font-manrope">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-slate-50/80 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 max-w-screen-md items-center justify-between px-3">
-          <h1 className="text-lg font-semibold text-slate-900">Find Your Match</h1>
-          <button className="rounded-lg p-1.5 text-slate-700 hover:bg-slate-200">
-            <FilterIcon />
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content - Match Cards */}
-      <main className="flex-1 p-3">
-        {matches.length > 0 ? (
-          <div className="grid gap-4 @[480px]/main:grid-cols-2 @[768px]/main:grid-cols-3">
-            {matches.map((match) => (
-              <div key={match.id} className="@container/card relative flex aspect-[3/4] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="relative h-3/5 w-full">
-                  <Image src={match.imageUrl} alt={match.name} layout="fill" objectFit="cover" className="bg-slate-200" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
-                  <div className="absolute bottom-2 left-2 right-2">
-                    <h2 className="text-lg font-semibold text-white">{match.name}, {match.age}</h2>
-                    {match.matchPercentage && (
-                        <div className="mt-0.5">
-                            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                                {match.matchPercentage}% Match
-                            </span>
-                        </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-1 flex-col p-3">
-                  <p className="text-xs text-slate-600 line-clamp-3 @[280px]/card:line-clamp-4">{match.bio}</p>
-                  {match.commonConditions && match.commonConditions.length > 0 && (
-                    <div className="mt-2">
-                      <h3 className="text-[11px] font-semibold text-slate-500">Shares:</h3>
-                      <div className="mt-0.5 flex flex-wrap gap-1">
-                        {match.commonConditions.map((condition, idx) => (
-                          <span key={idx} className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
-                            {condition}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="mt-auto grid grid-cols-2 border-t border-slate-200">
-                  <button className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600">
-                    <XIcon className="h-5 w-5 fill-current" /> Pass
-                  </button>
-                  <button className="flex items-center justify-center gap-1.5 border-l border-slate-200 py-2.5 text-sm font-medium text-sky-600 hover:bg-sky-50">
-                    <HeartIcon className="h-5 w-5 fill-current" /> Like
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-white p-12 text-center">
-            <div className="text-3xl text-slate-400">💔</div>
-            <h3 className="mt-2 text-sm font-medium text-slate-900">No Matches Yet</h3>
-            <p className="mt-1 text-sm text-slate-500">Adjust your filters or check back later.</p>
-          </div>
-        )}
-      </main>
-
-      <BottomNav activePage="Trauma-Bonding" />
+    <div
+      className={`w-16 h-16 rounded-full border-2 ${color} flex items-center justify-center`}
+    >
+      <div className="text-center">
+        <p className={`text-lg font-bold ${color.split(' ')[0]}`}>{percent}%</p>
+        <p className="text-[8px] text-[#eedfc8]/40">match</p>
+      </div>
     </div>
   );
-};
+}
 
-export default TraumaBondingPage;
+export default function TraumaBonding() {
+  const { loading } = useAuth();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showMatch, setShowMatch] = useState(false);
+  const [matchedProfile, setMatchedProfile] = useState<MatchProfile | null>(null);
+  const [likedProfiles, setLikedProfiles] = useState<string[]>([]);
+  const [passedProfiles, setPassedProfiles] = useState<string[]>([]);
+  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
+
+  const currentProfile =
+    currentIndex < mockProfiles.length ? mockProfiles[currentIndex] : null;
+
+  const goToNext = useCallback(() => {
+    setSwipeDirection(null);
+    if (currentIndex < mockProfiles.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+    }
+  }, [currentIndex]);
+
+  const handleLike = useCallback(() => {
+    if (!currentProfile) return;
+    setSwipeDirection('right');
+    setLikedProfiles((prev) => [...prev, currentProfile.id]);
+
+    // Simulate a match on profiles with 85%+ match
+    if (currentProfile.matchPercent >= 85) {
+      setTimeout(() => {
+        setMatchedProfile(currentProfile);
+        setShowMatch(true);
+        setTimeout(() => {
+          setShowMatch(false);
+          setMatchedProfile(null);
+          goToNext();
+        }, 3000);
+      }, 300);
+    } else {
+      setTimeout(goToNext, 300);
+    }
+  }, [currentProfile, goToNext]);
+
+  const handlePass = useCallback(() => {
+    if (!currentProfile) return;
+    setSwipeDirection('left');
+    setPassedProfiles((prev) => [...prev, currentProfile.id]);
+    setTimeout(goToNext, 300);
+  }, [currentProfile, goToNext]);
+
+  const resetProfiles = () => {
+    setCurrentIndex(0);
+    setLikedProfiles([]);
+    setPassedProfiles([]);
+    setSwipeDirection(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-brand-primary pb-20">
+        <div className="px-4 pt-6 space-y-4">
+          <div className="h-8 w-48 skeleton" />
+          <div className="card space-y-4 py-8">
+            <div className="w-20 h-20 skeleton rounded-full mx-auto" />
+            <div className="h-6 w-32 skeleton mx-auto" />
+            <div className="h-4 w-48 skeleton mx-auto" />
+            <div className="h-20 w-full skeleton" />
+            <div className="flex justify-center gap-6">
+              <div className="w-16 h-16 skeleton rounded-full" />
+              <div className="w-16 h-16 skeleton rounded-full" />
+            </div>
+          </div>
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-brand-primary pb-20">
+      {/* Header */}
+      <div className="px-4 pt-6 pb-3">
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-2xl font-bold text-[#eedfc8]">Connect</h1>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#eedfc8]/50">
+              {likedProfiles.length} liked
+            </span>
+            <button className="w-10 h-10 rounded-full bg-[#eedfc8]/10 flex items-center justify-center">
+              <i className="ri-settings-3-line text-[#eedfc8] text-lg" />
+            </button>
+          </div>
+        </div>
+        <p className="text-sm text-[#eedfc8]/60">
+          Find people who share your journey. Matched by conditions, interests, and
+          experiences.
+        </p>
+      </div>
+
+      {/* Match Card Area */}
+      <div className="px-4 mt-2">
+        {!currentProfile ? (
+          // No more profiles
+          <div className="card text-center py-12">
+            <i className="ri-emotion-happy-line text-5xl text-[#D19A58] mb-4" />
+            <h2 className="text-lg font-bold text-[#eedfc8] mb-2">
+              You have seen everyone!
+            </h2>
+            <p className="text-sm text-[#eedfc8]/60 mb-4">
+              Check back later for new connections, or review your matches.
+            </p>
+            <div className="flex gap-2 justify-center">
+              <button onClick={resetProfiles} className="btn-primary text-sm">
+                Start Over
+              </button>
+              <button className="btn-secondary text-sm">View Matches</button>
+            </div>
+          </div>
+        ) : (
+          // Profile card
+          <div
+            className={`card space-y-4 transition-all duration-300 ${
+              swipeDirection === 'left'
+                ? 'opacity-0 -translate-x-20'
+                : swipeDirection === 'right'
+                  ? 'opacity-0 translate-x-20'
+                  : 'opacity-100 translate-x-0'
+            }`}
+          >
+            {/* Profile Header */}
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#D19A58]/30 to-[#B85C3A]/30 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl font-bold text-[#D19A58]">
+                  {currentProfile.name[0]}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-[#eedfc8]">
+                    {currentProfile.name}
+                  </h2>
+                  <span className="text-sm text-[#eedfc8]/50">
+                    {currentProfile.age}
+                  </span>
+                </div>
+                <p className="text-xs text-[#eedfc8]/50 flex items-center gap-1 mt-0.5">
+                  <i className="ri-map-pin-2-line" />
+                  {currentProfile.location}
+                </p>
+              </div>
+              <MatchBadge percent={currentProfile.matchPercent} />
+            </div>
+
+            {/* Shared Conditions */}
+            <div>
+              <p className="text-xs text-[#eedfc8]/40 mb-1.5 font-medium uppercase tracking-wider">
+                Shared Conditions
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {currentProfile.conditions.map((condition) => (
+                  <span
+                    key={condition}
+                    className="badge text-xs bg-[#B85C3A]/15 text-[#B85C3A] border border-[#B85C3A]/20"
+                  >
+                    <i className="ri-heart-pulse-line mr-1" />
+                    {condition}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Bio */}
+            <div>
+              <p className="text-sm text-[#eedfc8]/80 leading-relaxed">
+                {currentProfile.bio}
+              </p>
+            </div>
+
+            {/* Interests */}
+            <div>
+              <p className="text-xs text-[#eedfc8]/40 mb-1.5 font-medium uppercase tracking-wider">
+                Interests
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {currentProfile.interests.map((interest) => (
+                  <span key={interest} className="badge text-xs">
+                    {interest}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-center gap-6 pt-2">
+              <button
+                onClick={handlePass}
+                className="w-16 h-16 rounded-full bg-[#eedfc8]/10 border border-[#eedfc8]/20 flex items-center justify-center transition-all hover:bg-red-500/20 hover:border-red-400/30 active:scale-90"
+              >
+                <i className="ri-close-line text-2xl text-[#eedfc8]/60" />
+              </button>
+              <button
+                onClick={handleLike}
+                className="w-20 h-20 rounded-full bg-[#B85C3A]/20 border-2 border-[#B85C3A]/40 flex items-center justify-center transition-all hover:bg-[#B85C3A]/30 active:scale-90"
+              >
+                <i className="ri-heart-fill text-3xl text-[#B85C3A]" />
+              </button>
+              <button className="w-16 h-16 rounded-full bg-[#eedfc8]/10 border border-[#eedfc8]/20 flex items-center justify-center transition-all hover:bg-[#D19A58]/20 hover:border-[#D19A58]/30 active:scale-90">
+                <i className="ri-star-line text-2xl text-[#D19A58]" />
+              </button>
+            </div>
+
+            {/* Progress indicator */}
+            <div className="flex justify-center gap-1.5 pt-1">
+              {mockProfiles.map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`h-1 rounded-full transition-all ${
+                    idx === currentIndex
+                      ? 'w-6 bg-[#D19A58]'
+                      : idx < currentIndex
+                        ? 'w-1.5 bg-[#eedfc8]/30'
+                        : 'w-1.5 bg-[#eedfc8]/10'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Stats row */}
+      <div className="px-4 mt-4">
+        <div className="flex gap-3">
+          <div className="card-light flex-1 text-center py-3">
+            <p className="text-lg font-bold text-[#D19A58]">{likedProfiles.length}</p>
+            <p className="text-[10px] text-[#eedfc8]/50 uppercase tracking-wider">
+              Liked
+            </p>
+          </div>
+          <div className="card-light flex-1 text-center py-3">
+            <p className="text-lg font-bold text-[#eedfc8]/60">
+              {passedProfiles.length}
+            </p>
+            <p className="text-[10px] text-[#eedfc8]/50 uppercase tracking-wider">
+              Passed
+            </p>
+          </div>
+          <div className="card-light flex-1 text-center py-3">
+            <p className="text-lg font-bold text-green-400">
+              {mockProfiles.length - currentIndex}
+            </p>
+            <p className="text-[10px] text-[#eedfc8]/50 uppercase tracking-wider">
+              Remaining
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Match Celebration Overlay */}
+      {showMatch && matchedProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
+          <div className="text-center px-8 animate-slide-up">
+            {/* Connection animation */}
+            <div className="relative mb-6">
+              <div className="flex items-center justify-center gap-4">
+                <div className="w-20 h-20 rounded-full bg-[#D19A58]/20 border-2 border-[#D19A58] flex items-center justify-center">
+                  <i className="ri-user-line text-[#D19A58] text-2xl" />
+                </div>
+                <div className="flex items-center">
+                  <div className="w-8 h-0.5 bg-[#D19A58]" />
+                  <i className="ri-heart-fill text-[#B85C3A] text-2xl mx-1 hero-glow rounded-full" />
+                  <div className="w-8 h-0.5 bg-[#D19A58]" />
+                </div>
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#D19A58]/30 to-[#B85C3A]/30 border-2 border-[#D19A58] flex items-center justify-center">
+                  <span className="text-2xl font-bold text-[#D19A58]">
+                    {matchedProfile.name[0]}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <h2 className="text-2xl font-bold text-[#eedfc8] mb-2">
+              It&apos;s a Connection!
+            </h2>
+            <p className="text-sm text-[#eedfc8]/70 mb-1">
+              You and {matchedProfile.name} share {matchedProfile.matchPercent}% in
+              common
+            </p>
+            <div className="flex flex-wrap justify-center gap-1.5 mb-6">
+              {matchedProfile.conditions.map((c) => (
+                <span
+                  key={c}
+                  className="badge text-xs bg-[#D19A58]/20 text-[#D19A58]"
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => {
+                  setShowMatch(false);
+                  setMatchedProfile(null);
+                  goToNext();
+                }}
+                className="btn-secondary text-sm"
+              >
+                Keep Browsing
+              </button>
+              <button
+                onClick={() => {
+                  setShowMatch(false);
+                  setMatchedProfile(null);
+                  goToNext();
+                }}
+                className="btn-primary text-sm"
+              >
+                <i className="ri-chat-1-line mr-1.5" />
+                Say Hello
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <BottomNav />
+    </div>
+  );
+}

@@ -1,160 +1,474 @@
 'use client';
 
-import React from "react";
+import { useState } from 'react';
+import BottomNav from '@/components/BottomNav';
+import { useAuth } from '@/lib/AuthContext';
 
+type Tab = 'for-you' | 'following' | 'your-groups';
 
-const groupImages = [
+const mockRecommended = [
   {
-    name: "Chronic Pain Support",
-    url: "https://lh3.googleusercontent.com/aida-public/AB6AXuDIbFPgscZwXdvM8YBhKsKPrIFHurESj91w8UQRMZ0_RYExr7xJsHaaKoW-Jg2e-f0MYtQnGEPLjIpTC625pKTH_crVO-uoeQSqQ3SZBErWCvUhgCYR8B7zsBPGL-k_eRmh8xi6NXS6vVhOMDBXZVPWmT__IiPpere1u8Ckj536qM_-byYug9QVdBvRiDhGCPY8bLqkN1Kwcq1G8yFpEvMuo8vFxAHhB5W7JQvh-hKuGQ-cSDTC_x4lOLz_lYBtqxac1Z40aTmpm2yi"
+    id: '1',
+    name: 'Anxiety Warriors United',
+    description: 'A safe space for people living with anxiety disorders to share strategies and support.',
+    members: 1243,
+    matchPercent: 95,
+    matchReasons: ['Anxiety', 'CBT', 'Mindfulness'],
+    nextMeeting: 'Today, 7:00 PM',
+    type: 'virtual' as const,
+    isNew: true,
   },
   {
-    name: "Mental Health Warriors",
-    url: "https://lh3.googleusercontent.com/aida-public/AB6AXuA6A99w_l-7bwNpSt5MFbjILona0rPLyWtdAbv82fgwJSHlttAJ8ruNo1k4JBB_1ZCKwUGxPB0K5aJbBF1-zajFDKOK6asOpV8Isml9ixGCfx6iOtmW3XWTpzS_BYo23oyi8QySvluharhMCWJhv6J9c4QOnxSqZW2aTrQpR_LurtDppBBD9k6O8fmWH3_O_ycYiXGqQ4-Vasdpd-o7ttcsOwbXkwKxEc9kdUizAAhK5yghIVQLnOWIyUHE475SsjTQYdHF1pTrr242"
+    id: '2',
+    name: 'Chronic Fatigue Circle',
+    description: 'For those managing CFS/ME. Pacing strategies, rest advocacy, and emotional support.',
+    members: 567,
+    matchPercent: 88,
+    matchReasons: ['Chronic Fatigue', 'Self-Care'],
+    nextMeeting: 'Tomorrow, 5:30 PM',
+    type: 'virtual' as const,
+    isNew: false,
   },
   {
-    name: "Autoimmune Allies",
-    url: "https://lh3.googleusercontent.com/aida-public/AB6AXuA8xFNZ069urLrfK4E5lgcdraMQ7OhfpSC09OqTQ5EijjbamB7sH4K5X7fu7FJavGyDjIbxUYFymzo30BkVNRrqKUR1TF0mmqyN0Apouo8CDPa1ftUBDcT4fB1MvKZaOoZMRITW00rR8gR28-CB3cDm_8LHY8Pzqp3kpPZc2XL5wd9nxnhcCtKWFPBQEKhvAL2vH9eb7IRIYgzccGrgXX8WpHQUEeIdg2qXUrrtuToDeJU1ngDk4yz0hjdxbrr8Skv8K8w_9nLHDtTH"
-  }
+    id: '3',
+    name: 'Mindful Depression Recovery',
+    description: 'Combining mindfulness with peer support for those working through depression.',
+    members: 1567,
+    matchPercent: 82,
+    matchReasons: ['Depression', 'Mindfulness'],
+    nextMeeting: 'Sat, 10:00 AM',
+    type: 'virtual' as const,
+    isNew: false,
+  },
+  {
+    id: '4',
+    name: 'Young Adults with Chronic Illness',
+    description: 'Navigating careers, relationships, and life goals while managing a chronic condition.',
+    members: 945,
+    matchPercent: 79,
+    matchReasons: ['Chronic Illness', 'Young Adults'],
+    nextMeeting: 'Mon, 8:00 PM',
+    type: 'in-person' as const,
+    isNew: true,
+  },
+  {
+    id: '5',
+    name: 'Holistic Healing Collective',
+    description: 'Exploring complementary therapies alongside traditional treatment. Open-minded and evidence-informed.',
+    members: 378,
+    matchPercent: 74,
+    matchReasons: ['Holistic', 'Wellness'],
+    nextMeeting: 'Wed, 6:00 PM',
+    type: 'virtual' as const,
+    isNew: false,
+  },
 ];
 
-const communityImages = [
+const mockFollowing = [
   {
-    name: "Trauma-Bonding",
-    url: "https://lh3.googleusercontent.com/aida-public/AB6AXuCakRMc61KEme_VfOekxcLNqBssNWlqgYklIlY5pSScQJkJoOaCPosZW_4I6flTfkxq3c8irZ4re12yaWijKUE1Ir079VnepjbVMYYJNvp0o7I0gb8ymtorJTkaWR_EC0NHKzwWNgRIvuOFtTAHD8Cl7d3rnnBpBrA6WGNqii9SJBtZZVlkLLoM6NRdWWCcvvfBLvVpRGf4NTm4fwrdrXDJDKR2gpId7mbICCw4D-Qs_NgO6VAs_4jtOeWZUVUgfsBH5XwpK-YR09v_"
+    id: '10',
+    name: 'PTSD & Trauma Support',
+    description: 'A gentle, moderated space for trauma survivors.',
+    members: 1890,
+    lastPost: '2h ago',
+    unread: 5,
+    type: 'virtual' as const,
   },
   {
-    name: "Daily Prompt Circle",
-    url: "https://lh3.googleusercontent.com/aida-public/AB6AXuCyC7upSVp9o7fi8qqqJ6Sczue3IVPRXy7PVFitIhaprHby4sksNv6zomMMyu4BNYry5VK94xtKVIxHqWrIwEcFCTgOvV1z_NoBdLJ9NeXvLu-hYb9gsNR0vYdzqXPOTlK7Ml8axkLeSktv1Sjcy4O3IPOg48jhUNL7-SddH0ik9Mcq-YuaAXIqaaFngHN2NOP1Bfu1qrDmrU622jYQalz_PSsSEPIzJtVmxqTgnun_YlTTH4RLMfIMAZqMmGbHhQABWWSihnlQr7Kj"
+    id: '11',
+    name: 'Cancer Survivors Network',
+    description: 'Connecting cancer survivors and those in treatment.',
+    members: 654,
+    lastPost: '6h ago',
+    unread: 2,
+    type: 'virtual' as const,
   },
   {
-    name: "Friendship First",
-    url: "https://lh3.googleusercontent.com/aida-public/AB6AXuDvbob4j_Yk6fCmijC6378O-ccfLQSIF4ghHfdqyah9XsO0F_U6dQaO7jSrcPhQPHQBlGu7VnwHjsAcJtkcD9FMmOzaiTG84npyBP79d1L39Mg4PlOgo1UKZAeC6ixTcptDatQFw3uhDcwstOtonCo-JvId1MbzkynNFVNV5C02QUhF-UcWh0SACllBRw4H9-9IGRXOIRRXkQNuhwzFZGk3mKoUaRGFtbYkXW-O9ZjgB0tGgu5C8ZnUql4jju9VGlETT9_xHckWLWrh"
-  }
+    id: '12',
+    name: 'Lupus & Autoimmune Alliance',
+    description: 'Supporting each other through autoimmune flare-ups and remissions.',
+    members: 432,
+    lastPost: '1d ago',
+    unread: 0,
+    type: 'in-person' as const,
+  },
 ];
 
-const Tabs = () => (
-  <div className="flex border-b border-[#eedfc9]/20 px-4 gap-8">
-    <a className="flex flex-col items-center justify-center border-b-[3px] border-b-[#eedfc9] text-[#eedfc9] pb-[13px] pt-4" href="#">
-      <p className="text-[#eedfc9] text-sm font-bold leading-normal tracking-[0.015em]">For you</p>
-    </a>
-    <a className="flex flex-col items-center justify-center border-b-[3px] border-b-transparent text-[#eedfc9]/60 hover:text-[#eedfc9] transition-colors pb-[13px] pt-4" href="#">
-      <p className="text-[#eedfc9]/60 text-sm font-bold leading-normal tracking-[0.015em]">Following</p>
-    </a>
-    <a className="flex flex-col items-center justify-center border-b-[3px] border-b-transparent text-[#eedfc9]/60 hover:text-[#eedfc9] transition-colors pb-[13px] pt-4" href="#">
-      <p className="text-[#eedfc9]/60 text-sm font-bold leading-normal tracking-[0.015em]">Your groups</p>
-    </a>
-  </div>
-);
+const mockYourGroups = [
+  {
+    id: '20',
+    name: 'My Anxiety Support Pod',
+    description: 'Your personal support group for anxiety management and daily check-ins.',
+    members: 12,
+    role: 'Admin',
+    lastActivity: '30 min ago',
+    type: 'virtual' as const,
+    unread: 3,
+  },
+  {
+    id: '21',
+    name: 'Fibro Friends',
+    description: 'A small close-knit group for fibromyalgia warriors to share daily experiences.',
+    members: 8,
+    role: 'Member',
+    lastActivity: '2h ago',
+    type: 'virtual' as const,
+    unread: 0,
+  },
+  {
+    id: '22',
+    name: 'Meditation & Chronic Pain',
+    description: 'Weekly meditation sessions focused on pain management techniques.',
+    members: 24,
+    role: 'Member',
+    lastActivity: '1d ago',
+    type: 'virtual' as const,
+    unread: 1,
+  },
+];
 
-const GroupsPage = () => (
-  <div className="relative flex size-full min-h-screen flex-col bg-[#2A4A42] justify-between font-[Manrope,sans-serif] overflow-x-hidden">
-    <div>
-      <div className="flex items-center bg-[#2A4A42] p-4 pb-2 justify-between">
-        <h2 className="text-[#eedfc9] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pl-12">KinSpace</h2>
-        <div className="flex w-12 items-center justify-end">
-          <button className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 bg-transparent text-[#eedfc9] hover:text-[#eedfc9]/80 transition-colors gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0">
-            <div className="text-[#eedfc9]">
-              {/* Gear SVG */}
-              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
-                <path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"></path>
-              </svg>
+export default function Groups() {
+  const { loading } = useAuth();
+  const [activeTab, setActiveTab] = useState<Tab>('for-you');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDesc, setNewGroupDesc] = useState('');
+  const [newGroupType, setNewGroupType] = useState<'virtual' | 'in-person'>('virtual');
+
+  const tabs: { id: Tab; label: string; icon: string }[] = [
+    { id: 'for-you', label: 'For You', icon: 'ri-sparkling-line' },
+    { id: 'following', label: 'Following', icon: 'ri-bookmark-line' },
+    { id: 'your-groups', label: 'Your Groups', icon: 'ri-team-line' },
+  ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-brand-primary pb-20">
+        <div className="px-4 pt-6 space-y-4">
+          <div className="h-8 w-36 skeleton" />
+          <div className="flex gap-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-10 w-28 skeleton rounded-full" />
+            ))}
+          </div>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="card space-y-3">
+              <div className="h-5 w-3/4 skeleton" />
+              <div className="h-4 w-full skeleton" />
+              <div className="h-9 w-full skeleton rounded-full" />
             </div>
+          ))}
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-brand-primary pb-20">
+      {/* Header */}
+      <div className="px-4 pt-6 pb-3">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-[#eedfc8]">Groups</h1>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-1.5 btn-primary text-xs py-2 px-3"
+          >
+            <i className="ri-add-line" />
+            Create
           </button>
         </div>
-      </div>
-      <Tabs />
-      <h2 className="text-[#eedfc9] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Based on your conditions</h2>
-      <div className="px-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-6xl mx-auto">
-          {groupImages.map((img) => (
-            <div
-              key={img.name}
-              className="flex flex-col items-center justify-center gap-3 rounded-xl border border-[#eedfc9]/20 bg-[#2A4A42] shadow-sm hover:shadow-md transition-all duration-200 p-6 min-h-[150px] cursor-pointer group hover:border-[#eedfc9]/40"
-            >
-              <div
-                className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-14 h-14 mb-2 border border-[#eedfc9]/10 group-hover:scale-105 transition-transform"
-                style={{ backgroundImage: `url('${img.url}')` }}
-              ></div>
-              <h2 className="text-[#eedfc9] text-base font-semibold leading-tight text-center group-hover:text-[#eedfc9]/80 transition-colors">
-                {img.name}
-              </h2>
-            </div>
-          ))}
-        </div>
-      </div>
-      <h2 className="text-[#eedfc9] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Communities</h2>
-      <div className="px-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-6xl mx-auto">
-          {communityImages.map((img) => (
-            <div
-              key={img.name}
-              className="flex flex-col items-center justify-center gap-3 rounded-xl border border-[#eedfc9]/20 bg-[#2A4A42] shadow-sm hover:shadow-md transition-all duration-200 p-6 min-h-[150px] cursor-pointer group hover:border-[#eedfc9]/40"
-            >
-              <div
-                className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-14 h-14 mb-2 border border-[#eedfc9]/10 group-hover:scale-105 transition-transform"
-                style={{ backgroundImage: `url('${img.url}')` }}
-              ></div>
-              <h2 className="text-[#eedfc9] text-base font-semibold leading-tight text-center group-hover:text-[#eedfc9]/80 transition-colors">
-                {img.name}
-              </h2>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-    {/* Bottom Navigation - same as FeaturesPage */}
-    <div>
-      <div className="flex gap-2 border-t border-[#e7f4f0] bg-[#f8fcfb] px-4 pb-3 pt-2">
-        <a className="just flex flex-1 flex-col items-center justify-end gap-1 rounded-full text-[#0d1c18]" href="#">
-          <div className="text-[#0d1c18] flex h-8 items-center justify-center">
-            {/* Home SVG */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
-              <path d="M224,115.55V208a16,16,0,0,1-16,16H168a16,16,0,0,1-16-16V168a8,8,0,0,0-8-8H112a8,8,0,0,0-8,8v40a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V115.55a16,16,0,0,1,5.17-11.78l80-75.48.11-.11a16,16,0,0,1,21.53,0,1.14,1.14,0,0,0,.11.11l80,75.48A16,16,0,0,1,224,115.55Z"></path>
-            </svg>
-          </div>
-          <p className="text-[#0d1c18] text-xs font-medium leading-normal tracking-[0.015em]">Home</p>
-        </a>
-        <a className="just flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87]" href="#">
-          <div className="text-[#499c87] flex h-8 items-center justify-center">
-            {/* Groups SVG */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
-              <path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z"></path>
-            </svg>
-          </div>
-          <p className="text-[#499c87] text-xs font-medium leading-normal tracking-[0.015em]">Groups</p>
-        </a>
-        <a className="just flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87]" href="#">
-          <div className="text-[#499c87] flex h-8 items-center justify-center">
-            {/* Messages SVG */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
-              <path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128ZM84,116a12,12,0,1,0,12,12A12,12,0,0,0,84,116Zm88,0a12,12,0,1,0,12,12A12,12,0,0,0,172,116Zm60,12A104,104,0,0,1,79.12,219.82L45.07,231.17a16,16,0,0,1-20.24-20.24l11.35-34.05A104,104,0,1,1,232,128Zm-16,0A88,88,0,1,0,51.81,172.06a8,8,0,0,1,.66,6.54L40,216,77.4,203.53a7.85,7.85,0,0,1,2.53-.42,8,8,0,0,1,4,1.08A88,88,0,0,0,216,128Z"></path>
-            </svg>
-          </div>
-          <p className="text-[#499c87] text-xs font-medium leading-normal tracking-[0.015em]">Messages</p>
-        </a>
-        <a className="just flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87]" href="#">
-          <div className="text-[#499c87] flex h-8 items-center justify-center">
-            {/* Notifications SVG */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
-              <path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"></path>
-            </svg>
-          </div>
-          <p className="text-[#499c87] text-xs font-medium leading-normal tracking-[0.015em]">Notifications</p>
-        </a>
-        <a className="just flex flex-1 flex-col items-center justify-end gap-1 text-[#499c87]" href="#">
-          <div className="text-[#499c87] flex h-8 items-center justify-center">
-            {/* Profile SVG */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
-              <path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"></path>
-            </svg>
-          </div>
-          <p className="text-[#499c87] text-xs font-medium leading-normal tracking-[0.015em]">Profile</p>
-        </a>
-      </div>
-      <div className="h-5 bg-[#f8fcfb]"></div>
-    </div>
-  </div>
-);
 
-export default GroupsPage;
+        {/* Tabs */}
+        <div className="flex gap-1 bg-[#eedfc8]/5 rounded-xl p-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all ${
+                activeTab === tab.id ? 'tab-active' : 'tab-inactive'
+              }`}
+            >
+              <i className={tab.icon} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* For You Tab */}
+      {activeTab === 'for-you' && (
+        <div className="px-4 space-y-3">
+          <p className="text-xs text-[#eedfc8]/50">
+            Recommended based on your conditions and interests
+          </p>
+
+          {mockRecommended.map((group) => (
+            <div key={group.id} className="card space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-[#eedfc8]">{group.name}</h3>
+                    {group.isNew && (
+                      <span className="badge text-[10px] bg-[#B85C3A]/20 text-[#B85C3A]">
+                        New
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-[#eedfc8]/60 mt-1">{group.description}</p>
+                </div>
+                {/* Match percentage */}
+                <div className="flex-shrink-0 w-14 h-14 rounded-full border-2 border-[#D19A58] flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-[#D19A58]">
+                      {group.matchPercent}%
+                    </p>
+                    <p className="text-[8px] text-[#eedfc8]/40">match</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {group.matchReasons.map((reason) => (
+                  <span key={reason} className="badge text-[10px]">
+                    <i className="ri-link mr-1" />
+                    {reason}
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-4 text-xs text-[#eedfc8]/50">
+                <span className="flex items-center gap-1">
+                  <i className="ri-group-line" />
+                  {group.members.toLocaleString()} members
+                </span>
+                <span className="flex items-center gap-1">
+                  <i className="ri-calendar-line" />
+                  {group.nextMeeting}
+                </span>
+                <span
+                  className={`badge text-[10px] ${
+                    group.type === 'virtual'
+                      ? 'bg-blue-500/20 text-blue-300'
+                      : 'bg-green-500/20 text-green-300'
+                  }`}
+                >
+                  {group.type === 'virtual' ? 'Virtual' : 'In-Person'}
+                </span>
+              </div>
+
+              <button className="w-full btn-primary text-sm py-2.5">Join Group</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Following Tab */}
+      {activeTab === 'following' && (
+        <div className="px-4 space-y-3">
+          {mockFollowing.length === 0 ? (
+            <div className="card text-center py-8">
+              <i className="ri-bookmark-line text-4xl text-[#eedfc8]/20 mb-3" />
+              <p className="text-[#eedfc8]/60 text-sm">
+                You are not following any groups yet.
+              </p>
+              <button
+                onClick={() => setActiveTab('for-you')}
+                className="btn-primary text-xs mt-3"
+              >
+                Discover Groups
+              </button>
+            </div>
+          ) : (
+            mockFollowing.map((group) => (
+              <div key={group.id} className="card space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-[#eedfc8]">{group.name}</h3>
+                      {group.unread > 0 && (
+                        <span className="w-5 h-5 rounded-full bg-[#B85C3A] text-white text-[10px] flex items-center justify-center font-bold">
+                          {group.unread}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-[#eedfc8]/60 mt-0.5">
+                      {group.description}
+                    </p>
+                  </div>
+                  <span
+                    className={`badge text-[10px] flex-shrink-0 ${
+                      group.type === 'virtual'
+                        ? 'bg-blue-500/20 text-blue-300'
+                        : 'bg-green-500/20 text-green-300'
+                    }`}
+                  >
+                    {group.type === 'virtual' ? 'Virtual' : 'In-Person'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-[#eedfc8]/50">
+                  <span className="flex items-center gap-1">
+                    <i className="ri-group-line" />
+                    {group.members.toLocaleString()} members
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <i className="ri-time-line" />
+                    Last post {group.lastPost}
+                  </span>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button className="flex-1 btn-primary text-sm py-2">View</button>
+                  <button className="btn-secondary text-sm py-2 px-4">
+                    <i className="ri-notification-off-line" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Your Groups Tab */}
+      {activeTab === 'your-groups' && (
+        <div className="px-4 space-y-3">
+          {mockYourGroups.length === 0 ? (
+            <div className="card text-center py-8">
+              <i className="ri-team-line text-4xl text-[#eedfc8]/20 mb-3" />
+              <p className="text-[#eedfc8]/60 text-sm">
+                You have not joined or created any groups yet.
+              </p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="btn-primary text-xs mt-3"
+              >
+                Create Your First Group
+              </button>
+            </div>
+          ) : (
+            mockYourGroups.map((group) => (
+              <div key={group.id} className="card space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-[#eedfc8]">{group.name}</h3>
+                      {group.unread > 0 && (
+                        <span className="w-5 h-5 rounded-full bg-[#B85C3A] text-white text-[10px] flex items-center justify-center font-bold">
+                          {group.unread}
+                        </span>
+                      )}
+                      <span className="badge text-[10px] bg-[#D19A58]/20 text-[#D19A58]">
+                        {group.role}
+                      </span>
+                    </div>
+                    <p className="text-sm text-[#eedfc8]/60 mt-0.5">
+                      {group.description}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-[#eedfc8]/50">
+                  <span className="flex items-center gap-1">
+                    <i className="ri-group-line" />
+                    {group.members} members
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <i className="ri-time-line" />
+                    Active {group.lastActivity}
+                  </span>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button className="flex-1 btn-primary text-sm py-2">Open</button>
+                  <button className="btn-secondary text-sm py-2 px-4">
+                    <i className="ri-settings-3-line" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Create Group Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowCreateModal(false)}
+          />
+          <div className="relative w-full max-w-lg bg-brand-primary border-t border-[#eedfc8]/10 rounded-t-2xl p-5 animate-slide-up">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-[#eedfc8]">Create a Group</h2>
+              <button onClick={() => setShowCreateModal(false)}>
+                <i className="ri-close-line text-[#eedfc8]/60 text-xl" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-[#eedfc8]/60 mb-1.5 block">
+                  Group Name
+                </label>
+                <input
+                  type="text"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Give your group a name"
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-[#eedfc8]/60 mb-1.5 block">
+                  Description
+                </label>
+                <textarea
+                  value={newGroupDesc}
+                  onChange={(e) => setNewGroupDesc(e.target.value)}
+                  placeholder="What is this group about?"
+                  rows={3}
+                  className="input-field resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-[#eedfc8]/60 mb-1.5 block">Type</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setNewGroupType('virtual')}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      newGroupType === 'virtual'
+                        ? 'bg-[#eedfc8] text-[#2A4A42]'
+                        : 'bg-[#eedfc8]/10 text-[#eedfc8]/60'
+                    }`}
+                  >
+                    <i className="ri-vidicon-line mr-1.5" />
+                    Virtual
+                  </button>
+                  <button
+                    onClick={() => setNewGroupType('in-person')}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      newGroupType === 'in-person'
+                        ? 'bg-[#eedfc8] text-[#2A4A42]'
+                        : 'bg-[#eedfc8]/10 text-[#eedfc8]/60'
+                    }`}
+                  >
+                    <i className="ri-map-pin-line mr-1.5" />
+                    In-Person
+                  </button>
+                </div>
+              </div>
+
+              <button
+                disabled={!newGroupName.trim()}
+                className="w-full btn-primary py-3 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Create Group
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <BottomNav />
+    </div>
+  );
+}

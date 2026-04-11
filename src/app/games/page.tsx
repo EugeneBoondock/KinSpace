@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import BottomNav from '@/components/BottomNav'
 
 const gameTypes = [
   {
@@ -127,16 +128,16 @@ export default function GamesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
-      <div className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md z-50 px-4 py-3 border-b border-purple-100">
+    <div className="min-h-screen bg-brand-primary text-brand-background">
+      <div className="fixed top-0 left-0 right-0 bg-brand-primary/95 backdrop-blur-md z-50 px-4 py-3 border-b border-[#eedfc8]/20">
         <div className="flex items-center justify-between max-w-sm mx-auto">
           <Link href="/explore" className="w-8 h-8 flex items-center justify-center">
-            <i className="ri-arrow-left-line text-xl text-gray-700"></i>
+            <i className="ri-arrow-left-line text-xl text-brand-background"></i>
           </Link>
-          <h1 className="text-lg font-semibold text-gray-900">Play Together</h1>
+          <h1 className="text-lg font-semibold text-brand-background">Play Together</h1>
           <button 
             onClick={() => setShowCreateModal(true)}
-            className="w-8 h-8 flex items-center justify-center !rounded-button bg-purple-500 text-white"
+            className="w-8 h-8 flex items-center justify-center !rounded-button bg-[#eedfc8] text-[#2A4A42]"
           >
             <i className="ri-add-line text-lg"></i>
           </button>
@@ -145,35 +146,35 @@ export default function GamesPage() {
 
       <div className="pt-16 pb-20 px-4">
         <div className="max-w-sm mx-auto space-y-6">
-          <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white">
+          <div className="bg-[#2A4A42]/60 rounded-xl p-6 text-brand-background border border-brand-background/20">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-bold">Game Zone</h2>
-                <p className="text-purple-100 text-sm">Connect through play</p>
+                <p className="text-brand-background/80 text-sm">Connect through play</p>
               </div>
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                <i className="ri-gamepad-line text-2xl"></i>
+              <div className="w-12 h-12 bg-brand-background/10 rounded-full flex items-center justify-center">
+                <i className="ri-gamepad-line text-2xl text-brand-background"></i>
               </div>
             </div>
             <div className="flex gap-4 text-sm">
               <div>
                 <div className="font-semibold">24</div>
-                <div className="text-purple-100">Active Games</div>
+                <div className="text-brand-background/70">Active Games</div>
               </div>
               <div>
                 <div className="font-semibold">156</div>
-                <div className="text-purple-100">Players Online</div>
+                <div className="text-brand-background/70">Players Online</div>
               </div>
             </div>
           </div>
 
-          <div className="flex bg-gray-100 rounded-full p-1">
+          <div className="flex bg-brand-background/10 rounded-full p-1 border border-brand-background/20">
             <button
               onClick={() => setSelectedTab('browse')}
               className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${
                 selectedTab === 'browse' 
-                  ? 'bg-white text-purple-600 shadow-sm' 
-                  : 'text-gray-600'
+                  ? 'bg-brand-background text-brand-primary shadow-sm' 
+                  : 'text-brand-background/70'
               }`}
             >
               Browse Games
@@ -182,8 +183,8 @@ export default function GamesPage() {
               onClick={() => setSelectedTab('active')}
               className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${
                 selectedTab === 'active' 
-                  ? 'bg-white text-purple-600 shadow-sm' 
-                  : 'text-gray-600'
+                  ? 'bg-brand-background text-brand-primary shadow-sm' 
+                  : 'text-brand-background/70'
               }`}
             >
               Join Game
@@ -192,27 +193,27 @@ export default function GamesPage() {
 
           {selectedTab === 'browse' && (
             <div className="space-y-3">
-              <h3 className="font-semibold text-gray-900">Choose Your Game</h3>
+              <h3 className="font-semibold text-brand-background">Choose Your Game</h3>
               {gameTypes.map((game) => (
-                <div key={game.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                <div key={game.id} className="bg-[#2A4A42]/50 rounded-xl p-4 shadow-sm border border-brand-background/20">
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl flex items-center justify-center text-2xl">
+                    <div className="w-12 h-12 bg-brand-background/10 rounded-xl flex items-center justify-center text-2xl text-brand-primary">
                       {game.icon}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold text-gray-900">{game.name}</h4>
-                        <span className={`text-xs px-2 py-1 rounded-full ${
-                          game.difficulty === 'Easy' ? 'bg-green-100 text-green-700' :
-                          game.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
-                          game.difficulty === 'Advanced' ? 'bg-red-100 text-red-700' :
-                          'bg-purple-100 text-purple-700'
+                        <h4 className="font-semibold text-brand-background">{game.name}</h4>
+                        <span className={`text-xs px-2 py-1 rounded-full border border-brand-background/30 ${
+                          game.difficulty === 'Easy' ? 'bg-brand-background/15 text-brand-primary' :
+                          game.difficulty === 'Medium' ? 'bg-brand-accent2/25 text-brand-background' :
+                          game.difficulty === 'Advanced' ? 'bg-brand-accent1/30 text-brand-background' :
+                          'bg-brand-background/15 text-brand-background'
                         }`}>
                           {game.difficulty}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 mb-3">{game.description}</p>
-                      <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+                      <p className="text-sm text-brand-background/80 mb-3">{game.description}</p>
+                      <div className="flex items-center gap-4 text-xs text-brand-background/70 mb-3">
                         <span className="flex items-center gap-1">
                           <i className="ri-user-line"></i>
                           {game.players}
@@ -222,7 +223,7 @@ export default function GamesPage() {
                           {game.duration}
                         </span>
                         {game.aiAvailable && (
-                          <span className="flex items-center gap-1 text-blue-600">
+                          <span className="flex items-center gap-1 text-brand-background">
                             <i className="ri-robot-line"></i>
                             AI Available
                           </span>
@@ -235,14 +236,14 @@ export default function GamesPage() {
                             setGameMode('multiplayer')
                             setShowCreateModal(true)
                           }}
-                          className="flex-1 py-2 px-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium !rounded-button"
+                          className="flex-1 py-2 px-3 bg-brand-background text-brand-primary rounded-lg text-sm font-semibold !rounded-button border border-brand-primary/40 hover:bg-brand-background/90"
                         >
                           Multiplayer
                         </button>
                         {game.aiAvailable && (
                           <button 
                             onClick={() => handlePlayWithAI(game.id)}
-                            className="flex-1 py-2 px-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg text-sm font-medium !rounded-button"
+                            className="flex-1 py-2 px-3 bg-[#2A4A42] text-brand-background rounded-lg text-sm font-semibold !rounded-button border border-brand-background/30 hover:bg-[#2A4A42]/80"
                           >
                             vs AI
                           </button>
@@ -257,29 +258,29 @@ export default function GamesPage() {
 
           {selectedTab === 'active' && (
             <div className="space-y-3">
-              <h3 className="font-semibold text-gray-900">Join Active Games</h3>
+              <h3 className="font-semibold text-brand-background">Join Active Games</h3>
               {activeGames.map((game) => {
                 const gameInfo = gameTypes.find(g => g.id === game.type)
                 return (
-                  <div key={game.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                  <div key={game.id} className="bg-[#2A4A42]/50 rounded-xl p-4 shadow-sm border border-brand-background/20">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg flex items-center justify-center text-lg">
+                      <div className="w-10 h-10 bg-brand-background/10 rounded-lg flex items-center justify-center text-lg text-brand-primary">
                         {gameInfo?.icon}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
-                          <h4 className="font-medium text-gray-900">{gameInfo?.name}</h4>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            game.status === 'waiting' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                          <h4 className="font-medium text-brand-background">{gameInfo?.name}</h4>
+                          <span className={`text-xs px-2 py-1 rounded-full border border-brand-background/30 ${
+                            game.status === 'waiting' ? 'bg-brand-background/15 text-brand-primary' : 'bg-brand-accent1/30 text-brand-background'
                           }`}>
                             {game.status === 'waiting' ? 'Waiting' : 'In Progress'}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                          <div className="text-gray-600">
+                          <div className="text-brand-background/80">
                             Host: {game.host} • {game.timeAgo}
                           </div>
-                          <div className="text-purple-600 font-medium">
+                          <div className="text-brand-background font-medium">
                             {game.players}/{game.maxPlayers} players
                           </div>
                         </div>
@@ -287,7 +288,7 @@ export default function GamesPage() {
                     </div>
                     <button 
                       disabled={game.status === 'active' && game.players >= game.maxPlayers}
-                      className="w-full mt-3 py-2 px-4 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium !rounded-button transition-colors"
+                      className="w-full mt-3 py-2 px-4 bg-brand-background text-brand-primary hover:bg-brand-background/90 disabled:bg-[#2A4A42]/50 disabled:text-brand-background/60 disabled:cursor-not-allowed rounded-lg text-sm font-semibold !rounded-button transition-colors"
                     >
                       {game.status === 'waiting' ? 'Join Game' : 'Watch Game'}
                     </button>
@@ -301,25 +302,25 @@ export default function GamesPage() {
 
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-end z-50">
-          <div className="bg-white rounded-t-xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3">
+          <div className="bg-brand-primary rounded-t-xl w-full max-h-[80vh] overflow-y-auto text-brand-background border border-brand-background/20">
+            <div className="sticky top-0 bg-brand-primary/95 border-b border-brand-background/20 px-4 py-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">
+                <h3 className="font-semibold text-brand-background">
                   {gameMode === 'ai' ? 'Play vs AI' : 'Create Game Room'}
                 </h3>
                 <button 
                   onClick={() => setShowCreateModal(false)}
-                  className="w-8 h-8 flex items-center justify-center text-gray-500"
+                  className="w-8 h-8 flex items-center justify-center text-brand-background/70"
                 >
                   <i className="ri-close-line text-xl"></i>
                 </button>
               </div>
             </div>
-            
+
             <div className="p-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Game Type</label>
-                <select className="w-full p-3 border border-gray-200 rounded-lg">
+                <label className="block text-sm font-medium text-brand-background mb-2">Game Type</label>
+                <select className="w-full p-3 border border-brand-background/20 rounded-lg bg-[#2A4A42] text-brand-background">
                   {gameTypes.map((game) => (
                     <option key={game.id} value={game.id} selected={selectedGame === game.id}>
                       {game.name} - {game.players}
@@ -330,21 +331,21 @@ export default function GamesPage() {
 
               {gameMode === 'multiplayer' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Room Settings</label>
+                  <label className="block text-sm font-medium text-brand-background mb-2">Room Settings</label>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Private Room</span>
+                      <span className="text-sm text-brand-background/80">Private Room</span>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                        <div className="w-11 h-6 bg-[#2A4A42] border border-brand-background/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-brand-background after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-background"></div>
                       </label>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Allow Spectators</span>
+                      <span className="text-sm text-brand-background/80">Allow Spectators</span>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                        <div className="w-11 h-6 bg-[#2A4A42] border border-brand-background/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-brand-background after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-background"></div>
                       </label>
                     </div>
                   </div>
@@ -353,7 +354,7 @@ export default function GamesPage() {
 
               {gameMode === 'ai' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">AI Difficulty</label>
+                  <label className="block text-sm font-medium text-brand-background mb-2">AI Difficulty</label>
                   <div className="grid grid-cols-3 gap-2">
                     {['easy', 'medium', 'hard'].map((difficulty) => (
                       <button
@@ -361,20 +362,20 @@ export default function GamesPage() {
                         onClick={() => setAiDifficulty(difficulty as 'easy' | 'medium' | 'hard')}
                         className={`py-2 px-3 rounded-lg text-sm font-medium !rounded-button transition-colors ${
                           aiDifficulty === difficulty
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-brand-background text-brand-primary'
+                            : 'bg-[#2A4A42]/60 text-brand-background hover:bg-[#2A4A42]/50'
                         }`}
                       >
                         {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
                       </button>
                     ))}
                   </div>
-                  <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <i className="ri-robot-line text-blue-500 mt-0.5"></i>
+                  <div className="mt-3 p-3 bg-brand-background/10 rounded-lg">
+                    <div className="flex items-start gap-2 text-brand-background">
+                      <i className="ri-robot-line mt-0.5"></i>
                       <div className="text-sm">
-                        <div className="font-medium text-blue-900">AI Opponent</div>
-                        <div className="text-blue-700">
+                        <div className="font-medium text-brand-background">AI Opponent</div>
+                        <div className="text-brand-background/80">
                           {aiDifficulty === 'easy' && 'Perfect for beginners, makes some mistakes'}
                           {aiDifficulty === 'medium' && 'Balanced gameplay, challenging but fair'}
                           {aiDifficulty === 'hard' && 'Expert level AI, very challenging'}
@@ -388,15 +389,15 @@ export default function GamesPage() {
               <div className="flex gap-3 pt-4">
                 <button 
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 py-3 px-4 border border-gray-200 text-gray-700 rounded-lg font-medium !rounded-button"
+                  className="flex-1 py-3 px-4 border border-brand-background/30 text-brand-background rounded-lg font-medium !rounded-button"
                 >
                   Cancel
                 </button>
                 <button 
                   className={`flex-1 py-3 px-4 text-white rounded-lg font-medium !rounded-button ${
                     gameMode === 'ai' 
-                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500'
-                      : 'bg-gradient-to-r from-purple-500 to-pink-500'
+                      ? 'bg-brand-background text-brand-primary'
+                      : 'bg-[#2A4A42] text-brand-background border border-brand-background/30'
                   }`}
                 >
                   {gameMode === 'ai' ? 'Start AI Game' : 'Create Room'}
@@ -407,30 +408,7 @@ export default function GamesPage() {
         </div>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
-        <div className="grid grid-cols-5 gap-1 max-w-sm mx-auto">
-          <Link href="/explore" className="flex flex-col items-center justify-center py-2 text-gray-500">
-            <i className="ri-compass-3-line text-lg mb-1"></i>
-            <span className="text-xs">Explore</span>
-          </Link>
-          <Link href="/community" className="flex flex-col items-center justify-center py-2 text-gray-500">
-            <i className="ri-chat-3-line text-lg mb-1"></i>
-            <span className="text-xs">Community</span>
-          </Link>
-          <Link href="/games" className="flex flex-col items-center justify-center py-2 text-purple-600">
-            <i className="ri-gamepad-line text-lg mb-1"></i>
-            <span className="text-xs">Games</span>
-          </Link>
-          <Link href="/therapy" className="flex flex-col items-center justify-center py-2 text-gray-500">
-            <i className="ri-heart-line text-lg mb-1"></i>
-            <span className="text-xs">Support</span>
-          </Link>
-          <Link href="/profile" className="flex flex-col items-center justify-center py-2 text-gray-500">
-            <i className="ri-user-line text-lg mb-1"></i>
-            <span className="text-xs">Profile</span>
-          </Link>
-        </div>
-      </div>
+      <BottomNav />
     </div>
   )
 }

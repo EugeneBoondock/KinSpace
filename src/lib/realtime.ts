@@ -1,159 +1,108 @@
-
 'use client'
 
-import { supabase, type Database } from './supabase';
-import { 
-  RealtimeChannel, 
-  type RealtimePostgresChangesPayload, 
-  type RealtimePresenceState 
-} from '@supabase/supabase-js';
-
-// Define types based on the database schema
-type Game = Database['public']['Tables']['games']['Row'];
-type ChatMessage = Database['public']['Tables']['chat_messages']['Row'];
-
-// Define payload types for realtime events
-type GameUpdatePayload = RealtimePostgresChangesPayload<Game>;
-type ChatMessagePayload = RealtimePostgresChangesPayload<ChatMessage>;
+import {
+  doc,
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  type Unsubscribe,
+  type DocumentData,
+} from 'firebase/firestore'
+import { db } from './firebase'
 
 export class RealtimeService {
-  private static channels: Map<string, RealtimeChannel> = new Map()
+  private static subscriptions: Map<string, Unsubscribe> = new Map()
 
-    static subscribeToGame(gameId: string, onGameUpdate: (payload: GameUpdatePayload) => void) {
-    const channelName = `game:${gameId}`
-    
-    if (this.channels.has(channelName)) {
-      return this.channels.get(channelName)!
-    }
+  static subscribeToGame(
+    gameId: string,
+    onGameUpdate: (data: DocumentData) => void
+  ) {
+    const key = `game:${gameId}`
+    this.unsubscribe(key)
 
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'games',
-          filter: `id=eq.${gameId}`
-        },
-        onGameUpdate
-      )
-      .subscribe()
+    const unsub = onSnapshot(doc(db, 'games', gameId), (snap) => {
+      if (snap.exists()) onGameUpdate({ id: snap.id, ...snap.data() })
+    })
 
-    this.channels.set(channelName, channel)
-    return channel
+    this.subscriptions.set(key, unsub)
+    return unsub
   }
 
-    static subscribeToChat(roomId: string, onNewMessage: (payload: ChatMessagePayload) => void) {
-    const channelName = `chat:${roomId}`
-    
-    if (this.channels.has(channelName)) {
-      return this.channels.get(channelName)!
-    }
+  static subscribeToChat(
+    roomId: string,
+    onNewMessage: (messages: DocumentData[]) => void
+  ) {
+    const key = `chat:${roomId}`
+    this.unsubscribe(key)
 
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `room_id=eq.${roomId}`
-        },
-        onNewMessage
-      )
-      .subscribe()
+    const q = query(
+      collection(db, 'chat_messages'),
+      where('room_id', '==', roomId),
+      orderBy('created_at', 'asc')
+    )
 
-    this.channels.set(channelName, channel)
-    return channel
+    const unsub = onSnapshot(q, (snap) => {
+      const messages = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      onNewMessage(messages)
+    })
+
+    this.subscriptions.set(key, unsub)
+    return unsub
   }
 
-    static subscribeToGameLobby(onGameUpdate: (payload: GameUpdatePayload) => void) {
-    if (this.channels.has('game-lobby')) {
-      return this.channels.get('game-lobby')!
-    }
+  static subscribeToGameLobby(
+    onGameUpdate: (games: DocumentData[]) => void
+  ) {
+    const key = 'game-lobby'
+    this.unsubscribe(key)
 
-    const channel = supabase
-      .channel('game-lobby')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'games'
-        },
-        onGameUpdate
-      )
-      .subscribe()
+    const q = query(
+      collection(db, 'games'),
+      where('status', '==', 'waiting'),
+      where('is_private', '==', false)
+    )
 
-    this.channels.set('game-lobby', channel)
-    return channel
+    const unsub = onSnapshot(q, (snap) => {
+      const games = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      onGameUpdate(games)
+    })
+
+    this.subscriptions.set(key, unsub)
+    return unsub
   }
 
-    static subscribeToUserPresence(userId: string, onPresenceUpdate: (event: string, state: RealtimePresenceState) => void) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const channelName = `presence:${userId}`;
+  static subscribeToPosts(
+    onUpdate: (posts: DocumentData[]) => void
+  ) {
+    const key = 'community-posts'
+    this.unsubscribe(key)
 
-    if (this.channels.has(channelName)) {
-      return this.channels.get(channelName)!;
-    }
+    const q = query(
+      collection(db, 'community_posts'),
+      orderBy('created_at', 'desc')
+    )
 
-    const channel = supabase.channel(channelName);
+    const unsub = onSnapshot(q, (snap) => {
+      const posts = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      onUpdate(posts)
+    })
 
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        onPresenceUpdate('sync', state);
-      })
-      .on('presence', { event: 'join' }, () => {
-        // For join, you might want to handle the specific new presences
-        // For simplicity, we'll just sync the whole state
-        const state = channel.presenceState();
-        onPresenceUpdate('join', state);
-      })
-      .on('presence', { event: 'leave' }, () => {
-        // For leave, you might want to handle the specific left presences
-        // For simplicity, we'll just sync the whole state
-        const state = channel.presenceState();
-        onPresenceUpdate('leave', state);
-      })
-      .subscribe();
-
-    this.channels.set(channelName, channel);
-    return channel;
+    this.subscriptions.set(key, unsub)
+    return unsub
   }
 
-  static unsubscribe(channelName: string) {
-    const channel = this.channels.get(channelName)
-    if (channel) {
-      supabase.removeChannel(channel)
-      this.channels.delete(channelName)
+  static unsubscribe(key: string) {
+    const unsub = this.subscriptions.get(key)
+    if (unsub) {
+      unsub()
+      this.subscriptions.delete(key)
     }
   }
 
   static unsubscribeAll() {
-    this.channels.forEach((channel, channelName) => {
-      supabase.removeChannel(channel)
-    })
-    this.channels.clear()
-  }
-
-  static async broadcastGameMove(gameId: string, move: unknown, userId: string) {
-    const channel = this.channels.get(`game:${gameId}`)
-    if (channel) {
-      await channel.send({
-        type: 'broadcast',
-        event: 'game-move',
-        payload: { move, userId, timestamp: new Date().toISOString() }
-      })
-    }
-  }
-
-  static async updateUserPresence(channelName: string, presence: unknown) {
-    const channel = this.channels.get(channelName)
-    if (channel) {
-      await channel.track(presence)
-    }
+    this.subscriptions.forEach((unsub) => unsub())
+    this.subscriptions.clear()
   }
 }

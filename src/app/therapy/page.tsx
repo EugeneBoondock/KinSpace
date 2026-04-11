@@ -1,465 +1,448 @@
 'use client';
 
-import Link from 'next/link';
-import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import BottomNav from '@/components/BottomNav';
+import { useAuth } from '@/lib/AuthContext';
 
-export default function TherapyPage() {
-  const [selectedType, setSelectedType] = useState('');
-  const [showChat, setShowChat] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [typingText, setTypingText] = useState('');
+type Tab = 'ai-chat' | 'my-team';
+
+interface Message {
+  id: string;
+  role: 'user' | 'ai';
+  content: string;
+  timestamp: Date;
+}
+
+const quickPrompts = [
+  { text: "I'm feeling anxious", icon: 'ri-emotion-unhappy-line' },
+  { text: 'Help me cope', icon: 'ri-hand-heart-line' },
+  { text: 'I need someone to talk to', icon: 'ri-chat-heart-line' },
+  { text: 'Breathing exercises', icon: 'ri-lungs-line' },
+];
+
+const aiResponses: Record<string, string> = {
+  "I'm feeling anxious":
+    "I hear you, and I want you to know that what you're feeling is valid. Anxiety can feel overwhelming, but you've taken an important step by reaching out. Let's work through this together. Can you tell me more about what's triggering your anxiety right now? Sometimes naming what we feel can help us regain a sense of control.",
+  'Help me cope':
+    "I'm glad you're looking for ways to cope. That takes real strength. Here are a few techniques that might help right now:\n\n1. Ground yourself: Name 5 things you can see, 4 you can touch, 3 you can hear, 2 you can smell, and 1 you can taste.\n\n2. Progressive muscle relaxation: Tense and release each muscle group starting from your toes.\n\n3. Write it down: Sometimes putting thoughts on paper helps process them.\n\nWhich of these would you like to try?",
+  'I need someone to talk to':
+    "I'm here for you, and I'm listening. You don't have to go through this alone. Whether you want to vent, process something difficult, or just have someone present -- I'm not going anywhere. Take your time, there's no rush. What's on your mind?",
+  'Breathing exercises':
+    "Let's do a calming breathing exercise together. Try the 4-7-8 technique:\n\n1. Breathe in slowly through your nose for 4 seconds\n2. Hold your breath gently for 7 seconds\n3. Exhale slowly through your mouth for 8 seconds\n\nLet's repeat this 3-4 times. This activates your parasympathetic nervous system and helps your body shift from stress mode to calm mode. Ready to try it?",
+};
+
+const defaultAiResponse =
+  "Thank you for sharing that with me. I can see this is important to you. I'm here to listen and support you through whatever you're experiencing. Would you like to explore this further, or would you prefer some coping strategies to help right now?";
+
+const mockAngels = [
+  {
+    id: '1',
+    name: 'Maya Chen',
+    specialty: 'Anxiety & Depression',
+    rating: 4.9,
+    responseTime: '< 5 min',
+    status: 'online',
+    sessions: 47,
+    bio: 'Certified peer support specialist with 8 years of personal experience navigating anxiety.',
+  },
+  {
+    id: '2',
+    name: 'Marcus Thompson',
+    specialty: 'Chronic Pain',
+    rating: 4.8,
+    responseTime: '< 15 min',
+    status: 'online',
+    sessions: 32,
+    bio: 'Chronic pain warrior dedicated to helping others find their coping strategies.',
+  },
+];
+
+const mockMentors = [
+  {
+    id: '1',
+    name: 'Dr. Elena Rodriguez',
+    specialty: 'Clinical Psychology',
+    credentials: 'PhD, Licensed Psychologist',
+    rating: 4.9,
+    sessions: 342,
+    nextAvailable: 'Today, 3:00 PM',
+    price: 75,
+  },
+  {
+    id: '2',
+    name: 'James Wilson',
+    specialty: 'Recovery Coaching',
+    credentials: 'CPRS, Recovery Coach',
+    rating: 4.8,
+    sessions: 218,
+    nextAvailable: 'Tomorrow, 10:00 AM',
+    price: 45,
+  },
+];
+
+function StarRating({ rating }: { rating: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <i
+          key={star}
+          className={`${
+            star <= Math.floor(rating)
+              ? 'ri-star-fill'
+              : star - 0.5 <= rating
+                ? 'ri-star-half-fill'
+                : 'ri-star-line'
+          } text-[#D19A58] text-sm`}
+        />
+      ))}
+      <span className="text-xs text-[#eedfc8]/60 ml-1">{rating}</span>
+    </div>
+  );
+}
+
+function TypingIndicator() {
+  return (
+    <div className="flex items-end gap-2 mb-3">
+      <div className="w-8 h-8 rounded-full bg-[#D19A58]/20 flex items-center justify-center flex-shrink-0">
+        <i className="ri-robot-line text-[#D19A58] text-sm" />
+      </div>
+      <div className="card-light px-4 py-3 max-w-[80%]">
+        <div className="flex gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-[#eedfc8]/40 typing-dot" />
+          <div className="w-2 h-2 rounded-full bg-[#eedfc8]/40 typing-dot" />
+          <div className="w-2 h-2 rounded-full bg-[#eedfc8]/40 typing-dot" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Therapy() {
+  const { loading } = useAuth();
+  const [activeTab, setActiveTab] = useState<Tab>('ai-chat');
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '0',
+      role: 'ai',
+      content:
+        "Hi there. I'm your KinSpace AI companion. I'm here to listen, support, and help you navigate whatever you're going through. This is a safe, judgment-free space. How are you feeling today?",
+      timestamp: new Date(),
+    },
+  ]);
+  const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [inputMessage, setInputMessage] = useState('');
-  const [selectedHuman, setSelectedHuman] = useState(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // User's Angels and Mentors
-  const myAngels = [
-    {
-      id: 1,
-      name: 'Maya Chen',
-      specialty: 'Evening Support & Mindfulness',
-      avatar: 'angel1',
-      responseTime: '2-5 mins',
-      rating: 4.9,
-      soulsSupported: 8,
-      isAvailable: true,
-      bio: 'I love creating calm, safe spaces for evening reflection and gentle conversations.'
-    },
-    {
-      id: 2,
-      name: 'Marcus Thompson',
-      specialty: 'Daily Motivation & Life Balance',
-      avatar: 'angel2',
-      responseTime: '5-10 mins',
-      rating: 4.8,
-      soulsSupported: 12,
-      isAvailable: true,
-      bio: 'I believe in celebrating small wins and finding strength in everyday moments.'
-    }
-  ];
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-  const myMentors = [
-    {
-      id: 1,
-      name: 'Dr. Elena Rodriguez',
-      specialty: 'Anxiety & Depression Support',
-      avatar: 'mentor1',
-      sessions: 156,
-      rating: 4.9,
-      isAvailable: true,
-      bio: 'I understand the journey because I\'ve walked it too. Let\'s navigate this together.'
-    },
-    {
-      id: 2,
-      name: 'James Wilson',
-      specialty: 'Chronic Pain & Wellness',
-      avatar: 'mentor2',
-      sessions: 203,
-      rating: 4.8,
-      isAvailable: false,
-      bio: 'Living well with chronic conditions is possible. I\'m here to share what I\'ve learned.'
-    }
-  ];
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping]);
 
-  const aiGreetings = [
-    "Hi Sarah! 🌸 I&apos;m so glad you&apos;re here. This is your safe space to share whatever is on your heart. What would you like to talk about today?",
-    "Welcome to our cozy corner, Sarah! 💙 I&apos;m here to listen without judgment and support you through whatever you&apos;re feeling. How are you doing right now?",
-    "Hello beautiful soul! ✨ Thank you for trusting me with your thoughts. I&apos;m here to offer comfort, understanding, and gentle guidance. What&apos;s weighing on your mind?",
-    "Hey Sarah! 🌿 I&apos;m honored you chose to spend this time with me. This space is all yours - share whatever feels right for you today. I&apos;m listening with my whole heart."
-  ];
+  const sendMessage = (content: string) => {
+    if (!content.trim()) return;
 
-  const aiResponses = [
-    "That sounds really challenging, Sarah. It takes so much courage to share that with me. How are you feeling about it right now? 💙",
-    "Thank you for trusting me with something so personal. Your feelings are completely valid. Would you like to explore this feeling a bit more? 🌸",
-    "I hear you, and I want you to know that what you're experiencing is real and important. You're not alone in this. What would help you feel more supported right now? ✨",
-    "That must feel really heavy to carry. I&apos;m glad you felt safe enough to share it here. Sometimes just saying things out loud can help. How does it feel to express this? 🌿"
-  ];
-
-  // Typing animation effect
-  const typeText = (text) => {
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: content.trim(),
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setInputValue('');
     setIsTyping(true);
-    setTypingText('');
-    let index = 0;
-    
-    const timer = setInterval(() => {
-      if (index < text.length) {
-        setTypingText(text.slice(0, index + 1));
-        index++;
-      } else {
-        setIsTyping(false);
-        clearInterval(timer);
-      }
-    }, 40);
+
+    setTimeout(() => {
+      const response = aiResponses[content.trim()] || defaultAiResponse;
+      const aiMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'ai',
+        content: response,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+      setIsTyping(false);
+    }, 1500 + Math.random() * 1000);
   };
 
-  const startAIChat = () => {
-    setSelectedType('ai');
-    setShowChat(true);
-    const randomGreeting = aiGreetings[Math.floor(Math.random() * aiGreetings.length)];
-    const welcomeMessage = {
-      type: 'ai',
-      text: randomGreeting,
-      timestamp: new Date()
-    };
-    setChatMessages([welcomeMessage]);
-    setTimeout(() => typeText(randomGreeting), 500);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    sendMessage(inputValue);
   };
 
-  const startHumanChat = (person, type) => {
-    setSelectedType('human');
-    setSelectedHuman({...person, supportType: type});
-    setShowChat(true);
-    const welcomeMessage = {
-      type: 'system',
-      text: `Connecting you with ${person.name}... They&apos;ll be with you shortly! 💙`,
-      timestamp: new Date()
-    };
-    setChatMessages([welcomeMessage]);
-  };
-
-  const sendMessage = () => {
-    if (!inputMessage.trim()) return;
-
-    const userMessage = {
-      type: 'user',
-      text: inputMessage,
-      timestamp: new Date()
-    };
-
-    setChatMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
-
-    // AI Response
-    if (selectedType === 'ai') {
-      setTimeout(() => {
-        const randomResponse = aiResponses[Math.floor(Math.random() * aiResponses.length)];
-        const aiMessage = {
-          type: 'ai',
-          text: randomResponse,
-          timestamp: new Date()
-        };
-        setChatMessages(prev => [...prev, aiMessage]);
-        typeText(randomResponse);
-      }, 1000);
-    }
-  };
-
-  const quickResponses = [
-    "I&apos;m feeling anxious today 😰",
-    "I had a good day! 😊",
-    "I&apos;m struggling with motivation 😔",
-    "I feel lonely lately 💙",
-    "I&apos;m proud of myself today! 🌟",
-    "I need some encouragement 🤗"
-  ];
-
-  if (showChat) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-brand-primary pb-24 page-therapy">
-        {/* Chat Header */}
-        <div className="pt-20 px-6 pb-4 bg-brand-primary border-b border-[#eedfc8]/30">
-          <div className="flex items-center justify-between">
-            <button 
-              onClick={() => {setShowChat(false); setSelectedType(''); setChatMessages([]);}}
-              className="w-8 h-8 flex items-center justify-center"
-            >
-              <i className="ri-arrow-left-line text-xl text-brand-background"></i>
-            </button>
-            <div className="flex items-center space-x-2">
-              {selectedType === 'ai' ? (
-                <>
-                  <div className="w-8 h-8 bg-gradient-to-r from-[#2A4A42] to-[#2A4A42]/80 rounded-full flex items-center justify-center">
-                    <i className="ri-robot-line text-[#eedfc8] text-sm"></i>
-                  </div>
-                  <span className="font-semibold text-brand-background">AI Buddy</span>
-                </>
-              ) : (
-                <>
-                  <div className="w-8 h-8 rounded-full overflow-hidden">
-                    <Image 
-                      src={`https://readdy.ai/api/search-image?query=Friendly%20$%7BselectedHuman%3F.supportType%7D%20profile%20photo%2C%20warm%20smile%2C%20caring%20expression%2C%20professional%20headshot%2C%20diverse%20representation%2C%20soft%20natural%20lighting&width=32&height=32&seq=${selectedHuman?.avatar}&orientation=squarish`}
-                      alt={selectedHuman?.name}
-                      width={32}
-                      height={32}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-brand-background text-sm">{selectedHuman?.name}</div>
-                    <div className="text-xs text-brand-background opacity-70">Your {selectedHuman?.supportType}</div>
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="w-8 h-8"></div>
+      <div className="min-h-screen bg-brand-primary pb-20">
+        <div className="px-4 pt-6 space-y-4">
+          <div className="h-8 w-48 skeleton" />
+          <div className="flex gap-2">
+            <div className="h-10 flex-1 skeleton rounded-full" />
+            <div className="h-10 flex-1 skeleton rounded-full" />
           </div>
-        </div>
-
-        {/* Chat Messages */}
-        <div className="px-6 pb-20 space-y-4">
-          {chatMessages.map((message, index) => (
-            <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-xs lg:max-w-md ${
-                message.type === 'user' 
-                  ? 'bg-gradient-to-r from-[var(--page-accent)] to-[var(--page-accent-light)] text-[#eedfc8] rounded-l-2xl rounded-tr-2xl' 
-                  : message.type === 'system'
-                  ? 'bg-[var(--page-accent)]/20 text-brand-background rounded-2xl text-center text-sm'
-                  : 'bg-[#eedfc8]/20 text-brand-background rounded-r-2xl rounded-tl-2xl border border-[#eedfc8]/30'
-              } px-4 py-3`}>
-                <p className="text-sm leading-relaxed">
-                  {message.type === 'ai' && index === chatMessages.length - 1 ? (
-                    <>
-                      {typingText}
-                      {isTyping && <span className="animate-pulse">|</span>}
-                    </>
-                  ) : (
-                    message.text
-                  )}
-                </p>
-                <p className={`text-xs mt-1 opacity-70 ${message.type === 'user' ? 'text-[#eedfc8]/80' : 'text-brand-background/70'}`}>
-                  {message.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Quick Responses */}
-        {selectedType === 'ai' && chatMessages.length <= 2 && (
-          <div className="fixed bottom-20 left-0 right-0 px-6">
-            <div className="bg-[#eedfc8]/20 rounded-2xl p-4 border border-[#eedfc8]/30 mb-4">
-              <h4 className="text-sm font-semibold text-brand-background mb-3">Quick share options:</h4>
-              <div className="flex flex-wrap gap-2">
-                {quickResponses.map((response, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      setInputMessage(response);
-                      setTimeout(() => sendMessage(), 100);
-                    }}
-                    className="bg-[var(--page-accent)]/20 text-brand-background px-3 py-2 rounded-full text-xs !rounded-button border border-[#eedfc8]/30 hover:bg-[var(--page-accent)]/30"
-                  >
-                    {response}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Message Input */}
-        <div className="fixed bottom-0 left-0 right-0 bg-[#eedfc8]/20 border-t border-[#eedfc8]/30 px-6 py-4">
-          <div className="flex items-center space-x-3">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder="Share what's on your heart..."
-                className="w-full bg-[#eedfc8]/30 border border-[#eedfc8]/50 rounded-full px-4 py-3 pr-12 text-brand-background placeholder-brand-background/60 focus:outline-none focus:border-[var(--page-accent)] text-sm"
-              />
-              <button
-                onClick={sendMessage}
-                disabled={!inputMessage.trim()}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-gradient-to-r from-[var(--page-accent)] to-[var(--page-accent-light)] rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}
               >
-                <i className="ri-send-plane-fill text-[#eedfc8] text-sm"></i>
-              </button>
-            </div>
+                <div className="h-16 w-3/4 skeleton rounded-2xl" />
+              </div>
+            ))}
           </div>
         </div>
+        <BottomNav />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-brand-primary pb-24 page-therapy">
+    <div className="min-h-screen bg-brand-primary pb-20 flex flex-col">
       {/* Header */}
-      <div className="pt-20 px-6">
-        {/* Welcome Section */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-r from-[var(--page-accent)] to-[var(--page-accent-light)] rounded-full flex items-center justify-center mx-auto mb-4">
-            <i className="ri-heart-line text-[#eedfc8] text-3xl"></i>
-          </div>
-          <h1 className="text-2xl font-bold text-brand-background mb-2">Your Safe Haven 🌸</h1>
-          <p className="text-brand-background opacity-80 text-sm leading-relaxed">
-            This is your cozy corner to open up, share your feelings, and receive gentle support. 
-            Choose who you&apos;d like to talk with today.
-          </p>
+      <div className="px-4 pt-6 pb-3 flex-shrink-0">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-[#eedfc8]">Therapy</h1>
+          <button className="w-10 h-10 rounded-full bg-[#eedfc8]/10 flex items-center justify-center">
+            <i className="ri-phone-line text-[#eedfc8] text-lg" />
+          </button>
         </div>
 
-        {/* Support Type Selection */}
-        <div className="space-y-6 mb-8">
-          {/* AI Support Option */}
-          <div className="bg-gradient-to-r from-[var(--page-accent)] to-[var(--page-accent-light)] rounded-2xl p-6 text-[#eedfc8] shadow-lg">
-            <div className="flex items-center space-x-4 mb-4">
-              <div className="w-12 h-12 bg-[#eedfc8]/20 rounded-full flex items-center justify-center">
-                <i className="ri-robot-line text-2xl"></i>
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-lg">🤖 AI Buddy</h3>
-                <p className="text-[#eedfc8]/80 text-sm">Always here, always listening</p>
-              </div>
-            </div>
-            
-            <div className="bg-[#eedfc8]/10 rounded-xl p-4 mb-4">
-              <p className="text-[#eedfc8]/80 text-sm leading-relaxed mb-3">
-                • Available 24/7 with instant responses 🌙<br/>
-                • Completely confidential and non-judgmental 🤐<br/>
-                • Gentle guidance and emotional support 💙<br/>
-                • Safe space to explore your feelings 🌸
-              </p>
-            </div>
-            
-            <button 
-              onClick={startAIChat}
-              className="w-full bg-[#eedfc8] text-[var(--page-accent)] py-3 rounded-full font-semibold !rounded-button"
-            >
-              Talk with AI Buddy 💬
-            </button>
-          </div>
-
-          {/* Human Support Options */}
-          <div className="bg-amber-50 rounded-2xl p-6 border border-emerald-200 shadow-sm">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                <i className="ri-user-heart-line text-emerald-600 text-lg"></i>
-              </div>
-              <h3 className="font-bold text-lg text-emerald-800">👥 Connect with Humans</h3>
-            </div>
-            
-            <p className="text-emerald-600 text-sm mb-6 leading-relaxed">
-              Sometimes we need that human connection. Chat with your chosen Angels or Mentors who understand your journey.
-            </p>
-
-            {/* My Angels */}
-            <div className="mb-6">
-              <h4 className="font-semibold text-emerald-800 mb-3 text-sm">👼 My Angels</h4>
-              <div className="space-y-3">
-                {myAngels.map((angel) => (
-                  <div key={angel.id} className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl p-4 border border-emerald-200">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <div className="w-10 h-10 rounded-full overflow-hidden">
-                        <Image 
-                          src={`https://readdy.ai/api/search-image?query=Friendly%20angel%20profile%20photo%2C%20warm%20smile%2C%20caring%20expression%2C%20professional%20headshot%2C%20diverse%20representation%2C%20soft%20natural%20lighting&width=40&height=40&seq=${angel.avatar}&orientation=squarish`}
-                          alt={angel.name}
-                          width={40}
-                          height={40}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <h5 className="font-semibold text-emerald-800 text-sm">{angel.name}</h5>
-                          {angel.isAvailable && (
-                            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                          )}
-                        </div>
-                        <p className="text-emerald-600 text-xs">{angel.specialty}</p>
-                        <p className="text-emerald-500 text-xs">Usually responds in {angel.responseTime}</p>
-                      </div>
-                    </div>
-                    
-                    <p className="text-emerald-600 text-xs mb-3 italic">&quot;{angel.bio}&quot;</p>
-                    
-                    <button 
-                      onClick={() => startHumanChat(angel, 'angel')}
-                      disabled={!angel.isAvailable}
-                      className="w-full bg-gradient-to-r from-teal-500 to-emerald-500 text-cream py-2 rounded-full text-sm font-medium !rounded-button disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {angel.isAvailable ? 'Connect with Angel 👼' : 'Currently Unavailable'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* My Mentors */}
-            <div>
-              <h4 className="font-semibold text-emerald-800 mb-3 text-sm">🌟 My Mentors</h4>
-              <div className="space-y-3">
-                {myMentors.map((mentor) => (
-                  <div key={mentor.id} className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl p-4 border border-emerald-200">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <div className="w-10 h-10 rounded-full overflow-hidden">
-                        <Image 
-                          src={`https://readdy.ai/api/search-image?query=Professional%20mentor%20profile%20photo%2C%20warm%20smile%2C%20experienced%20and%20caring%20expression%2C%20professional%20headshot%2C%20diverse%20representation%2C%20soft%20natural%20lighting&width=40&height=40&seq=${mentor.avatar}&orientation=squarish`}
-                          alt={mentor.name}
-                          width={40}
-                          height={40}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <h5 className="font-semibold text-emerald-800 text-sm">{mentor.name}</h5>
-                          {mentor.isAvailable && (
-                            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                          )}
-                        </div>
-                        <p className="text-emerald-600 text-xs">{mentor.specialty}</p>
-                        <p className="text-emerald-500 text-xs">{mentor.sessions} sessions completed</p>
-                      </div>
-                    </div>
-                    
-                    <p className="text-emerald-600 text-xs mb-3 italic">&quot;{mentor.bio}&quot;</p>
-                    
-                    <button 
-                      onClick={() => startHumanChat(mentor, 'mentor')}
-                      disabled={!mentor.isAvailable}
-                      className="w-full bg-gradient-to-r from-emerald-500 to-green-500 text-cream py-2 rounded-full text-sm font-medium !rounded-button disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {mentor.isAvailable ? 'Connect with Mentor 🌟' : 'Currently in Session'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Comfort Features */}
-        <div className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-2xl p-6 border border-emerald-200 mb-8">
-          <h3 className="font-semibold text-emerald-800 mb-4 text-center">🌿 Your Comfort Toolkit</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <button className="bg-amber-50 rounded-xl p-4 text-center border border-emerald-200 !rounded-button">
-              <i className="ri-music-line text-emerald-600 text-2xl mb-2"></i>
-              <p className="text-emerald-800 text-sm font-medium">Calming Sounds</p>
-            </button>
-            <button className="bg-amber-50 rounded-xl p-4 text-center border border-emerald-200 !rounded-button">
-              <i className="ri-leaf-line text-emerald-600 text-2xl mb-2"></i>
-              <p className="text-emerald-800 text-sm font-medium">Breathing Exercise</p>
-            </button>
-            <button className="bg-amber-50 rounded-xl p-4 text-center border border-emerald-200 !rounded-button">
-              <i className="ri-bookmark-line text-emerald-600 text-2xl mb-2"></i>
-              <p className="text-emerald-800 text-sm font-medium">Affirmations</p>
-            </button>
-            <button className="bg-amber-50 rounded-xl p-4 text-center border border-emerald-200 !rounded-button">
-              <i className="ri-heart-pulse-line text-emerald-600 text-2xl mb-2"></i>
-              <p className="text-emerald-800 text-sm font-medium">Mood Check</p>
-            </button>
-          </div>
-        </div>
-
-        {/* Emergency Support */}
-        <div className="bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl p-6 text-cream text-center">
-          <div className="w-12 h-12 bg-cream/20 rounded-full flex items-center justify-center mx-auto mb-3">
-            <i className="ri-phone-line text-2xl"></i>
-          </div>
-          <h3 className="font-bold mb-2">Need Immediate Help? 🆘</h3>
-          <p className="text-red-100 text-sm mb-4">If you&apos;re in crisis, please reach out for immediate support</p>
-          <div className="space-y-2">
-            <button className="w-full bg-cream text-red-600 py-3 rounded-full font-semibold !rounded-button">
-              Crisis Helpline: 988
-            </button>
-            <button className="w-full border border-cream/30 py-2 rounded-full text-sm !rounded-button">
-              Local Emergency Resources
-            </button>
-          </div>
+        {/* Tab Toggle */}
+        <div className="flex gap-1 bg-[#eedfc8]/5 rounded-xl p-1">
+          <button
+            onClick={() => setActiveTab('ai-chat')}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-all ${
+              activeTab === 'ai-chat' ? 'tab-active' : 'tab-inactive'
+            }`}
+          >
+            <i className="ri-robot-line" />
+            AI Chat
+          </button>
+          <button
+            onClick={() => setActiveTab('my-team')}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-all ${
+              activeTab === 'my-team' ? 'tab-active' : 'tab-inactive'
+            }`}
+          >
+            <i className="ri-team-line" />
+            My Team
+          </button>
         </div>
       </div>
+
+      {/* AI Chat Tab */}
+      {activeTab === 'ai-chat' && (
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex items-end gap-2 ${
+                  msg.role === 'user' ? 'flex-row-reverse' : ''
+                }`}
+              >
+                {msg.role === 'ai' && (
+                  <div className="w-8 h-8 rounded-full bg-[#D19A58]/20 flex items-center justify-center flex-shrink-0">
+                    <i className="ri-robot-line text-[#D19A58] text-sm" />
+                  </div>
+                )}
+                <div
+                  className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                    msg.role === 'user'
+                      ? 'bg-[#eedfc8] text-[#2A4A42] rounded-br-md'
+                      : 'card-light rounded-bl-md'
+                  }`}
+                >
+                  <p className="whitespace-pre-line">{msg.content}</p>
+                  <p
+                    className={`text-[10px] mt-1.5 ${
+                      msg.role === 'user' ? 'text-[#2A4A42]/50' : 'text-[#eedfc8]/30'
+                    }`}
+                  >
+                    {msg.timestamp.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {isTyping && <TypingIndicator />}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Quick Prompts */}
+          <div className="px-4 py-2 flex-shrink-0">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+              {quickPrompts.map((prompt) => (
+                <button
+                  key={prompt.text}
+                  onClick={() => sendMessage(prompt.text)}
+                  disabled={isTyping}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs whitespace-nowrap bg-[#eedfc8]/10 text-[#eedfc8]/70 hover:bg-[#eedfc8]/15 transition-all disabled:opacity-40 flex-shrink-0"
+                >
+                  <i className={prompt.icon} />
+                  {prompt.text}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Message Input */}
+          <form
+            onSubmit={handleSubmit}
+            className="px-4 pb-4 flex-shrink-0"
+          >
+            <div className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Type a message..."
+                className="input-field flex-1"
+                disabled={isTyping}
+              />
+              <button
+                type="submit"
+                disabled={!inputValue.trim() || isTyping}
+                className="w-11 h-11 rounded-full bg-[#eedfc8] text-[#2A4A42] flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:bg-[#eedfc8]/90"
+              >
+                <i className="ri-send-plane-fill text-lg" />
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* My Team Tab */}
+      {activeTab === 'my-team' && (
+        <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
+          {/* My Angels Section */}
+          <div>
+            <h2 className="section-title flex items-center gap-2">
+              <i className="ri-heart-pulse-line text-[#D19A58]" />
+              My Angels
+            </h2>
+            <div className="space-y-3">
+              {mockAngels.map((angel) => (
+                <div key={angel.id} className="card space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-full bg-[#D19A58]/20 flex items-center justify-center">
+                        <span className="text-[#D19A58] font-bold text-sm">
+                          {angel.name
+                            .split(' ')
+                            .map((n) => n[0])
+                            .join('')}
+                        </span>
+                      </div>
+                      {angel.status === 'online' && (
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-400 border-2 border-brand-primary pulse-dot" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-[#eedfc8]">{angel.name}</h3>
+                      <p className="text-xs text-[#D19A58] font-medium">
+                        {angel.specialty}
+                      </p>
+                      <StarRating rating={angel.rating} />
+                    </div>
+                  </div>
+                  <p className="text-sm text-[#eedfc8]/60">{angel.bio}</p>
+                  <div className="flex items-center gap-4 text-xs text-[#eedfc8]/50">
+                    <span className="flex items-center gap-1">
+                      <i className="ri-time-line" />
+                      {angel.responseTime}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <i className="ri-chat-check-line" />
+                      {angel.sessions} sessions
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="flex-1 btn-primary text-sm py-2">
+                      <i className="ri-chat-1-line mr-1.5" />
+                      Message
+                    </button>
+                    <button className="btn-secondary text-sm py-2 px-4">
+                      <i className="ri-phone-line" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* My Mentors Section */}
+          <div>
+            <h2 className="section-title flex items-center gap-2">
+              <i className="ri-user-star-line text-[#B85C3A]" />
+              My Mentors
+            </h2>
+            <div className="space-y-3">
+              {mockMentors.map((mentor) => (
+                <div key={mentor.id} className="card space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-full bg-[#B85C3A]/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[#B85C3A] font-bold text-sm">
+                        {mentor.name
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-[#eedfc8]">{mentor.name}</h3>
+                      <p className="text-xs text-[#eedfc8]/50">{mentor.credentials}</p>
+                      <StarRating rating={mentor.rating} />
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-lg font-bold text-[#D19A58]">
+                        ${mentor.price}
+                      </p>
+                      <p className="text-[10px] text-[#eedfc8]/40">per session</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-[#eedfc8]/50">
+                    <span className="flex items-center gap-1">
+                      <i className="ri-calendar-check-line" />
+                      {mentor.sessions} sessions completed
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <i className="ri-time-line" />
+                      Next: {mentor.nextAvailable}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="flex-1 btn-accent text-sm py-2">
+                      <i className="ri-calendar-line mr-1.5" />
+                      Book Session
+                    </button>
+                    <button className="btn-secondary text-sm py-2 px-4">
+                      <i className="ri-chat-1-line" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Find More Support */}
+          <div className="card-light text-center py-6">
+            <i className="ri-add-circle-line text-3xl text-[#D19A58] mb-2" />
+            <p className="text-sm text-[#eedfc8]/70 mb-3">
+              Looking for additional support?
+            </p>
+            <button className="btn-secondary text-sm">Browse Angels & Mentors</button>
+          </div>
+        </div>
+      )}
+
+      <BottomNav />
     </div>
   );
 }

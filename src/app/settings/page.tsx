@@ -1,269 +1,626 @@
-"use client";
-import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
-import { useRouter } from "next/navigation";
-import { HomeIcon, UsersIcon, ChatBubbleLeftRightIcon, Cog6ToothIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+'use client'
 
-export default function SettingsPage() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [fullName, setFullName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [age, setAge] = useState("");
-  const [location, setLocation] = useState("");
-  const [bio, setBio] = useState("");
-  const [username, setUsername] = useState("");
-  const [status, setStatus] = useState("");
-  const [isAnonymous, setIsAnonymous] = useState(false);
-  const [comorbidities, setComorbidities] = useState("");
-  const [conditions, setConditions] = useState("");
-  const [medications, setMedications] = useState("");
-  const [notifMatches, setNotifMatches] = useState(false);
-  const [notifMessages, setNotifMessages] = useState(false);
-  const [notifGroups, setNotifGroups] = useState(false);
-  const [error, setError] = useState("");
-  const router = useRouter();
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/AuthContext'
+import { DatabaseService } from '@/lib/database'
+import BottomNav from '@/components/BottomNav'
 
-  const navLinks = [
-    { name: 'Home', href: '/dashboard', icon: HomeIcon },
-    { name: 'Matches', href: '/matches', icon: UsersIcon },
-    { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon },
-    { name: 'Groups', href: '/groups', icon: UserGroupIcon },
-    { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
-  ];
+interface ProfileData {
+  full_name: string
+  username: string
+  bio: string
+  location: string
+  age: string
+  pronouns: string
+  conditions: string[]
+  comorbidities: string[]
+  medications: string[]
+  status: string
+  is_anonymous: boolean
+  preferred_communication: string
+  notify_matches: boolean
+  notify_messages: boolean
+  notify_groups: boolean
+  [key: string]: unknown
+}
 
-  const defaultAvatar = "/images/avatar.png";
+const defaultProfile: ProfileData = {
+  full_name: '',
+  username: '',
+  bio: '',
+  location: '',
+  age: '',
+  pronouns: '',
+  conditions: [],
+  comorbidities: [],
+  medications: [],
+  status: '',
+  is_anonymous: false,
+  preferred_communication: 'chat',
+  notify_matches: true,
+  notify_messages: true,
+  notify_groups: true,
+}
+
+const pronounOptions = ['He/Him', 'She/Her', 'They/Them', 'Ze/Zir', 'Prefer not to say']
+const communicationOptions = [
+  { value: 'chat', label: 'Chat', icon: 'ri-chat-1-line' },
+  { value: 'voice', label: 'Voice', icon: 'ri-mic-line' },
+  { value: 'video', label: 'Video', icon: 'ri-vidicon-line' },
+]
+
+export default function Settings() {
+  const { user, loading: authLoading, signOut } = useAuth()
+  const router = useRouter()
+  const [profile, setProfile] = useState<ProfileData>(defaultProfile)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [conditionInput, setConditionInput] = useState('')
+  const [comorbidityInput, setComorbidityInput] = useState('')
+  const [medicationInput, setMedicationInput] = useState('')
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+    if (!authLoading && !user) {
+      router.push('/login')
+    }
+  }, [user, authLoading, router])
 
-      if (!user) {
-        router.push("/login");
-        return;
+  useEffect(() => {
+    async function fetchProfile() {
+      if (!user) return
+      try {
+        const data = await DatabaseService.getProfile(user.userId) as Record<string, unknown> | null
+        if (data) {
+          setProfile({
+            ...defaultProfile,
+            ...data,
+            age: data.age ? String(data.age) : '',
+            notify_matches: data.notify_matches !== false,
+            notify_messages: data.notify_messages !== false,
+            notify_groups: data.notify_groups !== false,
+          } as ProfileData)
+        }
+      } catch (err) {
+        console.error('Failed to load profile:', err)
+      } finally {
+        setLoading(false)
       }
+    }
+    if (user) fetchProfile()
+  }, [user])
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error);
-      } else if (data) {
-        setFullName(data.full_name || "");
-        setAvatarUrl(data.avatar_url || "");
-        setAge(data.age ? String(data.age) : "");
-        setLocation(data.location || "");
-        setBio(data.bio || "");
-        setUsername(data.username || "");
-        setStatus(data.status || "");
-        setIsAnonymous(data.is_anonymous || false);
-        setComorbidities((data.comorbidities && data.comorbidities.join(", ")) || "");
-        setConditions((data.conditions && data.conditions.join(", ")) || "");
-        setMedications((data.medications && data.medications.join(", ")) || "");
-        setNotifMatches(data.notif_matches || false);
-        setNotifMessages(data.notif_messages || false);
-        setNotifGroups(data.notif_groups || false);
-      }
-      setLoading(false);
-    };
-    fetchProfile();
-  }, [router]);
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message })
+    setTimeout(() => setToast(null), 3000)
+  }
 
   const handleSave = async () => {
-    setSaving(true);
-    setError("");
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      setError("Not authenticated");
-      setSaving(false);
-      return;
+    if (!user) return
+    setSaving(true)
+    try {
+      const updates = {
+        full_name: profile.full_name,
+        username: profile.username,
+        bio: profile.bio,
+        location: profile.location,
+        age: profile.age ? parseInt(profile.age, 10) : null,
+        pronouns: profile.pronouns,
+        conditions: profile.conditions,
+        comorbidities: profile.comorbidities,
+        medications: profile.medications,
+        status: profile.status,
+        is_anonymous: profile.is_anonymous,
+        preferred_communication: profile.preferred_communication,
+        notify_matches: profile.notify_matches,
+        notify_messages: profile.notify_messages,
+        notify_groups: profile.notify_groups,
+      }
+      await DatabaseService.updateProfile(user.userId, updates)
+      showToast('success', 'Profile updated successfully!')
+    } catch (err) {
+      console.error('Failed to save profile:', err)
+      showToast('error', 'Failed to save. Please try again.')
+    } finally {
+      setSaving(false)
     }
+  }
 
-    const updates = {
-      full_name: fullName,
-      avatar_url: avatarUrl,
-      age: age ? parseInt(age) : null,
-      location,
-      bio,
-      username,
-      status,
-      is_anonymous: isAnonymous,
-      comorbidities: comorbidities.split(",").map((c) => c.trim()).filter(Boolean),
-      conditions: conditions.split(",").map((c) => c.trim()).filter(Boolean),
-      medications: medications.split(",").map((m) => m.trim()).filter(Boolean),
-      notif_matches: notifMatches,
-      notif_messages: notifMessages,
-      notif_groups: notifGroups,
-      updated_at: new Date(),
-    };
+  const handleAddTag = (
+    field: 'conditions' | 'comorbidities' | 'medications',
+    value: string,
+    setter: (v: string) => void
+  ) => {
+    const trimmed = value.trim()
+    if (!trimmed || profile[field].includes(trimmed)) return
+    setProfile((prev) => ({ ...prev, [field]: [...prev[field], trimmed] }))
+    setter('')
+  }
 
-    const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', user.id);
+  const handleRemoveTag = (
+    field: 'conditions' | 'comorbidities' | 'medications',
+    index: number
+  ) => {
+    setProfile((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== index),
+    }))
+  }
 
-    if (updateError) {
-      setError(updateError.message);
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      router.push('/login')
+    } catch (err) {
+      console.error('Sign out error:', err)
     }
-    setSaving(false);
-  };
+  }
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setError("");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setError("Not authenticated");
-      return;
-    }
-
-    const fileExt = file.name.split('.').pop();
-    const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-
-    const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
-
-    if (uploadError) {
-      setError(uploadError.message);
-      return;
-    }
-
-    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-    setAvatarUrl(publicUrl);
-
-    const { error: updateError } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
-
-    if (updateError) {
-      setError(updateError.message);
-    }
-  };
-
-  if (loading) return <div className="text-white p-8">Loading...</div>;
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-brand-primary pb-20">
+        <div className="px-4 pt-14 space-y-6">
+          <div className="h-8 w-32 skeleton rounded-lg" />
+          <div className="h-20 skeleton rounded-xl" />
+          <div className="space-y-4">
+            {Array(5).fill(0).map((_, i) => (
+              <div key={i} className="h-14 skeleton rounded-xl" />
+            ))}
+          </div>
+        </div>
+        <BottomNav />
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen w-full flex bg-[#2A4A42] py-10 px-2">
-      {/* Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 rounded-tl-3xl bg-[#2A4A42] p-6 gap-8 shadow-xl border-r border-[#eedfc9]/20">
-        <div className="flex flex-col items-center gap-2">
-          <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-16 border-2 border-[#eedfc9]" style={{ backgroundImage: `url(${avatarUrl || defaultAvatar})` }}></div>
-          <span className="text-[#eedfc9] font-semibold text-lg mt-2">{fullName || 'User'}</span>
-          <span className="text-[#eedfc9]/60 text-sm">@{username || 'user'}</span>
+    <div className="min-h-screen bg-brand-primary pb-20">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 left-4 right-4 z-50 p-3 rounded-xl flex items-center gap-2 text-sm font-medium shadow-lg transition-all ${
+          toast.type === 'success'
+            ? 'bg-brand-accent3/90 text-[#eedfc8]'
+            : 'bg-[#B85C3A]/90 text-white'
+        }`}>
+          <i className={toast.type === 'success' ? 'ri-check-line' : 'ri-error-warning-line'} />
+          {toast.message}
         </div>
-        <nav className="flex flex-col gap-2 mt-6">
-          {navLinks.map(link => (
-            <a key={link.name} href={link.href} className={`flex items-center gap-3 px-4 py-2 rounded-lg transition font-medium text-base ${link.name === 'Settings' ? 'bg-[#eedfc9]/10 text-[#eedfc9]' : 'text-[#eedfc9]/80 hover:bg-[#eedfc9]/5 hover:text-[#eedfc9]'}`}> {/* Highlight Settings */}
-              <link.icon className="h-5 w-5" />
-              {link.name}
-            </a>
-          ))}
-        </nav>
-      </aside>
-      {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center">
-        <div className="w-full max-w-2xl bg-[#2A4A42] rounded-2xl shadow-2xl border border-[#eedfc9]/20 p-8 md:p-12 flex flex-col gap-8">
-          <div className="flex flex-col items-center gap-3">
-            <div className="relative">
-              <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-20 border-4 border-[#eedfc9] shadow-lg" style={{ backgroundImage: `url(${avatarUrl || defaultAvatar})` }}></div>
-              <label className="absolute bottom-0 right-0 bg-[#eedfc9] rounded-full p-2 cursor-pointer hover:bg-[#eedfc9]/80 transition-colors" title="Upload new profile picture">
-                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="#2A4A42" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5v-9m4.5 4.5h-9" />
-                </svg>
-              </label>
-            </div>
-            <h1 className="text-[#eedfc9] text-2xl font-extrabold leading-tight tracking-tight">{fullName || "User"}</h1>
-            <p className="text-[#eedfc9]/60 text-base font-medium leading-normal">@{username || "user"}</p>
+      )}
+
+      {/* Header */}
+      <div className="px-4 pt-14 pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="w-9 h-9 rounded-full bg-[#eedfc8]/5 flex items-center justify-center text-[#eedfc8] hover:bg-[#eedfc8]/10 transition-colors"
+            >
+              <i className="ri-arrow-left-line text-lg" />
+            </button>
+            <h1 className="text-xl font-bold text-[#eedfc8]">Settings</h1>
           </div>
-          <div className="flex flex-col gap-8">
-            <div>
-              <h2 className="text-[#eedfc9] text-xl font-bold mb-4 border-b border-[#eedfc9]/20 pb-2">Profile Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <label className="flex flex-col gap-1">
-                  <span className="text-[#eedfc9]/80 font-medium">Full Name</span>
-                  <input className="form-input rounded-lg bg-[#2A4A42] text-[#eedfc9] border border-[#eedfc9]/20 focus:border-[#eedfc9] focus:ring-2 focus:ring-[#eedfc9]/30 transition-colors p-3" value={fullName} onChange={e => setFullName(e.target.value)} />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-[#eedfc9]/80 font-medium">Username</span>
-                  <input className="form-input rounded-lg bg-[#2A4A42] text-[#eedfc9] border border-[#eedfc9]/20 focus:border-[#eedfc9] focus:ring-2 focus:ring-[#eedfc9]/30 transition-colors p-3" value={username} onChange={e => setUsername(e.target.value)} />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-[#eedfc9]/80 font-medium">Profile Picture URL</span>
-                  <input className="form-input rounded-lg bg-[#2A4A42] text-[#eedfc9] border border-[#eedfc9]/20 focus:border-[#eedfc9] focus:ring-2 focus:ring-[#eedfc9]/30 transition-colors p-3" value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-[#eedfc9]/80 font-medium">Age</span>
-                  <input type="number" min="0" className="form-input rounded-lg bg-[#18122B] text-white border border-[#39324a] focus:border-[#1993e5] focus:ring-2 focus:ring-[#1993e5]/30 transition p-3" value={age} onChange={e => setAge(e.target.value)} />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-[#eedfc9]/80 font-medium">Location</span>
-                  <input className="form-input rounded-lg bg-[#2A4A42] text-[#eedfc9] border border-[#eedfc9]/20 focus:border-[#eedfc9] focus:ring-2 focus:ring-[#eedfc9]/30 transition-colors p-3" value={location} onChange={e => setLocation(e.target.value)} />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-[#eedfc9]/80 font-medium">Status</span>
-                  <input className="form-input rounded-lg bg-[#2A4A42] text-[#eedfc9] border border-[#eedfc9]/20 focus:border-[#eedfc9] focus:ring-2 focus:ring-[#eedfc9]/30 transition-colors p-3" value={status} onChange={e => setStatus(e.target.value)} />
-                </label>
-              </div>
-              <label className="flex flex-col gap-1 mt-6">
-                <span className="text-[#beac9d] font-medium">Bio</span>
-                <textarea className="form-input rounded-lg bg-[#2A4A42] text-[#eedfc9] border border-[#eedfc9]/20 focus:border-[#eedfc9] focus:ring-2 focus:ring-[#eedfc9]/30 transition-colors p-3 min-h-[80px]" value={bio} onChange={e => setBio(e.target.value)} />
-              </label>
-            </div>
-            <div>
-              <h2 className="text-[#eedfc9] text-xl font-bold mb-4 border-b border-[#eedfc9]/20 pb-2">Health & Preferences</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <label className="flex flex-col gap-1">
-                  <span className="text-[#eedfc9]/80 font-medium">Comorbidities (comma-separated)</span>
-                  <input className="form-input rounded-lg bg-[#2A4A42] text-[#eedfc9] border border-[#eedfc9]/20 focus:border-[#eedfc9] focus:ring-2 focus:ring-[#eedfc9]/30 transition-colors p-3" value={comorbidities} onChange={e => setComorbidities(e.target.value)} />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-[#eedfc9]/80 font-medium">Conditions (comma-separated)</span>
-                  <input className="form-input rounded-lg bg-[#2A4A42] text-[#eedfc9] border border-[#eedfc9]/20 focus:border-[#eedfc9] focus:ring-2 focus:ring-[#eedfc9]/30 transition-colors p-3" value={conditions} onChange={e => setConditions(e.target.value)} />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-[#eedfc9]/80 font-medium">Medications (comma-separated)</span>
-                  <input className="form-input rounded-lg bg-[#2A4A42] text-[#eedfc9] border border-[#eedfc9]/20 focus:border-[#eedfc9] focus:ring-2 focus:ring-[#eedfc9]/30 transition-colors p-3" value={medications} onChange={e => setMedications(e.target.value)} />
-                </label>
-                <label className="flex flex-row items-center gap-2 mt-6">
-                  <input type="checkbox" id="isAnonymous" checked={isAnonymous} onChange={() => setIsAnonymous(!isAnonymous)} className="h-5 w-5 text-[#eedfc9] border-[#eedfc9]/20 rounded focus:ring-[#eedfc9]/30" />
-                  <span className="text-[#eedfc9]/80 text-sm">Stay anonymous (use a pseudonym)</span>
-                </label>
-              </div>
-            </div>
-            <div>
-              <h2 className="text-[#eedfc9] text-xl font-bold mb-4 border-b border-[#eedfc9]/20 pb-2">Notifications</h2>
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between bg-[#2A4A42] rounded-lg px-4 py-3 border border-[#eedfc9]/20">
-                  <div>
-                    <p className="text-[#eedfc9] text-base font-semibold">New Matches</p>
-                    <p className="text-[#eedfc9]/70 text-sm">Receive notifications for new matches</p>
-                  </div>
-                  <input type="checkbox" className="h-5 w-5 text-[#eedfc9] border-[#eedfc9]/20 rounded focus:ring-[#eedfc9]/30" checked={notifMatches} onChange={() => setNotifMatches(!notifMatches)} />
-                </div>
-                <div className="flex items-center justify-between bg-[#2A4A42] rounded-lg px-4 py-3 border border-[#eedfc9]/20">
-                  <div>
-                    <p className="text-[#eedfc9] text-base font-semibold">Messages</p>
-                    <p className="text-[#eedfc9]/70 text-sm">Receive notifications for new messages</p>
-                  </div>
-                  <input type="checkbox" className="h-5 w-5 text-[#eedfc9] border-[#eedfc9]/20 rounded focus:ring-[#eedfc9]/30" checked={notifMessages} onChange={() => setNotifMessages(!notifMessages)} />
-                </div>
-                <div className="flex items-center justify-between bg-[#2A4A42] rounded-lg px-4 py-3 border border-[#eedfc9]/20">
-                  <div>
-                    <p className="text-[#eedfc9] text-base font-semibold">Group Activities</p>
-                    <p className="text-[#eedfc9]/70 text-sm">Receive notifications for group activities</p>
-                  </div>
-                  <input type="checkbox" className="h-5 w-5 text-[#eedfc9] border-[#eedfc9]/20 rounded focus:ring-[#eedfc9]/30" checked={notifGroups} onChange={() => setNotifGroups(!notifGroups)} />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-center gap-2 mt-4">
-            <button className="bg-[#eedfc9] text-[#2A4A42] px-10 py-3 rounded-xl font-bold text-lg shadow-lg hover:bg-[#eedfc9]/90 transition-colors duration-200 disabled:opacity-60" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save Changes"}</button>
-            {error && <span className="text-red-500 text-sm mt-1">{error}</span>}
-          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-primary !py-2 !px-5 flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {saving ? (
+              <>
+                <i className="ri-loader-4-line animate-spin" /> Saving...
+              </>
+            ) : (
+              <>
+                <i className="ri-check-line" /> Save
+              </>
+            )}
+          </button>
         </div>
       </div>
+
+      <div className="px-4 space-y-6">
+        {/* Profile Section */}
+        <section>
+          <h2 className="section-title flex items-center gap-2">
+            <i className="ri-user-line text-[#D19A58]" /> Profile
+          </h2>
+          <div className="space-y-4">
+            {/* Avatar Upload Placeholder */}
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url as string}
+                    alt="Avatar"
+                    className="w-16 h-16 rounded-full object-cover border-2 border-[#D19A58]"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-brand-accent2/30 flex items-center justify-center border-2 border-[#D19A58]">
+                    <span className="text-[#D19A58] font-bold text-xl">
+                      {(profile.full_name || profile.username || '?').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#B85C3A] flex items-center justify-center text-white shadow-lg">
+                  <i className="ri-camera-line text-xs" />
+                </button>
+              </div>
+              <div className="flex-1">
+                <p className="text-[#eedfc8] text-sm font-medium">Profile Photo</p>
+                <p className="text-[#eedfc8]/40 text-xs">Tap the camera icon to upload</p>
+              </div>
+            </div>
+
+            {/* Full Name */}
+            <div>
+              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Full Name</label>
+              <input
+                type="text"
+                value={profile.full_name}
+                onChange={(e) => setProfile((p) => ({ ...p, full_name: e.target.value }))}
+                placeholder="Your full name"
+                className="input-field"
+              />
+            </div>
+
+            {/* Username */}
+            <div>
+              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Username</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#eedfc8]/40 text-sm">@</span>
+                <input
+                  type="text"
+                  value={profile.username}
+                  onChange={(e) => setProfile((p) => ({ ...p, username: e.target.value }))}
+                  placeholder="username"
+                  className="input-field !pl-8"
+                />
+              </div>
+            </div>
+
+            {/* Bio */}
+            <div>
+              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Bio</label>
+              <textarea
+                value={profile.bio}
+                onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))}
+                placeholder="Tell us about yourself..."
+                rows={3}
+                className="input-field resize-none"
+              />
+            </div>
+
+            {/* Location */}
+            <div>
+              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Location</label>
+              <div className="relative">
+                <i className="ri-map-pin-2-line absolute left-3 top-1/2 -translate-y-1/2 text-[#eedfc8]/40" />
+                <input
+                  type="text"
+                  value={profile.location}
+                  onChange={(e) => setProfile((p) => ({ ...p, location: e.target.value }))}
+                  placeholder="City, State"
+                  className="input-field !pl-9"
+                />
+              </div>
+            </div>
+
+            {/* Age & Pronouns Row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Age</label>
+                <input
+                  type="number"
+                  value={profile.age}
+                  onChange={(e) => setProfile((p) => ({ ...p, age: e.target.value }))}
+                  placeholder="Age"
+                  min="13"
+                  max="120"
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Pronouns</label>
+                <select
+                  value={profile.pronouns}
+                  onChange={(e) => setProfile((p) => ({ ...p, pronouns: e.target.value }))}
+                  className="input-field"
+                >
+                  <option value="">Select...</option>
+                  {pronounOptions.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Health Info Section */}
+        <section>
+          <h2 className="section-title flex items-center gap-2">
+            <i className="ri-heart-pulse-line text-[#B85C3A]" /> Health Info
+          </h2>
+          <div className="space-y-4">
+            {/* Conditions */}
+            <div>
+              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Conditions</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {profile.conditions.map((c, i) => (
+                  <span key={c} className="badge bg-brand-accent1/20 text-brand-accent1 flex items-center gap-1">
+                    {c}
+                    <button onClick={() => handleRemoveTag('conditions', i)} className="hover:text-white">
+                      <i className="ri-close-line text-xs" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={conditionInput}
+                  onChange={(e) => setConditionInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleAddTag('conditions', conditionInput, setConditionInput)
+                    }
+                  }}
+                  placeholder="Add a condition..."
+                  className="input-field flex-1"
+                />
+                <button
+                  onClick={() => handleAddTag('conditions', conditionInput, setConditionInput)}
+                  className="btn-secondary !py-0 !px-3"
+                >
+                  <i className="ri-add-line" />
+                </button>
+              </div>
+            </div>
+
+            {/* Comorbidities */}
+            <div>
+              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Comorbidities</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {profile.comorbidities.map((c, i) => (
+                  <span key={c} className="badge bg-brand-accent2/20 text-[#D19A58] flex items-center gap-1">
+                    {c}
+                    <button onClick={() => handleRemoveTag('comorbidities', i)} className="hover:text-white">
+                      <i className="ri-close-line text-xs" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={comorbidityInput}
+                  onChange={(e) => setComorbidityInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleAddTag('comorbidities', comorbidityInput, setComorbidityInput)
+                    }
+                  }}
+                  placeholder="Add a comorbidity..."
+                  className="input-field flex-1"
+                />
+                <button
+                  onClick={() => handleAddTag('comorbidities', comorbidityInput, setComorbidityInput)}
+                  className="btn-secondary !py-0 !px-3"
+                >
+                  <i className="ri-add-line" />
+                </button>
+              </div>
+            </div>
+
+            {/* Medications */}
+            <div>
+              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Medications</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {profile.medications.map((m, i) => (
+                  <span key={m} className="badge bg-brand-accent3/20 text-brand-accent3 flex items-center gap-1">
+                    {m}
+                    <button onClick={() => handleRemoveTag('medications', i)} className="hover:text-white">
+                      <i className="ri-close-line text-xs" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={medicationInput}
+                  onChange={(e) => setMedicationInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleAddTag('medications', medicationInput, setMedicationInput)
+                    }
+                  }}
+                  placeholder="Add a medication..."
+                  className="input-field flex-1"
+                />
+                <button
+                  onClick={() => handleAddTag('medications', medicationInput, setMedicationInput)}
+                  className="btn-secondary !py-0 !px-3"
+                >
+                  <i className="ri-add-line" />
+                </button>
+              </div>
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Current Status</label>
+              <input
+                type="text"
+                value={profile.status}
+                onChange={(e) => setProfile((p) => ({ ...p, status: e.target.value }))}
+                placeholder="e.g., In treatment, Managing, In recovery..."
+                className="input-field"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Privacy Section */}
+        <section>
+          <h2 className="section-title flex items-center gap-2">
+            <i className="ri-shield-check-line text-brand-accent3" /> Privacy
+          </h2>
+          <div className="space-y-4">
+            {/* Anonymous Toggle */}
+            <div className="card-light flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#eedfc8]/10 flex items-center justify-center">
+                  <i className="ri-spy-line text-[#eedfc8]/70" />
+                </div>
+                <div>
+                  <p className="text-[#eedfc8] text-sm font-medium">Anonymous Mode</p>
+                  <p className="text-[#eedfc8]/40 text-xs">Hide your identity in posts</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setProfile((p) => ({ ...p, is_anonymous: !p.is_anonymous }))}
+                className={`w-12 h-7 rounded-full transition-all relative ${
+                  profile.is_anonymous ? 'bg-[#D19A58]' : 'bg-[#eedfc8]/20'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-1 transition-all ${
+                  profile.is_anonymous ? 'left-6' : 'left-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* Communication Preferences */}
+            <div>
+              <label className="text-[#eedfc8]/60 text-xs font-medium mb-2 block">Preferred Communication</label>
+              <div className="grid grid-cols-3 gap-2">
+                {communicationOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setProfile((p) => ({ ...p, preferred_communication: opt.value }))}
+                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${
+                      profile.preferred_communication === opt.value
+                        ? 'bg-[#D19A58]/15 border-[#D19A58]/40 text-[#D19A58]'
+                        : 'bg-[#eedfc8]/5 border-[#eedfc8]/10 text-[#eedfc8]/50'
+                    }`}
+                  >
+                    <i className={`${opt.icon} text-lg`} />
+                    <span className="text-xs font-medium">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Notifications Section */}
+        <section>
+          <h2 className="section-title flex items-center gap-2">
+            <i className="ri-notification-3-line text-[#D19A58]" /> Notifications
+          </h2>
+          <div className="space-y-3">
+            {/* Matches Toggle */}
+            <div className="card-light flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-brand-accent1/15 flex items-center justify-center">
+                  <i className="ri-hearts-line text-brand-accent1" />
+                </div>
+                <div>
+                  <p className="text-[#eedfc8] text-sm font-medium">Matches</p>
+                  <p className="text-[#eedfc8]/40 text-xs">New match notifications</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setProfile((p) => ({ ...p, notify_matches: !p.notify_matches }))}
+                className={`w-12 h-7 rounded-full transition-all relative ${
+                  profile.notify_matches ? 'bg-[#D19A58]' : 'bg-[#eedfc8]/20'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-1 transition-all ${
+                  profile.notify_matches ? 'left-6' : 'left-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* Messages Toggle */}
+            <div className="card-light flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-brand-accent2/15 flex items-center justify-center">
+                  <i className="ri-chat-1-line text-[#D19A58]" />
+                </div>
+                <div>
+                  <p className="text-[#eedfc8] text-sm font-medium">Messages</p>
+                  <p className="text-[#eedfc8]/40 text-xs">New message alerts</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setProfile((p) => ({ ...p, notify_messages: !p.notify_messages }))}
+                className={`w-12 h-7 rounded-full transition-all relative ${
+                  profile.notify_messages ? 'bg-[#D19A58]' : 'bg-[#eedfc8]/20'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-1 transition-all ${
+                  profile.notify_messages ? 'left-6' : 'left-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* Groups Toggle */}
+            <div className="card-light flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-brand-accent3/15 flex items-center justify-center">
+                  <i className="ri-group-line text-brand-accent3" />
+                </div>
+                <div>
+                  <p className="text-[#eedfc8] text-sm font-medium">Groups</p>
+                  <p className="text-[#eedfc8]/40 text-xs">Group activity updates</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setProfile((p) => ({ ...p, notify_groups: !p.notify_groups }))}
+                className={`w-12 h-7 rounded-full transition-all relative ${
+                  profile.notify_groups ? 'bg-[#D19A58]' : 'bg-[#eedfc8]/20'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-1 transition-all ${
+                  profile.notify_groups ? 'left-6' : 'left-1'
+                }`} />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Save Button (bottom) */}
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="btn-primary w-full flex items-center justify-center gap-2 !py-3 disabled:opacity-50"
+        >
+          {saving ? (
+            <>
+              <i className="ri-loader-4-line animate-spin" /> Saving Changes...
+            </>
+          ) : (
+            <>
+              <i className="ri-save-line" /> Save Changes
+            </>
+          )}
+        </button>
+
+        {/* Sign Out */}
+        <button
+          onClick={handleSignOut}
+          className="w-full py-3 text-center text-[#B85C3A] text-sm font-medium hover:text-[#B85C3A]/80 transition-colors mb-4"
+        >
+          <i className="ri-logout-box-r-line mr-1.5" />
+          Sign Out
+        </button>
+      </div>
+
+      <BottomNav />
     </div>
-  );
-} 
+  )
+}

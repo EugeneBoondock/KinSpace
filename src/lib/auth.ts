@@ -1,95 +1,147 @@
-
 'use client'
 
-import { supabase } from './supabase'
-import { User } from '@supabase/supabase-js'
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  updateProfile,
+  sendEmailVerification,
+  signInWithPopup,
+  GoogleAuthProvider,
+  type User,
+} from 'firebase/auth'
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
+import { auth, db } from './firebase'
 
-export interface AuthUser extends User {
-  profile?: {
-    username: string
-    full_name: string
-    avatar_url: string | null
-    bio: string | null
+export interface AuthUser {
+  userId: string
+  username: string
+  email: string | null
+  displayName: string | null
+  photoURL: string | null
+  emailVerified: boolean
+}
+
+function mapFirebaseUser(user: User): AuthUser {
+  return {
+    userId: user.uid,
+    username: user.displayName || user.email?.split('@')[0] || 'user',
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL,
+    emailVerified: user.emailVerified,
   }
 }
 
 export class AuthService {
-  static async signUp(email: string, password: string, userData: {
-    username: string
-    full_name: string
-  }) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+  static async signUp(
+    email: string,
+    password: string,
+    userData: { username: string; full_name: string }
+  ) {
+    const credential = await createUserWithEmailAndPassword(auth, email, password)
+    const user = credential.user
+
+    await updateProfile(user, {
+      displayName: userData.full_name || userData.username,
     })
 
-    if (error) throw error
+    // Create profile document in Firestore
+    await setDoc(doc(db, 'profiles', user.uid), {
+      email,
+      username: userData.username,
+      full_name: userData.full_name || userData.username,
+      avatar_url: null,
+      bio: null,
+      location: null,
+      conditions: [],
+      comorbidities: [],
+      medications: [],
+      status: null,
+      is_anonymous: false,
+      age: null,
+      interests: [],
+      pronouns: null,
+      followers: 0,
+      following: 0,
+      postsCount: 0,
+      emergency_contact: null,
+      emergency_phone: null,
+      mental_health_goals: [],
+      preferred_communication: 'chat',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    })
 
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email,
-          username: userData.username,
-          full_name: userData.full_name,
-          preferred_communication: 'app',
-        })
-
-      if (profileError) throw profileError
-    }
-
-    return data
+    await sendEmailVerification(user)
+    return credential
   }
 
   static async signIn(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const credential = await signInWithEmailAndPassword(auth, email, password)
+    return credential
+  }
 
-    if (error) throw error
-    return data
+  static async signInWithGoogle() {
+    const provider = new GoogleAuthProvider()
+    const credential = await signInWithPopup(auth, provider)
+    const user = credential.user
+
+    // Create profile if it doesn't exist yet (first-time Google sign-in)
+    const profileRef = doc(db, 'profiles', user.uid)
+    const profileSnap = await getDoc(profileRef)
+
+    if (!profileSnap.exists()) {
+      await setDoc(profileRef, {
+        email: user.email,
+        username: user.displayName?.toLowerCase().replace(/\s+/g, '') || user.email?.split('@')[0] || 'user',
+        full_name: user.displayName || '',
+        avatar_url: user.photoURL || null,
+        bio: null,
+        location: null,
+        conditions: [],
+        comorbidities: [],
+        medications: [],
+        status: null,
+        is_anonymous: false,
+        age: null,
+        interests: [],
+        pronouns: null,
+        followers: 0,
+        following: 0,
+        postsCount: 0,
+        emergency_contact: null,
+        emergency_phone: null,
+        mental_health_goals: [],
+        preferred_communication: 'chat',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      })
+    }
+
+    return credential
   }
 
   static async signOut() {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    await firebaseSignOut(auth)
   }
 
   static async getCurrentUser(): Promise<AuthUser | null> {
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) return null
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('username, full_name, avatar_url, bio')
-      .eq('id', user.id)
-      .single()
-
-    return {
-      ...user,
-      profile
-    }
+    return new Promise((resolve) => {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        unsubscribe()
+        resolve(user ? mapFirebaseUser(user) : null)
+      })
+    })
   }
 
   static onAuthStateChange(callback: (user: AuthUser | null) => void) {
-    return supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('username, full_name, avatar_url, bio')
-          .eq('id', session.user.id)
-          .single()
-
-        callback({
-          ...session.user,
-          profile
-        })
-      } else {
-        callback(null)
-      }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      callback(user ? mapFirebaseUser(user) : null)
     })
+    return unsubscribe
   }
 }

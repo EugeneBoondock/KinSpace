@@ -134,22 +134,18 @@ export default function UnoPage() {
       // Handle special cards
       let nextPlayer = (currentPlayer + direction + 4) % 4
       
-      switch (card.type) {
-        case 'skip':
+      const cType = card.type as string
+      if (cType === 'skip') {
+        nextPlayer = (nextPlayer + direction + 4) % 4
+      } else if (cType === 'reverse') {
+        setDirection(-direction)
+        if (players.length === 2) {
           nextPlayer = (nextPlayer + direction + 4) % 4
-          break
-        case 'reverse':
-          setDirection(-direction)
-          if (players.length === 2) {
-            nextPlayer = (nextPlayer + direction + 4) % 4
-          }
-          break
-        case 'draw2':
-          setDrawCount(2)
-          break
-        case 'wild4':
-          setDrawCount(4)
-          break
+        }
+      } else if (cType === 'draw2') {
+        setDrawCount(2)
+      } else if (cType === 'wild4') {
+        setDrawCount(4)
       }
       
       // Check for win
