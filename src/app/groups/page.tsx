@@ -6,6 +6,7 @@ import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
+import { geocodeQueries } from '@/lib/map-client'
 import { formatCompactNumber } from '@/lib/platform'
 
 type Tab = 'for-you' | 'following' | 'your-groups'
@@ -87,12 +88,24 @@ export default function GroupsPage() {
     setCreating(true)
 
     try {
+      let latitude: number | null = null
+      let longitude: number | null = null
+
+      if (newGroupLocation.trim() && newGroupType !== 'virtual') {
+        const geocodes = await geocodeQueries([`${newGroupLocation.trim()}, ${newGroupName.trim()}`])
+        const match = geocodes.get(`${newGroupLocation.trim()}, ${newGroupName.trim()}`)
+        latitude = match?.latitude ?? null
+        longitude = match?.longitude ?? null
+      }
+
       await DatabaseService.createGroup(user.userId, {
         name: newGroupName.trim(),
         description: newGroupDescription.trim(),
         category: newGroupCategory.trim().toLowerCase(),
         type: newGroupType,
         location: newGroupLocation.trim() || null,
+        latitude,
+        longitude,
       })
 
       await refreshGroups()

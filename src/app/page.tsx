@@ -1,161 +1,260 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import Image from 'next/image';
-import React, { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/AuthContext';
+import Image from 'next/image'
+import Link from 'next/link'
+import { useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/AuthContext'
 
 function AnimatedDnaStrand({ side = 'left', mobile = false }: { side?: 'left' | 'right'; mobile?: boolean }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const rungs = 32;
-  const height = 420;
-  const amplitude = 32;
-  const dotRadius = 7;
-  const duration = 4000;
+  const containerRef = useRef<HTMLDivElement>(null)
+  const rungs = 32
+  const height = 420
+  const amplitude = 32
+  const dotRadius = 7
+  const duration = 4000
 
   useEffect(() => {
-    let frame: number;
-    let start: number;
+    let frame: number
+    let start: number
+
     function animate(ts: number) {
-      if (!start) start = ts;
-      const phase = ((ts - start) % duration) / duration * 2 * Math.PI;
-      const children = containerRef.current?.children;
+      if (!start) start = ts
+      const phase = (((ts - start) % duration) / duration) * 2 * Math.PI
+      const children = containerRef.current?.children
+
       if (children) {
-        for (let i = 0; i < rungs; i++) {
-          const t = i / (rungs - 1);
-          const angle = phase + t * 2 * Math.PI;
-          const x1 = Math.sin(angle) * amplitude;
-          const x2 = Math.sin(angle + Math.PI) * amplitude;
-          const y = t * height;
-          const z1 = Math.cos(angle) * amplitude;
-          const z2 = Math.cos(angle + Math.PI) * amplitude;
-          const opacity1 = 0.5 + 0.5 * (z1 / amplitude);
-          const opacity2 = 0.5 + 0.5 * (z2 / amplitude);
-          const scale1 = 0.7 + 0.3 * (z1 / amplitude);
-          const scale2 = 0.7 + 0.3 * (z2 / amplitude);
-          const rung = children[i] as HTMLElement;
-          const line = rung.querySelector('.dna-helix-line') as HTMLElement;
+        for (let index = 0; index < rungs; index += 1) {
+          const t = index / (rungs - 1)
+          const angle = phase + t * 2 * Math.PI
+          const x1 = Math.sin(angle) * amplitude
+          const x2 = Math.sin(angle + Math.PI) * amplitude
+          const y = t * height
+          const z1 = Math.cos(angle) * amplitude
+          const z2 = Math.cos(angle + Math.PI) * amplitude
+          const opacity1 = 0.5 + 0.5 * (z1 / amplitude)
+          const opacity2 = 0.5 + 0.5 * (z2 / amplitude)
+          const scale1 = 0.7 + 0.3 * (z1 / amplitude)
+          const scale2 = 0.7 + 0.3 * (z2 / amplitude)
+          const rung = children[index] as HTMLElement
+          const line = rung.querySelector('.dna-helix-line') as HTMLElement | null
+
           if (line) {
-            const dx = x2 - x1;
-            const lineLength = Math.sqrt(dx * dx);
-            line.style.width = `${lineLength}px`;
-            line.style.left = `${x1 + amplitude}px`;
-            line.style.top = `${y}px`;
-            line.style.transform = `rotate(${Math.atan2(0, dx)}rad)`;
-            line.style.opacity = `${(opacity1 + opacity2) / 2}`;
+            const dx = x2 - x1
+            line.style.width = `${Math.sqrt(dx * dx)}px`
+            line.style.left = `${x1 + amplitude}px`
+            line.style.top = `${y}px`
+            line.style.transform = `rotate(${Math.atan2(0, dx)}rad)`
+            line.style.opacity = `${(opacity1 + opacity2) / 2}`
           }
-          const dot1 = rung.querySelector('.dna-helix-dot1') as HTMLElement;
-          const dot2 = rung.querySelector('.dna-helix-dot2') as HTMLElement;
+
+          const dot1 = rung.querySelector('.dna-helix-dot1') as HTMLElement | null
+          const dot2 = rung.querySelector('.dna-helix-dot2') as HTMLElement | null
+
           if (dot1) {
-            dot1.style.left = `${x1 + amplitude - dotRadius}px`;
-            dot1.style.top = `${y - dotRadius}px`;
-            dot1.style.opacity = `${opacity1}`;
-            dot1.style.transform = `scale(${scale1})`;
+            dot1.style.left = `${x1 + amplitude - dotRadius}px`
+            dot1.style.top = `${y - dotRadius}px`
+            dot1.style.opacity = `${opacity1}`
+            dot1.style.transform = `scale(${scale1})`
           }
+
           if (dot2) {
-            dot2.style.left = `${x2 + amplitude - dotRadius}px`;
-            dot2.style.top = `${y - dotRadius}px`;
-            dot2.style.opacity = `${opacity2}`;
-            dot2.style.transform = `scale(${scale2})`;
+            dot2.style.left = `${x2 + amplitude - dotRadius}px`
+            dot2.style.top = `${y - dotRadius}px`
+            dot2.style.opacity = `${opacity2}`
+            dot2.style.transform = `scale(${scale2})`
           }
         }
       }
-      frame = requestAnimationFrame(animate);
+
+      frame = requestAnimationFrame(animate)
     }
-    frame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frame);
-  }, []);
+
+    frame = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(frame)
+  }, [])
 
   if (mobile) {
     return (
-      <div className="block sm:hidden fixed top-1/2 left-1/2 z-0 -translate-x-1/2 -translate-y-1/2 opacity-20 pointer-events-none select-none" style={{ perspective: 1000, width: amplitude * 2 + 40, height }}>
-        <div ref={containerRef} className="absolute left-1/2 -translate-x-1/2" style={{ height, width: amplitude * 2 + 20 }}>
-          {Array.from({ length: rungs }).map((_, i) => (
-            <div key={i} className="absolute">
+      <div
+        className="fixed left-1/2 top-1/2 z-0 block -translate-x-1/2 -translate-y-1/2 select-none opacity-20 pointer-events-none sm:hidden"
+        style={{ perspective: 1000, width: amplitude * 2 + 40, height }}
+      >
+        <div
+          ref={containerRef}
+          className="absolute left-1/2 -translate-x-1/2"
+          style={{ height, width: amplitude * 2 + 20 }}
+        >
+          {Array.from({ length: rungs }).map((_, index) => (
+            <div key={index} className="absolute">
               <div className="dna-helix-line absolute h-0.5 bg-[#eedfc8] bg-opacity-50" style={{ zIndex: 1 }} />
-              <div className="dna-helix-dot1 absolute w-3 h-3 bg-[#eedfc8] rounded-full" style={{ zIndex: 2 }} />
-              <div className="dna-helix-dot2 absolute w-3 h-3 bg-[#eedfc8] rounded-full" style={{ zIndex: 2 }} />
+              <div className="dna-helix-dot1 absolute h-3 w-3 rounded-full bg-[#eedfc8]" style={{ zIndex: 2 }} />
+              <div className="dna-helix-dot2 absolute h-3 w-3 rounded-full bg-[#eedfc8]" style={{ zIndex: 2 }} />
             </div>
           ))}
         </div>
       </div>
-    );
+    )
   }
 
   return (
     <div
-      className={`hidden sm:fixed sm:top-1/2 z-20 h-[420px] w-20 sm:-translate-y-1/2 pointer-events-none select-none ${
+      className={`pointer-events-none hidden select-none sm:fixed sm:top-1/2 sm:z-20 sm:flex sm:h-[420px] sm:w-20 sm:-translate-y-1/2 sm:items-center sm:justify-center ${
         side === 'left' ? 'sm:left-16 -rotate-12' : 'sm:right-16 rotate-12'
-      } sm:flex items-center justify-center`}
+      }`}
       style={{ perspective: 1000 }}
     >
-      <div ref={containerRef} className="absolute left-1/2 -translate-x-1/2" style={{ height, width: amplitude * 2 + 20 }}>
-        {Array.from({ length: rungs }).map((_, i) => (
-          <div key={i} className="absolute">
+      <div
+        ref={containerRef}
+        className="absolute left-1/2 -translate-x-1/2"
+        style={{ height, width: amplitude * 2 + 20 }}
+      >
+        {Array.from({ length: rungs }).map((_, index) => (
+          <div key={index} className="absolute">
             <div className="dna-helix-line absolute h-0.5 bg-[#eedfc8] bg-opacity-50" style={{ zIndex: 1 }} />
-            <div className="dna-helix-dot1 absolute w-3 h-3 bg-[#eedfc8] rounded-full" style={{ zIndex: 2 }} />
-            <div className="dna-helix-dot2 absolute w-3 h-3 bg-[#eedfc8] rounded-full" style={{ zIndex: 2 }} />
+            <div className="dna-helix-dot1 absolute h-3 w-3 rounded-full bg-[#eedfc8]" style={{ zIndex: 2 }} />
+            <div className="dna-helix-dot2 absolute h-3 w-3 rounded-full bg-[#eedfc8]" style={{ zIndex: 2 }} />
           </div>
         ))}
       </div>
     </div>
-  );
+  )
 }
 
-const supportCategories = [
-  { name: 'Mental Health', icon: 'ri-mental-health-line', members: '12.4k', color: '#6B8A83' },
-  { name: 'Chronic Illness', icon: 'ri-heart-pulse-line', members: '9.8k', color: '#B85C3A' },
-  { name: 'Addiction Recovery', icon: 'ri-shield-star-line', members: '7.2k', color: '#D19A58' },
-  { name: 'Grief & Loss', icon: 'ri-emotion-sad-line', members: '5.6k', color: '#6B8A83' },
-  { name: 'Disability', icon: 'ri-wheelchair-line', members: '4.3k', color: '#B85C3A' },
-  { name: 'Rare Conditions', icon: 'ri-microscope-line', members: '3.1k', color: '#D19A58' },
-];
+const platformPillars = [
+  {
+    title: 'Private by choice',
+    description: 'Stay anonymous when you need to, control what you share, and keep returning to the same support spaces.',
+    icon: 'ri-lock-line',
+    color: '#D19A58',
+  },
+  {
+    title: 'Live platform data',
+    description: 'Groups, posts, resources, and care directories now come from the real app instead of hardcoded filler.',
+    icon: 'ri-database-2-line',
+    color: '#6B8A83',
+  },
+  {
+    title: 'Maps built in',
+    description: 'Doctors, pharmacies, and support groups stay inside KinSpace with native routing and nearby discovery.',
+    icon: 'ri-map-pin-line',
+    color: '#B85C3A',
+  },
+]
 
-const testimonials = [
+const supportPaths = [
   {
-    quote: 'KinSpace gave me a community that truly understands what living with lupus feels like. I no longer feel alone.',
-    author: 'Sarah M.',
-    condition: 'Lupus Warrior',
-    avatar: 'ri-user-heart-line',
+    title: 'Mental health',
+    description: 'Daily check-ins, guided support, and community conversation.',
+    href: '/therapy',
+    icon: 'ri-mental-health-line',
+    color: '#6B8A83',
   },
   {
-    quote: 'After years of silent grief, I found people here who helped me heal. This app changed my life.',
-    author: 'James T.',
-    condition: 'Grief Support',
-    avatar: 'ri-user-smile-line',
+    title: 'Chronic conditions',
+    description: 'Explore live groups, resources, and treatment signals shaped by member profiles.',
+    href: '/explore',
+    icon: 'ri-heart-pulse-line',
+    color: '#B85C3A',
   },
   {
-    quote: 'The anonymous mode let me open up about my recovery journey without fear. Truly a safe space.',
-    author: 'Anonymous',
-    condition: 'Recovery Journey',
-    avatar: 'ri-user-line',
+    title: 'Recovery and grief',
+    description: 'Find peers, show up consistently, and keep one thread of support going.',
+    href: '/community',
+    icon: 'ri-shield-star-line',
+    color: '#D19A58',
   },
-];
+  {
+    title: 'Nearby support',
+    description: 'Open the in-app map for doctors, pharmacies, and local groups.',
+    href: '/nearby-support',
+    icon: 'ri-route-line',
+    color: '#6B8A83',
+  },
+  {
+    title: 'Research and resources',
+    description: 'Read through live resources and research alongside community signals and care pathways.',
+    href: '/research',
+    icon: 'ri-microscope-line',
+    color: '#B85C3A',
+  },
+  {
+    title: 'Games and connection',
+    description: 'Practice solo, join live rooms, or open a shared space before a support session.',
+    href: '/games',
+    icon: 'ri-gamepad-line',
+    color: '#D19A58',
+  },
+]
+
+const featureCards = [
+  {
+    title: 'Join live conversations',
+    description: 'Step into the community feed, then move into support groups that actually exist in the database.',
+    href: '/community',
+    cta: 'Open community',
+    icon: 'ri-chat-3-line',
+    tone: 'from-teal-600/15 to-emerald-600/15 border-emerald-500/20',
+  },
+  {
+    title: 'Find nearby care',
+    description: 'Use KinSpace maps for doctors, pharmacies, and in-person support without bouncing to Google Maps.',
+    href: '/map',
+    cta: 'Open care map',
+    icon: 'ri-route-line',
+    tone: 'from-amber-600/15 to-orange-600/15 border-orange-500/20',
+  },
+  {
+    title: 'Learn from people and research',
+    description: 'Browse resources, research, and member signals that reflect what people are actually sharing.',
+    href: '/resources',
+    cta: 'Browse resources',
+    icon: 'ri-book-open-line',
+    tone: 'from-sky-600/15 to-cyan-600/15 border-sky-500/20',
+  },
+]
+
+const trustCards = [
+  {
+    title: 'No inflated numbers',
+    description: 'The public experience now avoids inflated counts and invented testimonials in favor of honest navigation.',
+    icon: 'ri-bar-chart-box-line',
+  },
+  {
+    title: 'Desktop-first after login',
+    description: 'Signed-in pages use shared framing and tighter desktop grids so wide screens feel designed, not stretched.',
+    icon: 'ri-layout-grid-line',
+  },
+  {
+    title: 'One connected care surface',
+    description: 'Community, support rooms, resources, and maps now reinforce each other instead of behaving like isolated demos.',
+    icon: 'ri-links-line',
+  },
+]
 
 export default function LandingPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
+  const { user, loading } = useAuth()
+  const router = useRouter()
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace('/dashboard');
+      router.replace('/dashboard')
     }
-  }, [user, loading, router]);
+  }, [loading, router, user])
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="skeleton w-20 h-20 rounded-full" />
-          <div className="skeleton w-48 h-6" />
-          <div className="skeleton w-64 h-4" />
+          <div className="skeleton h-20 w-20 rounded-full" />
+          <div className="skeleton h-6 w-48" />
+          <div className="skeleton h-4 w-64" />
         </div>
       </div>
-    );
+    )
   }
 
-  if (user) return null;
+  if (user) return null
 
   return (
     <div className="relative min-h-screen overflow-x-hidden">
@@ -163,145 +262,136 @@ export default function LandingPage() {
       <AnimatedDnaStrand side="left" />
       <AnimatedDnaStrand side="right" />
 
-      {/* Hero Section */}
-      <section className="relative px-4 sm:px-10 pt-10 pb-12 sm:pt-16 sm:pb-20">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#D19A58] opacity-[0.04] rounded-full blur-[120px] pointer-events-none" />
+      <section className="relative px-4 pb-14 pt-10 sm:px-10 sm:pb-20 sm:pt-16">
+        <div className="pointer-events-none absolute left-1/2 top-0 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-[#D19A58] opacity-[0.04] blur-[120px]" />
 
-        <div className="relative z-10 max-w-[960px] mx-auto text-center">
-          {/* Hero Image */}
-          <div className="w-full flex justify-center mb-8">
-            <div className="hero-glow rounded-2xl">
-              <Image
-                src="/images/kinspace_hero.png"
-                alt="Welcome to KinSpace"
-                width={500}
-                height={500}
-                priority
-                className="rounded-2xl w-[280px] h-[280px] sm:w-[450px] sm:h-[450px] object-contain"
-              />
-            </div>
-          </div>
-
-          {/* Hero Text */}
-          <h1 className="text-4xl sm:text-5xl font-black text-[#eedfc8] mb-4 leading-tight tracking-tight">
-            Your Cozy Corner <span className="text-[#D19A58]">for Healing</span>
-          </h1>
-
-          <p className="text-[#eedfc8]/80 text-base sm:text-lg mb-8 max-w-2xl mx-auto leading-relaxed">
-            A warm community where we grow together through life&apos;s challenges &mdash; chronic illness,
-            mental health, addiction, grief, and beyond. Connect with others who understand your journey.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-8">
-            <Link href="/signup" className="btn-primary text-base px-10 py-3.5 w-full sm:w-auto text-center font-bold">
-              Join Our Community
-            </Link>
-            <Link href="/login" className="btn-secondary text-base px-10 py-3.5 w-full sm:w-auto text-center font-bold">
-              Sign In
-            </Link>
-          </div>
-
-          {/* Social proof */}
-          <div className="flex items-center justify-center gap-6 sm:gap-8 text-sm text-[#eedfc8]/50">
-            <div className="flex items-center gap-1.5">
-              <i className="ri-group-line text-[#D19A58]" />
-              <span>42k+ Members</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <i className="ri-shield-check-line text-[#6B8A83]" />
-              <span>Safe Space</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <i className="ri-lock-line text-[#B85C3A]" />
-              <span>Private</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Community Stats */}
-      <section className="px-4 sm:px-10 mb-12">
-        <div className="max-w-4xl mx-auto">
-          <div className="card bg-[#2A4A42]/50 backdrop-blur-lg border border-[#eedfc8]/20">
-            <h3 className="text-[#eedfc8] text-lg font-bold mb-5 text-center">Our Growing Family</h3>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-2xl sm:text-3xl font-bold text-[#D19A58]">12.5k+</div>
-                <div className="text-sm text-[#eedfc8]/70">Members</div>
+        <div className="relative z-10 mx-auto max-w-[1100px]">
+          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_28rem]">
+            <div className="text-center lg:text-left">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#eedfc8]/15 bg-[#eedfc8]/8 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/65">
+                <i className="ri-heart-pulse-line text-[#D19A58]" />
+                Built for real support, not staged demos
               </div>
-              <div>
-                <div className="text-2xl sm:text-3xl font-bold text-[#6B8A83]">850+</div>
-                <div className="text-sm text-[#eedfc8]/70">Support Groups</div>
+
+              <h1 className="mt-6 text-4xl font-black leading-tight tracking-tight text-[#eedfc8] sm:text-5xl lg:text-6xl">
+                A better place to understand what helps, who relates, and where care actually is
+              </h1>
+
+              <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-[#eedfc8]/78 lg:mx-0 lg:text-lg">
+                KinSpace brings together community support, condition discovery, resources, and native care maps so people can move from feeling alone to feeling informed, connected, and supported.
+              </p>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
+                <Link href="/signup" className="btn-primary px-10 py-3.5 text-center text-base font-bold">
+                  Join KinSpace
+                </Link>
+                <Link href="/login" className="btn-secondary px-10 py-3.5 text-center text-base font-bold">
+                  Sign in
+                </Link>
               </div>
-              <div>
-                <div className="text-2xl sm:text-3xl font-bold text-[#B85C3A]">24/7</div>
-                <div className="text-sm text-[#eedfc8]/70">Support</div>
+
+              <div className="mt-8 flex flex-wrap justify-center gap-3 text-sm text-[#eedfc8]/60 lg:justify-start">
+                {platformPillars.map((pillar) => (
+                  <div key={pillar.title} className="badge bg-[#eedfc8]/10 text-[#eedfc8]">
+                    <i className={`${pillar.icon} mr-1.5`} style={{ color: pillar.color }} />
+                    {pillar.title}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-center lg:justify-end">
+              <div className="hero-glow rounded-[2rem] border border-[#eedfc8]/12 bg-[#eedfc8]/6 p-4 backdrop-blur-sm">
+                <div className="overflow-hidden rounded-[1.6rem] border border-[#eedfc8]/10 bg-[#214038]">
+                  <Image
+                    src="/images/kinspace_hero.png"
+                    alt="KinSpace platform illustration"
+                    width={520}
+                    height={520}
+                    priority
+                    className="h-[280px] w-[280px] object-contain sm:h-[420px] sm:w-[420px]"
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Emergency & Quick Actions */}
       <section className="px-4 sm:px-10 mb-12">
-        <div className="max-w-4xl mx-auto">
+        <div className="mx-auto max-w-5xl">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {platformPillars.map((pillar) => (
+              <div key={pillar.title} className="card bg-[#2A4A42]/50 border border-[#eedfc8]/20 backdrop-blur-lg">
+                <div
+                  className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl"
+                  style={{ backgroundColor: `${pillar.color}20` }}
+                >
+                  <i className={`${pillar.icon} text-xl`} style={{ color: pillar.color }} />
+                </div>
+                <h2 className="text-lg font-bold text-[#eedfc8]">{pillar.title}</h2>
+                <p className="mt-3 text-sm leading-relaxed text-[#eedfc8]/70">{pillar.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 sm:px-10 mb-12">
+        <div className="mx-auto max-w-5xl">
           <div className="card border-[#B85C3A]/30 bg-[#B85C3A]/10">
-            <div className="flex items-center gap-2 mb-4">
-              <i className="ri-first-aid-kit-line text-[#B85C3A] text-xl" />
-              <h3 className="font-bold text-[#eedfc8] text-lg">Need Help Nearby?</h3>
+            <div className="mb-4 flex items-center gap-2">
+              <i className="ri-first-aid-kit-line text-xl text-[#B85C3A]" />
+              <h2 className="text-lg font-bold text-[#eedfc8]">Need Help Nearby?</h2>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <a
                 href="tel:988"
-                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#B85C3A]/20 hover:bg-[#B85C3A]/30 transition-colors"
+                className="flex flex-col items-center gap-2 rounded-xl bg-[#B85C3A]/20 p-4 text-center transition-colors hover:bg-[#B85C3A]/30"
               >
-                <i className="ri-phone-line text-[#B85C3A] text-2xl" />
-                <span className="text-sm text-[#eedfc8] font-semibold text-center">Call 988 Hotline</span>
+                <i className="ri-phone-line text-2xl text-[#B85C3A]" />
+                <span className="text-sm font-semibold text-[#eedfc8]">Call 988 hotline</span>
               </a>
-              <a
-                href="https://www.google.com/maps/search/doctor+near+me"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#6B8A83]/20 hover:bg-[#6B8A83]/30 transition-colors"
+              <Link
+                href="/map?type=doctor"
+                className="flex flex-col items-center gap-2 rounded-xl bg-[#6B8A83]/20 p-4 text-center transition-colors hover:bg-[#6B8A83]/30"
               >
-                <i className="ri-stethoscope-line text-[#6B8A83] text-2xl" />
-                <span className="text-sm text-[#eedfc8] font-semibold text-center">Find Doctors</span>
-              </a>
-              <a
-                href="https://www.google.com/maps/search/pharmacy+near+me"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#D19A58]/20 hover:bg-[#D19A58]/30 transition-colors"
+                <i className="ri-stethoscope-line text-2xl text-[#6B8A83]" />
+                <span className="text-sm font-semibold text-[#eedfc8]">Find doctors</span>
+              </Link>
+              <Link
+                href="/map?type=pharmacy"
+                className="flex flex-col items-center gap-2 rounded-xl bg-[#D19A58]/20 p-4 text-center transition-colors hover:bg-[#D19A58]/30"
               >
-                <i className="ri-capsule-line text-[#D19A58] text-2xl" />
-                <span className="text-sm text-[#eedfc8] font-semibold text-center">Pharmacies</span>
-              </a>
+                <i className="ri-capsule-line text-2xl text-[#D19A58]" />
+                <span className="text-sm font-semibold text-[#eedfc8]">Find pharmacies</span>
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Support Categories */}
       <section className="px-4 sm:px-10 mb-12">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-[#eedfc8] text-2xl font-bold text-center mb-8">Find Your People</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {supportCategories.map((cat) => (
+        <div className="mx-auto max-w-5xl">
+          <h2 className="mb-8 text-center text-2xl font-bold text-[#eedfc8]">Choose Your Starting Point</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {supportPaths.map((path) => (
               <Link
-                key={cat.name}
-                href="/explore"
-                className="card-light flex flex-col items-center text-center p-5 hover:border-[#eedfc8]/25 transition-all duration-200 cursor-pointer"
+                key={path.title}
+                href={path.href}
+                className="card-light group flex h-full flex-col p-5 transition-all duration-200 hover:border-[#eedfc8]/25"
               >
                 <div
-                  className="w-14 h-14 rounded-full flex items-center justify-center mb-3"
-                  style={{ backgroundColor: `${cat.color}20` }}
+                  className="mb-4 flex h-14 w-14 items-center justify-center rounded-full"
+                  style={{ backgroundColor: `${path.color}20` }}
                 >
-                  <i className={`${cat.icon} text-2xl`} style={{ color: cat.color }} />
+                  <i className={`${path.icon} text-2xl`} style={{ color: path.color }} />
                 </div>
-                <span className="text-sm font-semibold text-[#eedfc8] mb-1">{cat.name}</span>
-                <span className="text-xs text-[#eedfc8]/50">
-                  <i className="ri-group-line mr-1" />
-                  {cat.members}
+                <h3 className="text-lg font-semibold text-[#eedfc8]">{path.title}</h3>
+                <p className="mt-3 flex-1 text-sm leading-relaxed text-[#eedfc8]/60">{path.description}</p>
+                <span className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#D19A58]">
+                  Open now
+                  <i className="ri-arrow-right-line transition-transform group-hover:translate-x-1" />
                 </span>
               </Link>
             ))}
@@ -309,190 +399,38 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Games & Activities */}
       <section className="px-4 sm:px-10 mb-12">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="card bg-gradient-to-br from-purple-600/15 to-pink-600/15 border-purple-500/20">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="badge bg-[#eedfc8]/15 text-[#eedfc8] text-xs">Fun!</span>
-                <span className="badge bg-[#eedfc8]/15 text-[#eedfc8] text-xs">Play Together</span>
+        <div className="mx-auto max-w-5xl">
+          <h2 className="mb-8 text-center text-2xl font-bold text-[#eedfc8]">What You Can Do Inside</h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {featureCards.map((card) => (
+              <div key={card.title} className={`card bg-gradient-to-br ${card.tone}`}>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eedfc8]/10">
+                  <i className={`${card.icon} text-2xl text-[#eedfc8]`} />
+                </div>
+                <h3 className="text-lg font-bold text-[#eedfc8]">{card.title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-[#eedfc8]/70">{card.description}</p>
+                <Link href={card.href} className="btn-primary mt-5 inline-block px-6 py-2.5 text-sm">
+                  {card.cta}
+                </Link>
               </div>
-              <h3 className="text-lg font-bold text-[#eedfc8] mb-2">
-                <i className="ri-gamepad-line mr-2 text-[#D19A58]" />
-                Game Zone Open!
-              </h3>
-              <p className="text-[#eedfc8]/70 text-sm mb-4">
-                Connect with community members through fun games &mdash; chess, tic-tac-toe, wordle, and more!
-              </p>
-              <Link href="/games" className="btn-primary inline-block text-sm px-6 py-2.5">
-                Start Playing
-              </Link>
-            </div>
-
-            <div className="card bg-gradient-to-br from-emerald-600/15 to-teal-600/15 border-emerald-500/20">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="badge bg-[#eedfc8]/15 text-[#eedfc8] text-xs">New!</span>
-                <span className="badge bg-[#eedfc8]/15 text-[#eedfc8] text-xs">Group Adventures</span>
-              </div>
-              <h3 className="text-lg font-bold text-[#eedfc8] mb-2">
-                <i className="ri-hand-heart-line mr-2 text-[#6B8A83]" />
-                Spread Joy Together!
-              </h3>
-              <p className="text-[#eedfc8]/70 text-sm mb-4">
-                Join fellow members for meaningful volunteer activities &mdash; visit orphanages, spend time at hospices, or brighten someone&apos;s day.
-              </p>
-              <Link href="/community" className="btn-primary inline-block text-sm px-6 py-2.5">
-                Join Adventures
-              </Link>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Key Features */}
       <section className="px-4 sm:px-10 mb-12">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-[#eedfc8] text-2xl font-bold text-center mb-8">Key Features</h2>
-          <div className="flex flex-col gap-6">
-            {/* Feature 1 */}
-            <div className="card overflow-hidden p-0">
-              <div className="flex flex-col md:flex-row">
-                <div className="flex-1 p-6">
-                  <h3 className="text-xl font-bold text-[#eedfc8] mb-3">Personalized Matching</h3>
-                  <p className="text-[#eedfc8]/70 mb-5">Find compatible connections based on shared conditions, interests, and goals.</p>
-                  <Link href="/explore" className="btn-primary inline-block text-sm px-6 py-2.5">
-                    Find Matches
-                  </Link>
-                </div>
-                <div className="h-56 w-full md:h-auto md:w-1/2 relative">
-                  <Image
-                    src="/images/personalized_matching.png"
-                    alt="Personalized matching"
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Feature 2 */}
-            <div className="card overflow-hidden p-0">
-              <div className="flex flex-col md:flex-row-reverse">
-                <div className="flex-1 p-6">
-                  <h3 className="text-xl font-bold text-[#eedfc8] mb-3">Support Groups</h3>
-                  <p className="text-[#eedfc8]/70 mb-5">Join condition-specific groups for discussions, advice, and shared experiences.</p>
-                  <Link href="/groups" className="btn-primary inline-block text-sm px-6 py-2.5">
-                    Explore Groups
-                  </Link>
-                </div>
-                <div className="h-56 w-full md:h-auto md:w-1/2 relative">
-                  <Image
-                    src="/images/support_groups.png"
-                    alt="Support groups"
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="card overflow-hidden p-0">
-              <div className="flex flex-col md:flex-row">
-                <div className="flex-1 p-6">
-                  <h3 className="text-xl font-bold text-[#eedfc8] mb-3">Trauma-Bonding</h3>
-                  <p className="text-[#eedfc8]/70 mb-5">Build meaningful relationships with others who understand the challenges of chronic conditions.</p>
-                  <Link href="/trauma-bonding" className="btn-primary inline-block text-sm px-6 py-2.5">
-                    Discover Connections
-                  </Link>
-                </div>
-                <div className="h-56 w-full md:h-auto md:w-1/2 relative">
-                  <Image
-                    src="/images/bonding.png"
-                    alt="Trauma bonding connections"
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Today's Good Vibes */}
-      <section className="px-4 sm:px-10 mb-12">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-[#eedfc8] text-2xl font-bold text-center mb-8">Today&apos;s Good Vibes</h2>
-          <div className="space-y-4">
-            <div className="card bg-gradient-to-r from-teal-600/15 to-emerald-600/15 border-emerald-500/20">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="badge bg-[#6B8A83]/30 text-[#6B8A83] text-xs animate-pulse-dot">Live Now</span>
-              </div>
-              <h4 className="font-bold text-[#eedfc8] text-lg mb-2">Weekly Wellness Circle</h4>
-              <p className="text-[#eedfc8]/70 text-sm mb-4">
-                Join 47 friends sharing self-care wins and cozy chat about feeling good
-              </p>
-              <button className="btn-primary text-sm px-6 py-2.5">Join the Circle</button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="card-light">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#D19A58]/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <i className="ri-book-open-line text-[#D19A58]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-[#eedfc8] text-sm">Fresh Resource Added</h4>
-                    <p className="text-xs text-[#eedfc8]/60">Understanding Anxiety: Your Friendly Guide</p>
-                  </div>
-                  <Link href="/resources" className="text-[#D19A58] text-sm font-medium hover:opacity-80 flex-shrink-0">
-                    Read
-                  </Link>
-                </div>
-              </div>
-
-              <div className="card-light">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#6B8A83]/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <i className="ri-user-smile-line text-[#6B8A83]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-[#eedfc8] text-sm">New Buddy Available</h4>
-                    <p className="text-xs text-[#eedfc8]/60">Chronic pain warrior offering friendly 1-on-1 chats</p>
-                  </div>
-                  <Link href="/community" className="text-[#D19A58] text-sm font-medium hover:opacity-80 flex-shrink-0">
-                    Say Hi
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="px-4 sm:px-10 mb-12">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-[#eedfc8] text-2xl font-bold text-center mb-8">
-            Stories from Our Community
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {testimonials.map((t, i) => (
-              <div key={i} className="card-light">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="mb-8 text-center text-2xl font-bold text-[#eedfc8]">Built for Real Support</h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {trustCards.map((card) => (
+              <div key={card.title} className="card-light">
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-12 h-12 rounded-full bg-[#D19A58]/20 flex items-center justify-center mb-3">
-                    <i className={`${t.avatar} text-xl text-[#D19A58]`} />
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#D19A58]/20">
+                    <i className={`${card.icon} text-xl text-[#D19A58]`} />
                   </div>
-                  <p className="text-sm text-[#eedfc8]/80 italic leading-relaxed mb-3">
-                    &ldquo;{t.quote}&rdquo;
-                  </p>
-                  <span className="text-sm font-semibold text-[#eedfc8]">{t.author}</span>
-                  <span className="badge text-xs mt-1">{t.condition}</span>
+                  <p className="text-sm font-semibold text-[#eedfc8]">{card.title}</p>
+                  <p className="mt-3 text-sm leading-relaxed text-[#eedfc8]/70">{card.description}</p>
                 </div>
               </div>
             ))}
@@ -500,53 +438,54 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CTA Section */}
       <section className="px-4 sm:px-10 mb-12">
-        <div className="max-w-4xl mx-auto">
-          <div className="card text-center py-10">
-            <i className="ri-hand-heart-line text-5xl text-[#D19A58] mb-4 block" />
-            <h2 className="text-2xl font-bold text-[#eedfc8] mb-3">
-              You Don&apos;t Have to Do This Alone
-            </h2>
-            <p className="text-[#eedfc8]/60 mb-6 max-w-lg mx-auto">
-              Join thousands who have found comfort, understanding, and hope in our community.
+        <div className="mx-auto max-w-4xl">
+          <div className="card py-10 text-center">
+            <i className="ri-hand-heart-line mb-4 block text-5xl text-[#D19A58]" />
+            <h2 className="mb-3 text-2xl font-bold text-[#eedfc8]">You Don&apos;t Have to Do This Alone</h2>
+            <p className="mx-auto mb-6 max-w-2xl text-[#eedfc8]/60">
+              Start with the part of KinSpace you need most today, then grow into community, nearby care discovery, and support that stays with you after you log in.
             </p>
-            <Link href="/signup" className="btn-accent text-base px-10 py-3.5 inline-block font-bold">
+            <Link href="/signup" className="btn-accent inline-block px-10 py-3.5 text-base font-bold">
               Get Started Free
             </Link>
-            <p className="text-xs text-[#eedfc8]/40 mt-3">
-              No credit card required. Always free.
-            </p>
+            <p className="mt-3 text-xs text-[#eedfc8]/40">No credit card required. Always free.</p>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-[#eedfc8]/10 bg-[#27433d] text-[#eedfc8] py-6 px-4 sm:px-10">
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row md:justify-between md:items-center gap-6 md:gap-0">
-          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 text-sm">
-            <a href="#" className="hover:text-[#D19A58] transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-[#D19A58] transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-[#D19A58] transition-colors">Contact Us</a>
+      <footer className="border-t border-[#eedfc8]/10 bg-[#27433d] px-4 py-6 text-[#eedfc8] sm:px-10">
+        <div className="mx-auto flex max-w-5xl flex-col gap-6 md:flex-row md:items-center md:justify-between md:gap-0">
+          <div className="flex flex-col items-center gap-4 text-sm sm:flex-row sm:gap-6">
+            <Link href="/resources" className="transition-colors hover:text-[#D19A58]">
+              Resources
+            </Link>
+            <Link href="/research" className="transition-colors hover:text-[#D19A58]">
+              Research
+            </Link>
+            <Link href="/map" className="transition-colors hover:text-[#D19A58]">
+              Care map
+            </Link>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
+
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-6">
             <div className="flex gap-3">
-              <a href="#" className="hover:text-[#D19A58] transition-colors p-2" aria-label="Twitter">
-                <i className="ri-twitter-x-line text-lg" />
-              </a>
-              <a href="#" className="hover:text-[#D19A58] transition-colors p-2" aria-label="Instagram">
-                <i className="ri-instagram-line text-lg" />
-              </a>
-              <a href="#" className="hover:text-[#D19A58] transition-colors p-2" aria-label="Facebook">
-                <i className="ri-facebook-circle-line text-lg" />
-              </a>
+              <Link href="/community" className="p-2 transition-colors hover:text-[#D19A58]" aria-label="Community">
+                <i className="ri-chat-3-line text-lg" />
+              </Link>
+              <Link href="/groups" className="p-2 transition-colors hover:text-[#D19A58]" aria-label="Groups">
+                <i className="ri-group-line text-lg" />
+              </Link>
+              <Link href="/games" className="p-2 transition-colors hover:text-[#D19A58]" aria-label="Games">
+                <i className="ri-gamepad-line text-lg" />
+              </Link>
             </div>
             <p className="text-xs text-[#eedfc8]/50">2026 KinSpace. All rights reserved.</p>
             <a
               href="https://boondocklabs.co.za"
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-secondary text-xs px-4 py-2"
+              className="btn-secondary px-4 py-2 text-xs"
             >
               By Boondock Labs
             </a>
@@ -554,5 +493,5 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
-  );
+  )
 }

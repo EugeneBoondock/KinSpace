@@ -26,6 +26,8 @@ type GroupInput = {
   isPrivate?: boolean
   type?: 'virtual' | 'in-person' | 'hybrid'
   location?: string | null
+  latitude?: number | null
+  longitude?: number | null
   tags?: string[]
 }
 
@@ -40,6 +42,37 @@ function sortByNewest(first: FirestoreRecord, second: FirestoreRecord) {
 function sortByDateAsc(first: FirestoreRecord, second: FirestoreRecord, field: string) {
   return (toDate(first[field] as string | number | Date) ?? new Date(8640000000000000)).getTime()
     - (toDate(second[field] as string | number | Date) ?? new Date(8640000000000000)).getTime()
+}
+
+function tallyPhrases(
+  values: Array<string | Array<string | null | undefined> | null | undefined>,
+  limitCount = 6,
+) {
+  const counts = new Map<string, { label: string; count: number }>()
+
+  values.forEach((value) => {
+    const items = Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : typeof value === 'string'
+        ? value.split(',').map((item) => item.trim())
+        : []
+
+    items
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach((item) => {
+        const key = item.toLowerCase()
+        const current = counts.get(key)
+        counts.set(key, {
+          label: current?.label || item,
+          count: (current?.count || 0) + 1,
+        })
+      })
+  })
+
+  return Array.from(counts.values())
+    .sort((first, second) => second.count - first.count || first.label.localeCompare(second.label))
+    .slice(0, limitCount)
 }
 
 async function getProfileSummary(userId: string | null | undefined) {
@@ -384,6 +417,8 @@ export class DatabaseService {
       category: data.category,
       type: data.type || 'virtual',
       location: data.location || null,
+      latitude: data.latitude ?? null,
+      longitude: data.longitude ?? null,
       tags: data.tags || [],
       is_private: data.isPrivate || false,
       created_by: userId,
@@ -439,6 +474,33 @@ export class DatabaseService {
       .filter((resource) => !filters?.type || resource.type === filters.type)
       .filter((resource) => !filters?.featured || resource.featured === true)
       .sort((first, second) => sortByNewest(first, second))
+  }
+
+  static async getCommunitySignals(limitCount = 6) {
+    const [profiles, groups, resources] = await Promise.all([
+      this.listProfiles(),
+      this.getGroups(),
+      this.getResources(),
+    ])
+
+    return {
+      topConditions: tallyPhrases(
+        profiles.map((profile) => profile.conditions as string[] | undefined),
+        limitCount,
+      ),
+      topMedications: tallyPhrases(
+        profiles.map((profile) => profile.medications as string[] | undefined),
+        limitCount,
+      ),
+      topTopics: tallyPhrases(
+        [
+          ...groups.map((group) => [group.category as string | undefined, ...(group.tags as string[] | undefined || [])]),
+          ...resources.map((resource) => [resource.category as string | undefined, ...(resource.tags as string[] | undefined || [])]),
+          ...profiles.map((profile) => profile.interests as string[] | undefined),
+        ],
+        limitCount,
+      ),
+    }
   }
 
   static async getConnectionCandidates(userId: string, limitCount = 12) {

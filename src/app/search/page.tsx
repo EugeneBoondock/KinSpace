@@ -19,9 +19,9 @@ type SearchResult = {
 }
 
 const placeholders = [
-  'Search groups, posts, resources, or care',
-  'Try "anxiety" or "support group"',
-  'Try a city, tag, or topic',
+  'Search groups, posts, resources, or nearby care',
+  'Try "anxiety", "grief", or "pharmacy"',
+  'Search a city, symptom, topic, or condition',
 ]
 
 export default function SearchPage() {
@@ -35,21 +35,24 @@ export default function SearchPage() {
   const [posts, setPosts] = useState<Record<string, unknown>[]>([])
   const [resources, setResources] = useState<Record<string, unknown>[]>([])
   const [locations, setLocations] = useState<Record<string, unknown>[]>([])
+  const [profiles, setProfiles] = useState<Record<string, unknown>[]>([])
 
   useEffect(() => {
     async function loadSearchData() {
       try {
-        const [groupResults, postResults, resourceResults, locationResults] = await Promise.all([
+        const [groupResults, postResults, resourceResults, locationResults, profileResults] = await Promise.all([
           DatabaseService.getGroups(),
           DatabaseService.getCommunityPosts(30),
           DatabaseService.getResources(),
           DatabaseService.getSupportLocations(),
+          DatabaseService.listProfiles(),
         ])
 
         setGroups(groupResults as Record<string, unknown>[])
         setPosts(postResults as Record<string, unknown>[])
         setResources(resourceResults as Record<string, unknown>[])
         setLocations(locationResults as Record<string, unknown>[])
+        setProfiles(profileResults as Record<string, unknown>[])
       } catch (error) {
         console.error('Failed to load search data:', error)
       } finally {
@@ -60,17 +63,22 @@ export default function SearchPage() {
     const stored = localStorage.getItem('kinspace-recent-searches')
     if (stored) setRecentSearches(JSON.parse(stored) as string[])
 
-    loadSearchData()
+    void loadSearchData()
   }, [])
 
   const trendingTopics = useMemo(() => {
     const keywords = normalizeKeywords(
       groups.flatMap((group) => [group.category as string, ...(group.tags as string[] | undefined || [])]),
       resources.flatMap((resource) => [resource.category as string, ...(resource.tags as string[] | undefined || [])]),
+      profiles.flatMap((profile) => [
+        ...(profile.conditions as string[] | undefined || []),
+        ...(profile.medications as string[] | undefined || []),
+        ...(profile.interests as string[] | undefined || []),
+      ]),
     )
 
-    return keywords.slice(0, 8)
-  }, [groups, resources])
+    return keywords.slice(0, 10)
+  }, [groups, profiles, resources])
 
   const results = useMemo(() => {
     if (!query.trim()) return []
@@ -79,6 +87,7 @@ export default function SearchPage() {
     const output: SearchResult[] = []
 
     groups.forEach((group) => {
+      const groupType = (group.type as string | undefined) || 'virtual'
       const haystack = normalizeKeywords(
         group.name as string | undefined,
         group.description as string | undefined,
@@ -88,13 +97,15 @@ export default function SearchPage() {
       )
 
       if (haystack.some((keyword) => keyword.includes(q) || q.includes(keyword))) {
+        const isMapReadyGroup = ['in-person', 'hybrid'].includes(groupType) && Boolean(group.location)
+
         output.push({
           id: `group-${group.id as string}`,
           type: 'group',
           title: group.name as string,
-          subtitle: `${group.category as string} • ${group.type as string || 'virtual'}`,
+          subtitle: `${group.category as string} · ${groupType}`,
           snippet: (group.description as string | undefined) || 'Live community group',
-          href: '/groups',
+          href: isMapReadyGroup ? `/nearby-support?focus=${group.id as string}` : '/groups',
           badge: 'Group',
         })
       }
@@ -149,6 +160,7 @@ export default function SearchPage() {
     })
 
     locations.forEach((location) => {
+      const locationType = (location.type as string | undefined) || 'doctor'
       const haystack = normalizeKeywords(
         location.name as string | undefined,
         location.specialty as string | undefined,
@@ -161,9 +173,9 @@ export default function SearchPage() {
           id: `location-${location.id as string}`,
           type: 'location',
           title: location.name as string,
-          subtitle: (location.specialty as string | undefined) || (location.type as string),
+          subtitle: (location.specialty as string | undefined) || locationType,
           snippet: (location.address as string | undefined) || 'Support location',
-          href: '/map',
+          href: `/map?type=${encodeURIComponent(locationType)}&focus=${encodeURIComponent(location.id as string)}`,
           badge: 'Location',
         })
       }
@@ -192,7 +204,7 @@ export default function SearchPage() {
           </p>
           <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Search the live platform</h1>
           <p className="mt-2 max-w-2xl text-sm text-[#eedfc8]/60">
-            Groups, posts, resources, and care locations all show up here now.
+            Search now understands groups, posts, resources, care locations, and the topics members are actually talking about.
           </p>
 
           <div className="relative mt-6">
@@ -215,7 +227,9 @@ export default function SearchPage() {
         {query.trim() ? (
           <section className="page-grid">
             <div className="flex items-center justify-between text-sm text-[#eedfc8]/45">
-              <p>{results.length} result{results.length === 1 ? '' : 's'} for “{query}”</p>
+              <p>
+                {results.length} result{results.length === 1 ? '' : 's'} for &ldquo;{query}&rdquo;
+              </p>
               <button onClick={() => setQuery('')} className="text-[#D19A58]">
                 Clear
               </button>

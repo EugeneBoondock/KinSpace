@@ -170,7 +170,7 @@ export default function GamesPage() {
                 Games
               </p>
               <h1 className="mt-3 text-3xl font-bold text-[#eedfc8]">
-                Play together without the fake lobby
+                Play together in live rooms
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#eedfc8]/60">
                 Practice solo, challenge the AI, or open real rooms backed by Firestore so

@@ -74,16 +74,25 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'groups' | 'activity'>('overview')
+  const [connectionState, setConnectionState] = useState<'idle' | 'sending' | 'sent' | 'received' | 'accepted'>('idle')
+  const [connectionRequestId, setConnectionRequestId] = useState<string | null>(null)
+  const [connectionBusy, setConnectionBusy] = useState(false)
 
   const isOwnProfile = user?.userId === userId
 
   useEffect(() => {
     async function fetchProfile() {
       try {
-        const [profileData, userPosts, memberships] = await Promise.all([
+        const [profileData, userPosts, memberships, sentRequests, receivedRequests] = await Promise.all([
           DatabaseService.getProfile(userId),
           DatabaseService.getCommunityPosts(20, { userId }),
           DatabaseService.getUserGroupMemberships(userId),
+          user && user.userId !== userId
+            ? DatabaseService.getSentConnectionRequests(user.userId)
+            : Promise.resolve([]),
+          user && user.userId !== userId
+            ? DatabaseService.getReceivedConnectionRequests(user.userId)
+            : Promise.resolve([]),
         ])
 
         if (profileData) {
@@ -124,6 +133,41 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
             .map((membership) => membership.group)
             .filter(Boolean) as Group[],
         )
+
+        if (user && user.userId !== userId) {
+          const typedSentRequests = sentRequests as Record<string, unknown>[]
+          const typedReceivedRequests = receivedRequests as Record<string, unknown>[]
+          const pendingSent = typedSentRequests.find(
+            (request) => request.target_user_id === userId && request.status === 'pending',
+          )
+          const pendingReceived = typedReceivedRequests.find(
+            (request) => request.requester_id === userId && request.status === 'pending',
+          )
+          const acceptedRequest =
+            typedSentRequests.find(
+              (request) => request.target_user_id === userId && request.status === 'accepted',
+            ) ||
+            typedReceivedRequests.find(
+              (request) => request.requester_id === userId && request.status === 'accepted',
+            )
+
+          if (pendingReceived) {
+            setConnectionState('received')
+            setConnectionRequestId(pendingReceived.id as string)
+          } else if (pendingSent) {
+            setConnectionState('sent')
+            setConnectionRequestId(pendingSent.id as string)
+          } else if (acceptedRequest) {
+            setConnectionState('accepted')
+            setConnectionRequestId(acceptedRequest.id as string)
+          } else {
+            setConnectionState('idle')
+            setConnectionRequestId(null)
+          }
+        } else {
+          setConnectionState('idle')
+          setConnectionRequestId(null)
+        }
       } catch (err) {
         console.error('Failed to fetch profile:', err)
       } finally {
@@ -167,12 +211,55 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
   const displayName = profile.full_name || profile.username || 'User'
   const initial = displayName.charAt(0).toUpperCase()
+  const visibleConditions = (profile.conditions || []).filter((condition) => condition !== 'Private')
+  const connectionButtonLabel =
+    connectionBusy || connectionState === 'sending'
+      ? 'Saving...'
+      : connectionState === 'received'
+        ? 'Accept request'
+        : connectionState === 'sent'
+          ? 'Request sent'
+          : connectionState === 'accepted'
+            ? 'Connected'
+            : 'Connect'
+  const connectionButtonIcon =
+    connectionState === 'received'
+      ? 'ri-check-line'
+      : connectionState === 'accepted'
+        ? 'ri-user-heart-line'
+        : 'ri-user-add-line'
 
   const tabs = [
     { key: 'overview' as const, label: 'Overview', icon: 'ri-user-line' },
     { key: 'groups' as const, label: 'Groups', icon: 'ri-group-line' },
     { key: 'activity' as const, label: 'Activity', icon: 'ri-time-line' },
   ]
+
+  async function handleConnectionAction() {
+    if (!user || isOwnProfile || connectionBusy) return
+
+    setConnectionBusy(true)
+
+    try {
+      if (connectionState === 'received' && connectionRequestId) {
+        await DatabaseService.updateConnectionRequest(connectionRequestId, 'accepted')
+        setConnectionState('accepted')
+        return
+      }
+
+      if (connectionState !== 'idle') return
+
+      setConnectionState('sending')
+      const requestId = await DatabaseService.sendConnectionRequest(user.userId, userId)
+      setConnectionRequestId(requestId)
+      setConnectionState('sent')
+    } catch (error) {
+      console.error('Failed to update connection request:', error)
+      setConnectionState((current) => (current === 'sending' ? 'idle' : current))
+    } finally {
+      setConnectionBusy(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-brand-primary pb-20">
@@ -258,9 +345,9 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         </div>
 
         {/* Conditions Badges */}
-        {profile.conditions && profile.conditions.length > 0 && (
+        {visibleConditions.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
-            {profile.conditions.map((condition, idx) => (
+            {visibleConditions.map((condition, idx) => (
               <span
                 key={condition}
                 className={`badge !text-xs ${conditionColors[idx % conditionColors.length]}`}
@@ -274,27 +361,59 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         {/* Stats Row */}
         <div className="flex items-center gap-6 mb-5">
           <div className="text-center">
-            <p className="text-[#eedfc8] font-bold text-lg">{profile.followers ?? 0}</p>
-            <p className="text-[#eedfc8]/40 text-xs">Followers</p>
+            <p className="text-[#eedfc8] font-bold text-lg">{groups.length}</p>
+            <p className="text-[#eedfc8]/40 text-xs">Groups</p>
           </div>
           <div className="text-center">
-            <p className="text-[#eedfc8] font-bold text-lg">{profile.following ?? 0}</p>
-            <p className="text-[#eedfc8]/40 text-xs">Following</p>
-          </div>
-          <div className="text-center">
-            <p className="text-[#eedfc8] font-bold text-lg">{profile.postsCount ?? posts.length}</p>
+            <p className="text-[#eedfc8] font-bold text-lg">{posts.length}</p>
             <p className="text-[#eedfc8]/40 text-xs">Posts</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[#eedfc8] font-bold text-lg">{profile.interests?.length ?? 0}</p>
+            <p className="text-[#eedfc8]/40 text-xs">Interests</p>
           </div>
         </div>
 
         {/* Action Buttons (if not own profile) */}
         {!isOwnProfile && user && (
+          <div className="mb-5 space-y-3">
+            <div className="flex gap-3">
+              <button
+                onClick={() => void handleConnectionAction()}
+                disabled={connectionBusy || connectionState === 'sent' || connectionState === 'accepted'}
+                className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <i className={connectionButtonIcon} /> {connectionButtonLabel}
+              </button>
+              <button
+                onClick={() => setActiveTab('groups')}
+                className="btn-secondary flex-1 flex items-center justify-center gap-2"
+              >
+                <i className="ri-group-line" /> See groups
+              </button>
+            </div>
+            <p className="text-xs text-[#eedfc8]/45">
+              {connectionState === 'received'
+                ? 'This member already reached out. You can accept the request here.'
+                : connectionState === 'sent'
+                    ? 'Your connection request has been saved and is waiting for their reply.'
+                    : connectionState === 'accepted'
+                      ? 'This connection is already confirmed.'
+                    : 'Send a real connection request directly from this profile.'}
+            </p>
+          </div>
+        )}
+
+        {!isOwnProfile && !user && (
           <div className="flex gap-3 mb-5">
-            <button className="btn-primary flex-1 flex items-center justify-center gap-2">
-              <i className="ri-user-add-line" /> Follow
-            </button>
-            <button className="btn-secondary flex-1 flex items-center justify-center gap-2">
-              <i className="ri-chat-1-line" /> Message
+            <Link href="/login" className="btn-primary flex-1 flex items-center justify-center gap-2">
+              <i className="ri-login-circle-line" /> Sign in to connect
+            </Link>
+            <button
+              onClick={() => setActiveTab('groups')}
+              className="btn-secondary flex-1 flex items-center justify-center gap-2"
+            >
+              <i className="ri-group-line" /> See groups
             </button>
           </div>
         )}
@@ -333,13 +452,13 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
             </div>
 
             {/* Conditions */}
-            {profile.conditions && profile.conditions.length > 0 && (
+            {visibleConditions.length > 0 && (
               <div className="card">
                 <h3 className="text-[#eedfc8] font-semibold text-sm mb-3 flex items-center gap-2">
                   <i className="ri-heart-pulse-line text-[#B85C3A]" /> Conditions
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {profile.conditions.map((condition, idx) => (
+                  {visibleConditions.map((condition, idx) => (
                     <span
                       key={condition}
                       className={`badge ${conditionColors[idx % conditionColors.length]}`}
