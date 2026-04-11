@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const BASE_URL = 'https://kin-space-jade.vercel.app'
+const BASE_URL = 'https://www.kinspace.co.za'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const publicRoutes = [

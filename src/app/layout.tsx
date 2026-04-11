@@ -29,7 +29,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "KinSpace - Your Cozy Corner for Healing",
   description: "Connect, support, and thrive with KinSpace. A community platform for chronic illness, mental health, addiction recovery, grief support and more.",
-  metadataBase: new URL('https://kin-space-jade.vercel.app'),
+  metadataBase: new URL('https://www.kinspace.co.za'),
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'KinSpace - Your Cozy Corner for Healing',
     description: 'Connect, support, and thrive with KinSpace.',
-    url: 'https://kin-space-jade.vercel.app',
+    url: 'https://www.kinspace.co.za',
     siteName: 'KinSpace',
     images: [{ url: '/images/gather_logo1.png', width: 800, height: 600, alt: 'KinSpace Logo' }],
     locale: 'en_US',
