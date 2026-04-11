@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AuthService } from '@/lib/auth';
+import { DatabaseService } from '@/lib/database';
+import { EncryptionService } from '@/lib/encryption';
 
 const conditionSuggestions = [
   'Anxiety', 'Depression', 'PTSD', 'Bipolar', 'OCD',
@@ -125,46 +127,45 @@ export default function SignupPage() {
         // Allow background processes to settle
         await new Promise((resolve) => setTimeout(resolve, 1500));
 
-        const profileData = {
-          username: username.trim(),
-          full_name: fullName.trim() || username.trim(),
-          age: age ? parseInt(age) : null,
-          location: location.trim() || null,
-          bio: bio.trim() || null,
-          status: status || null,
-          is_anonymous: isAnonymous,
-          conditions,
-          comorbidities: comorbidities
-            ? comorbidities.split(',').map((c) => c.trim()).filter(Boolean)
-            : [],
-          medications: medications
-            ? medications.split(',').map((c) => c.trim()).filter(Boolean)
-            : [],
-          updated_at: new Date().toISOString(),
-        };
+        try {
+          const currentUser = await AuthService.getCurrentUser();
+          if (currentUser) {
+            const conditionsArr = conditions;
+            const comorbiditiesArr = comorbidities
+              ? comorbidities.split(',').map((c) => c.trim()).filter(Boolean)
+              : [];
+            const medicationsArr = medications
+              ? medications.split(',').map((c) => c.trim()).filter(Boolean)
+              : [];
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-
-        if (apiUrl) {
-          try {
-            const currentUser = await AuthService.getCurrentUser();
-            const response = await fetch(`${apiUrl}/profiles`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(currentUser?.userId
-                  ? { 'X-User-Id': currentUser.userId }
-                  : {}),
+            // Encrypt sensitive health data
+            const key = await EncryptionService.getOrCreateUserKey(currentUser.userId);
+            const encryptedFields = await EncryptionService.encryptFields(
+              {
+                conditions: conditionsArr,
+                comorbidities: comorbiditiesArr,
+                medications: medicationsArr,
+                status: status || null,
               },
-              body: JSON.stringify({ ...profileData, email }),
-            });
+              key,
+            );
 
-            if (!response.ok) {
-              console.error('Profile update failed, user can complete in settings.');
-            }
-          } catch (profileErr) {
-            console.error('Profile setup error:', profileErr);
+            const profileData = {
+              username: username.trim(),
+              full_name: fullName.trim() || username.trim(),
+              email,
+              age: age ? parseInt(age) : null,
+              location: location.trim() || null,
+              bio: bio.trim() || null,
+              is_anonymous: isAnonymous,
+              onboarding_complete: true,
+              ...encryptedFields,
+            };
+
+            await DatabaseService.updateProfile(currentUser.userId, profileData);
           }
+        } catch (profileErr) {
+          console.error('Profile setup error:', profileErr);
         }
 
         router.push('/verify-email');
@@ -239,8 +240,8 @@ export default function SignupPage() {
                 setLoading(true);
                 setError('');
                 try {
-                  await AuthService.signInWithGoogle();
-                  router.push('/dashboard');
+                  const result = await AuthService.signInWithGoogle();
+                  router.push(result.isNewUser ? '/onboarding' : '/dashboard');
                 } catch (err) {
                   console.error('Google sign-in error:', err);
                   if (err instanceof Error) {

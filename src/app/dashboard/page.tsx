@@ -99,7 +99,12 @@ export default function Dashboard() {
           DatabaseService.getGroups(),
           DatabaseService.getCommunityPosts(5),
         ])
-        setProfile(profileData as Profile | null)
+        const prof = profileData as Profile | null
+        if (prof && (prof as Record<string, unknown>).onboarding_complete === false) {
+          router.push('/onboarding')
+          return
+        }
+        setProfile(prof)
         const groupList = allGroups as Group[]
         setGroups(groupList.slice(0, 5))
         setRecommendedGroups(groupList.slice(5, 8))
@@ -113,10 +118,17 @@ export default function Dashboard() {
     if (user) fetchData()
   }, [user])
 
-  const handleMoodSelect = (value: string) => {
+  const handleMoodSelect = async (value: string) => {
     setSelectedMood(value)
     setMoodSaved(true)
     setTimeout(() => setMoodSaved(false), 2000)
+    if (user) {
+      try {
+        await DatabaseService.updateProfile(user.userId, { daily_mood: value, mood_updated_at: new Date().toISOString() })
+      } catch (err) {
+        console.error('Failed to save mood:', err)
+      }
+    }
   }
 
   if (authLoading || (!user && !authLoading)) {

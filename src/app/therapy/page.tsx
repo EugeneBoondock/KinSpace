@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/lib/AuthContext';
+import { DatabaseService } from '@/lib/database';
 
 type Tab = 'ai-chat' | 'my-team';
 
@@ -118,17 +119,17 @@ function TypingIndicator() {
 }
 
 export default function Therapy() {
-  const { loading } = useAuth();
+  const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('ai-chat');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '0',
-      role: 'ai',
-      content:
-        "Hi there. I'm your KinSpace AI companion. I'm here to listen, support, and help you navigate whatever you're going through. This is a safe, judgment-free space. How are you feeling today?",
-      timestamp: new Date(),
-    },
-  ]);
+  const therapyRoomId = user ? `therapy-${user.userId}` : null;
+  const welcomeMsg: Message = {
+    id: '0',
+    role: 'ai',
+    content:
+      "Hi there. I'm your KinSpace AI companion. I'm here to listen, support, and help you navigate whatever you're going through. This is a safe, judgment-free space. How are you feeling today?",
+    timestamp: new Date(),
+  };
+  const [messages, setMessages] = useState<Message[]>([welcomeMsg]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -142,8 +143,31 @@ export default function Therapy() {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const sendMessage = (content: string) => {
-    if (!content.trim()) return;
+  // Load previous messages from Firestore
+  useEffect(() => {
+    async function loadMessages() {
+      if (!therapyRoomId) return;
+      try {
+        const saved = await DatabaseService.getMessages(therapyRoomId, 50);
+        if (saved.length > 0) {
+          const loaded: Message[] = saved.map((m: Record<string, unknown>) => ({
+            id: m.id as string,
+            role: (m.is_ai ? 'ai' : 'user') as 'user' | 'ai',
+            content: m.message as string,
+            timestamp: m.created_at ? new Date((m.created_at as { seconds: number }).seconds * 1000) : new Date(),
+          }));
+          setMessages([welcomeMsg, ...loaded]);
+        }
+      } catch (err) {
+        console.error('Failed to load therapy messages:', err);
+      }
+    }
+    loadMessages();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [therapyRoomId]);
+
+  const sendMessage = async (content: string) => {
+    if (!content.trim() || !user) return;
 
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -155,7 +179,14 @@ export default function Therapy() {
     setInputValue('');
     setIsTyping(true);
 
-    setTimeout(() => {
+    // Save user message to Firestore
+    try {
+      await DatabaseService.sendMessage(user.userId, null, therapyRoomId, content.trim(), false);
+    } catch (err) {
+      console.error('Failed to save message:', err);
+    }
+
+    setTimeout(async () => {
       const response = aiResponses[content.trim()] || defaultAiResponse;
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
@@ -165,6 +196,13 @@ export default function Therapy() {
       };
       setMessages((prev) => [...prev, aiMsg]);
       setIsTyping(false);
+
+      // Save AI response to Firestore
+      try {
+        await DatabaseService.sendMessage('ai-therapist', null, therapyRoomId, response, true);
+      } catch (err) {
+        console.error('Failed to save AI response:', err);
+      }
     }, 1500 + Math.random() * 1000);
   };
 

@@ -158,8 +158,8 @@ function LoginContent() {
               setLoading(true);
               setError('');
               try {
-                await AuthService.signInWithGoogle();
-                router.push('/dashboard');
+                const result = await AuthService.signInWithGoogle();
+                router.push(result.isNewUser ? '/onboarding' : '/dashboard');
               } catch (err) {
                 console.error('Google sign-in error:', err);
                 if (err instanceof Error) {

@@ -5,7 +5,8 @@
       "Bash(npm uninstall:*)",
       "Bash(npm run:*)",
       "Bash(npm info:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(xargs wc:*)"
     ]
   }
 }

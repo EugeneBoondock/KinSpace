@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
+import { EncryptionService } from '@/lib/encryption'
 import BottomNav from '@/components/BottomNav'
 
 interface Profile {
@@ -84,7 +85,39 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
           DatabaseService.getCommunityPosts(10),
           DatabaseService.getGroups(),
         ])
-        setProfile(profileData as Profile | null)
+
+        if (profileData) {
+          const data = profileData as Record<string, unknown>
+          // Decrypt health fields if viewing own profile
+          if (user?.userId === userId) {
+            try {
+              const key = await EncryptionService.getOrCreateUserKey(userId)
+              const decrypted = await EncryptionService.decryptFields(data, key)
+              setProfile({
+                ...(data as Profile),
+                conditions: decrypted.conditions,
+                comorbidities: decrypted.comorbidities,
+                medications: decrypted.medications,
+                status: decrypted.status || undefined,
+              })
+            } catch {
+              setProfile(profileData as Profile)
+            }
+          } else {
+            // For other users, clear encrypted fields and show placeholder
+            const hasEncrypted = data.conditions_encrypted || data.comorbidities_encrypted || data.medications_encrypted
+            setProfile({
+              ...(data as Profile),
+              conditions: hasEncrypted ? ['Private'] : (data.conditions as string[]) || [],
+              comorbidities: hasEncrypted ? [] : (data.comorbidities as string[]) || [],
+              medications: hasEncrypted ? [] : (data.medications as string[]) || [],
+              status: data.status_encrypted ? 'Private' : (data.status as string) || undefined,
+            })
+          }
+        } else {
+          setProfile(null)
+        }
+
         // Filter posts by this user
         const userPosts = (allPosts as Post[]).filter(
           (p) => (p as { user_id?: string }).user_id === userId
@@ -98,7 +131,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
       }
     }
     fetchProfile()
-  }, [userId])
+  }, [userId, user])
 
   if (loading || authLoading) {
     return (

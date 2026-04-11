@@ -255,6 +255,29 @@ export class DatabaseService {
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
   }
 
+  static async createGroup(
+    userId: string,
+    data: { name: string; description: string; category: string; isPrivate?: boolean }
+  ) {
+    const ref = await addDoc(collection(db, 'groups'), {
+      name: data.name,
+      description: data.description,
+      category: data.category,
+      is_private: data.isPrivate || false,
+      created_by: userId,
+      members_count: 1,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    })
+    await addDoc(collection(db, 'group_members'), {
+      group_id: ref.id,
+      user_id: userId,
+      role: 'admin',
+      joined_at: serverTimestamp(),
+    })
+    return { id: ref.id }
+  }
+
   static async joinGroup(groupId: string, userId: string) {
     await addDoc(collection(db, 'group_members'), {
       group_id: groupId,

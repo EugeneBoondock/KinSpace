@@ -343,15 +343,15 @@ export default function UnoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-yellow-50 to-blue-50">
-      <div className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md z-50 px-4 py-3 border-b border-red-100">
+    <div className="min-h-screen bg-brand-primary text-[#eedfc8]">
+      <div className="fixed top-0 left-0 right-0 bg-[#2A4A42]/95 backdrop-blur-md z-50 px-4 py-3 border-b border-[#eedfc8]/20">
         <div className="flex items-center justify-between max-w-sm mx-auto">
           <Link href="/games" className="w-8 h-8 flex items-center justify-center">
-            <i className="ri-arrow-left-line text-xl text-gray-700"></i>
+            <i className="ri-arrow-left-line text-xl text-[#eedfc8]"></i>
           </Link>
-          <h1 className="text-lg font-semibold text-gray-900">UNO</h1>
+          <h1 className="text-lg font-semibold text-[#eedfc8]">UNO</h1>
           <button onClick={initializeGame} className="w-8 h-8 flex items-center justify-center">
-            <i className="ri-refresh-line text-xl text-gray-700"></i>
+            <i className="ri-refresh-line text-xl text-[#eedfc8]"></i>
           </button>
         </div>
       </div>
@@ -359,21 +359,21 @@ export default function UnoPage() {
       <div className="pt-16 pb-4 px-4">
         <div className="max-w-sm mx-auto space-y-4">
           {gameStatus === 'won' && (
-            <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl p-4 shadow-sm">
+            <div className="card bg-[#6B8A83]/20 border-[#6B8A83]/30">
               <div className="text-center">
                 <div className="text-2xl mb-2">🎉</div>
-                <h3 className="font-bold text-lg">You Won!</h3>
-                <p className="text-green-100">Congratulations on your UNO victory!</p>
+                <h3 className="font-bold text-lg text-[#eedfc8]">You Won!</h3>
+                <p className="text-[#6B8A83]">Congratulations on your UNO victory!</p>
               </div>
             </div>
           )}
 
           {gameStatus === 'lost' && (
-            <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl p-4 shadow-sm">
+            <div className="card bg-[#B85C3A]/20 border-[#B85C3A]/30">
               <div className="text-center">
                 <div className="text-2xl mb-2">😔</div>
-                <h3 className="font-bold text-lg">Game Over</h3>
-                <p className="text-red-100">{players.find((_, index) => index === currentPlayer)?.name} won this time!</p>
+                <h3 className="font-bold text-lg text-[#eedfc8]">Game Over</h3>
+                <p className="text-[#B85C3A]">{players.find((_, index) => index === currentPlayer)?.name} won this time!</p>
               </div>
             </div>
           )}
@@ -381,32 +381,32 @@ export default function UnoPage() {
           {/* AI Players */}
           <div className="grid grid-cols-3 gap-2">
             {players.slice(1).map((player, index) => (
-              <div key={index} className={`bg-white rounded-lg p-3 shadow-sm border ${
-                currentPlayer === index + 1 ? 'border-blue-400 bg-blue-50' : 'border-gray-100'
+              <div key={index} className={`card-light rounded-lg p-3 ${
+                currentPlayer === index + 1 ? 'border-[#D19A58] bg-[#D19A58]/10' : ''
               }`}>
                 <div className="text-center">
-                  <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center text-white font-semibold text-xs mx-auto mb-1">
+                  <div className="w-8 h-8 bg-[#6B8A83] rounded-full flex items-center justify-center text-[#eedfc8] font-semibold text-xs mx-auto mb-1">
                     {player.avatar}
                   </div>
-                  <div className="text-xs font-medium text-gray-900">{player.name}</div>
-                  <div className="text-xs text-gray-500">{aiHands[index]?.length || 0} cards</div>
+                  <div className="text-xs font-medium text-[#eedfc8]">{player.name}</div>
+                  <div className="text-xs text-[#eedfc8]/50">{aiHands[index]?.length || 0} cards</div>
                 </div>
               </div>
             ))}
           </div>
 
           {/* Game Area */}
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div className="card">
             <div className="flex items-center justify-center gap-4 mb-4">
               {/* Deck */}
               <div className="text-center">
-                <div className="w-16 h-24 bg-gray-800 rounded-lg flex items-center justify-center text-white font-bold border-2 border-gray-600 mb-2">
+                <div className="w-16 h-24 bg-[#1a332d] rounded-lg flex items-center justify-center text-[#D19A58] font-bold border-2 border-[#eedfc8]/30 mb-2">
                   UNO
                 </div>
                 <button
                   onClick={handleDrawCard}
                   disabled={currentPlayer !== 0}
-                  className="text-xs px-2 py-1 bg-blue-500 text-white rounded !rounded-button disabled:bg-gray-300"
+                  className="text-xs px-2 py-1 btn-primary rounded-lg disabled:opacity-40"
                 >
                   Draw
                 </button>
@@ -414,32 +414,32 @@ export default function UnoPage() {
 
               {/* Arrow */}
               <div className="flex flex-col items-center">
-                <div className={`text-2xl ${direction === 1 ? 'rotate-90' : '-rotate-90'} transition-transform`}>
+                <div className={`text-2xl text-[#D19A58] ${direction === 1 ? 'rotate-90' : '-rotate-90'} transition-transform`}>
                   ➤
                 </div>
                 {drawCount > 0 && (
-                  <div className="text-xs font-bold text-red-500">+{drawCount}</div>
+                  <div className="text-xs font-bold text-[#B85C3A]">+{drawCount}</div>
                 )}
               </div>
 
               {/* Top Card */}
               <div className="text-center">
                 {topCard && (
-                  <div className={`w-16 h-24 ${getCardColor(topCard)} rounded-lg flex items-center justify-center text-white font-bold border-2 border-gray-300`}>
+                  <div className={`w-16 h-24 ${getCardColor(topCard)} rounded-lg flex items-center justify-center text-white font-bold border-2 border-[#eedfc8]/30`}>
                     {getCardSymbol(topCard)}
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="text-center text-sm text-gray-600">
+            <div className="text-center text-sm text-[#eedfc8]/70">
               {currentPlayer === 0 ? "Your turn" : `${players[currentPlayer].name}'s turn`}
             </div>
           </div>
 
           {/* Player Hand */}
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">Your Cards ({playerHand.length})</h3>
+          <div className="card">
+            <h3 className="text-sm font-medium text-[#eedfc8] mb-3">Your Cards ({playerHand.length})</h3>
             <div className="flex gap-2 overflow-x-auto pb-2">
               {playerHand.map((card) => (
                 <button
@@ -447,11 +447,11 @@ export default function UnoPage() {
                   onClick={() => handlePlayerCardClick(card)}
                   disabled={currentPlayer !== 0 || !topCard || !canPlayCard(card, topCard)}
                   className={`
-                    flex-shrink-0 w-12 h-18 ${getCardColor(card)} rounded-lg flex items-center justify-center 
+                    flex-shrink-0 w-12 ${getCardColor(card)} rounded-lg flex items-center justify-center
                     text-white font-bold text-xs border-2 transition-all
-                    ${currentPlayer === 0 && topCard && canPlayCard(card, topCard) 
-                      ? 'border-green-400 hover:scale-105 cursor-pointer' 
-                      : 'border-gray-300 opacity-60'
+                    ${currentPlayer === 0 && topCard && canPlayCard(card, topCard)
+                      ? 'border-[#D19A58] hover:scale-105 cursor-pointer'
+                      : 'border-[#eedfc8]/20 opacity-60'
                     }
                   `}
                   style={{ minWidth: '48px', height: '72px' }}
@@ -463,15 +463,15 @@ export default function UnoPage() {
           </div>
 
           <div className="flex gap-3">
-            <button 
+            <button
               onClick={initializeGame}
-              className="flex-1 py-3 px-4 bg-red-500 text-white rounded-lg font-medium !rounded-button"
+              className="flex-1 py-3 px-4 btn-accent rounded-lg font-medium"
             >
               New Game
             </button>
-            <Link 
+            <Link
               href="/games"
-              className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 rounded-lg font-medium !rounded-button text-center"
+              className="flex-1 py-3 px-4 btn-secondary rounded-lg font-medium text-center"
             >
               Back to Games
             </Link>
@@ -481,15 +481,15 @@ export default function UnoPage() {
 
       {/* Color Picker Modal */}
       {showColorPicker && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 mx-4 max-w-xs w-full">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Choose Color</h3>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="card max-w-xs w-full mx-4">
+            <h3 className="text-lg font-semibold text-[#eedfc8] mb-4 text-center">Choose Color</h3>
             <div className="grid grid-cols-2 gap-3">
               {(['red', 'blue', 'green', 'yellow'] as CardColor[]).map((color) => (
                 <button
                   key={color}
                   onClick={() => handleColorChoice(color)}
-                  className={`py-3 px-4 rounded-lg text-white font-medium !rounded-button capitalize ${
+                  className={`py-3 px-4 rounded-lg text-white font-medium capitalize ${
                     color === 'red' ? 'bg-red-500' :
                     color === 'blue' ? 'bg-blue-500' :
                     color === 'green' ? 'bg-green-500' :

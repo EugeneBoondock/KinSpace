@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Profiles: users can read any profile, write only their own
+    match /profiles/{userId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Community posts: authenticated users can read all, create their own, like any
+    match /community_posts/{postId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow update: if request.auth != null;
+    }
+
+    // Chat messages: authenticated users can read/write
+    match /chat_messages/{messageId} {
+      allow read, create: if request.auth != null;
+    }
+
+    // Groups: authenticated users can read all, create, join
+    match /groups/{groupId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    // Group members
+    match /group_members/{memberId} {
+      allow read, create: if request.auth != null;
+    }
+
+    // Games: authenticated users can read/write
+    match /games/{gameId} {
+      allow read, create, update: if request.auth != null;
+    }
+
+    // Game players
+    match /game_players/{playerId} {
+      allow read, create: if request.auth != null;
+    }
+
+    // Angels
+    match /angels/{angelId} {
+      allow read: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    // Angel-soul relationships
+    match /angel_soul_relationships/{relationshipId} {
+      allow read, create: if request.auth != null;
+    }
+
+    // Encryption keys: only the owner can read/write their key
+    match /encryption_keys/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

@@ -92,8 +92,9 @@ export class AuthService {
     // Create profile if it doesn't exist yet (first-time Google sign-in)
     const profileRef = doc(db, 'profiles', user.uid)
     const profileSnap = await getDoc(profileRef)
+    const isNewUser = !profileSnap.exists()
 
-    if (!profileSnap.exists()) {
+    if (isNewUser) {
       await setDoc(profileRef, {
         email: user.email,
         username: user.displayName?.toLowerCase().replace(/\s+/g, '') || user.email?.split('@')[0] || 'user',
@@ -117,12 +118,13 @@ export class AuthService {
         mental_health_goals: [],
         preferred_communication: 'chat',
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        onboarding_complete: false,
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
       })
     }
 
-    return credential
+    return { credential, isNewUser }
   }
 
   static async signOut() {

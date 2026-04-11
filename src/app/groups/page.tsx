@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/lib/AuthContext';
+import { DatabaseService } from '@/lib/database';
 
 type Tab = 'for-you' | 'following' | 'your-groups';
 
@@ -128,12 +129,56 @@ const mockYourGroups = [
 ];
 
 export default function Groups() {
-  const { loading } = useAuth();
+  const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('for-you');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
   const [newGroupType, setNewGroupType] = useState<'virtual' | 'in-person'>('virtual');
+  const [creating, setCreating] = useState(false);
+  const [firestoreGroups, setFirestoreGroups] = useState<Record<string, unknown>[]>([]);
+
+  useEffect(() => {
+    async function loadGroups() {
+      try {
+        const groups = await DatabaseService.getGroups();
+        setFirestoreGroups(groups as Record<string, unknown>[]);
+      } catch (err) {
+        console.error('Failed to load groups:', err);
+      }
+    }
+    if (user) loadGroups();
+  }, [user]);
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim() || !user) return;
+    setCreating(true);
+    try {
+      await DatabaseService.createGroup(user.userId, {
+        name: newGroupName.trim(),
+        description: newGroupDesc.trim(),
+        category: newGroupType,
+      });
+      const groups = await DatabaseService.getGroups();
+      setFirestoreGroups(groups as Record<string, unknown>[]);
+      setShowCreateModal(false);
+      setNewGroupName('');
+      setNewGroupDesc('');
+    } catch (err) {
+      console.error('Failed to create group:', err);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleJoinGroup = async (groupId: string) => {
+    if (!user) return;
+    try {
+      await DatabaseService.joinGroup(groupId, user.userId);
+    } catch (err) {
+      console.error('Failed to join group:', err);
+    }
+  };
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'for-you', label: 'For You', icon: 'ri-sparkling-line' },
@@ -458,10 +503,15 @@ export default function Groups() {
               </div>
 
               <button
-                disabled={!newGroupName.trim()}
+                onClick={handleCreateGroup}
+                disabled={!newGroupName.trim() || creating}
                 className="w-full btn-primary py-3 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Create Group
+                {creating ? (
+                  <><i className="ri-loader-4-line animate-spin mr-2" />Creating...</>
+                ) : (
+                  'Create Group'
+                )}
               </button>
             </div>
           </div>

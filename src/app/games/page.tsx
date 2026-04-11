@@ -137,7 +137,7 @@ export default function GamesPage() {
           <h1 className="text-lg font-semibold text-brand-background">Play Together</h1>
           <button 
             onClick={() => setShowCreateModal(true)}
-            className="w-8 h-8 flex items-center justify-center !rounded-button bg-[#eedfc8] text-[#2A4A42]"
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#eedfc8] text-[#2A4A42]"
           >
             <i className="ri-add-line text-lg"></i>
           </button>
@@ -236,14 +236,14 @@ export default function GamesPage() {
                             setGameMode('multiplayer')
                             setShowCreateModal(true)
                           }}
-                          className="flex-1 py-2 px-3 bg-brand-background text-brand-primary rounded-lg text-sm font-semibold !rounded-button border border-brand-primary/40 hover:bg-brand-background/90"
+                          className="flex-1 py-2 px-3 bg-brand-background text-brand-primary rounded-lg text-sm font-semibold rounded-lg border border-brand-primary/40 hover:bg-brand-background/90"
                         >
                           Multiplayer
                         </button>
                         {game.aiAvailable && (
                           <button 
                             onClick={() => handlePlayWithAI(game.id)}
-                            className="flex-1 py-2 px-3 bg-[#2A4A42] text-brand-background rounded-lg text-sm font-semibold !rounded-button border border-brand-background/30 hover:bg-[#2A4A42]/80"
+                            className="flex-1 py-2 px-3 bg-[#2A4A42] text-brand-background rounded-lg text-sm font-semibold rounded-lg border border-brand-background/30 hover:bg-[#2A4A42]/80"
                           >
                             vs AI
                           </button>
@@ -288,7 +288,7 @@ export default function GamesPage() {
                     </div>
                     <button 
                       disabled={game.status === 'active' && game.players >= game.maxPlayers}
-                      className="w-full mt-3 py-2 px-4 bg-brand-background text-brand-primary hover:bg-brand-background/90 disabled:bg-[#2A4A42]/50 disabled:text-brand-background/60 disabled:cursor-not-allowed rounded-lg text-sm font-semibold !rounded-button transition-colors"
+                      className="w-full mt-3 py-2 px-4 bg-brand-background text-brand-primary hover:bg-brand-background/90 disabled:bg-[#2A4A42]/50 disabled:text-brand-background/60 disabled:cursor-not-allowed rounded-lg text-sm font-semibold rounded-lg transition-colors"
                     >
                       {game.status === 'waiting' ? 'Join Game' : 'Watch Game'}
                     </button>
@@ -360,7 +360,7 @@ export default function GamesPage() {
                       <button
                         key={difficulty}
                         onClick={() => setAiDifficulty(difficulty as 'easy' | 'medium' | 'hard')}
-                        className={`py-2 px-3 rounded-lg text-sm font-medium !rounded-button transition-colors ${
+                        className={`py-2 px-3 rounded-lg text-sm font-medium rounded-lg transition-colors ${
                           aiDifficulty === difficulty
                             ? 'bg-brand-background text-brand-primary'
                             : 'bg-[#2A4A42]/60 text-brand-background hover:bg-[#2A4A42]/50'
@@ -389,12 +389,12 @@ export default function GamesPage() {
               <div className="flex gap-3 pt-4">
                 <button 
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 py-3 px-4 border border-brand-background/30 text-brand-background rounded-lg font-medium !rounded-button"
+                  className="flex-1 py-3 px-4 border border-brand-background/30 text-brand-background rounded-lg font-medium rounded-lg"
                 >
                   Cancel
                 </button>
                 <button 
-                  className={`flex-1 py-3 px-4 text-white rounded-lg font-medium !rounded-button ${
+                  className={`flex-1 py-3 px-4 text-white rounded-lg font-medium rounded-lg ${
                     gameMode === 'ai' 
                       ? 'bg-brand-background text-brand-primary'
                       : 'bg-[#2A4A42] text-brand-background border border-brand-background/30'

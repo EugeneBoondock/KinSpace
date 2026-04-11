@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/lib/AuthContext';
+import { DatabaseService } from '@/lib/database';
 
 type Tab = 'discussions' | 'angels' | 'mentors' | 'adventures';
 
@@ -223,10 +224,11 @@ function StarRating({ rating }: { rating: number }) {
 export default function Community() {
   const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('discussions');
-  const [posts, setPosts] = useState(mockPosts);
+  const [posts, setPosts] = useState<{ id: string; author: string; avatar: string | null; content: string; likes: number; comments: number; timestamp: string; liked: boolean }[]>(mockPosts);
   const [composing, setComposing] = useState(false);
   const [newPostContent, setNewPostContent] = useState('');
   const [joinedAdventures, setJoinedAdventures] = useState<string[]>([]);
+  const [postsLoaded, setPostsLoaded] = useState(false);
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'discussions', label: 'Discussions', icon: 'ri-discuss-line' },
@@ -235,7 +237,32 @@ export default function Community() {
     { id: 'adventures', label: 'Adventures', icon: 'ri-compass-3-line' },
   ];
 
-  const handleLike = (postId: string) => {
+  useEffect(() => {
+    async function loadPosts() {
+      try {
+        const firestorePosts = await DatabaseService.getCommunityPosts(20);
+        if (firestorePosts.length > 0) {
+          setPosts(firestorePosts.map((p: Record<string, unknown>) => ({
+            id: p.id as string,
+            author: (p.profile as Record<string, unknown>)?.full_name as string || (p.profile as Record<string, unknown>)?.username as string || 'Anonymous',
+            avatar: (p.profile as Record<string, unknown>)?.avatar_url as string || null,
+            content: p.content as string,
+            likes: (p.likes_count as number) || 0,
+            comments: (p.comments_count as number) || 0,
+            timestamp: p.created_at ? new Date((p.created_at as { seconds: number }).seconds * 1000).toLocaleDateString() : 'Recently',
+            liked: false,
+          })));
+        }
+      } catch (err) {
+        console.error('Failed to load posts from Firestore:', err);
+      } finally {
+        setPostsLoaded(true);
+      }
+    }
+    if (user) loadPosts();
+  }, [user]);
+
+  const handleLike = async (postId: string) => {
     setPosts((prev) =>
       prev.map((p) =>
         p.id === postId
@@ -243,13 +270,18 @@ export default function Community() {
           : p
       )
     );
+    try {
+      if (postsLoaded) await DatabaseService.likePost(postId);
+    } catch (err) {
+      console.error('Failed to like post:', err);
+    }
   };
 
-  const handleCreatePost = () => {
-    if (!newPostContent.trim()) return;
+  const handleCreatePost = async () => {
+    if (!newPostContent.trim() || !user) return;
     const newPost = {
       id: Date.now().toString(),
-      author: user?.displayName || 'You',
+      author: user.displayName || 'You',
       avatar: null,
       content: newPostContent.trim(),
       likes: 0,
@@ -260,6 +292,12 @@ export default function Community() {
     setPosts([newPost, ...posts]);
     setNewPostContent('');
     setComposing(false);
+    try {
+      const result = await DatabaseService.createPost(user.userId, newPostContent.trim(), 'discussion');
+      setPosts((prev) => prev.map((p) => p.id === newPost.id ? { ...p, id: result.id } : p));
+    } catch (err) {
+      console.error('Failed to create post:', err);
+    }
   };
 
   const handleJoinAdventure = (adventureId: string) => {

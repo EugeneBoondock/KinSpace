@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
+import { StorageService } from '@/lib/storage'
+import { EncryptionService } from '@/lib/encryption'
 import BottomNav from '@/components/BottomNav'
 
 interface ProfileData {
@@ -60,6 +62,30 @@ export default function Settings() {
   const [conditionInput, setConditionInput] = useState('')
   const [comorbidityInput, setComorbidityInput] = useState('')
   const [medicationInput, setMedicationInput] = useState('')
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    const validation = StorageService.validateFile(file, 5)
+    if (!validation.valid) {
+      showToast('error', validation.error || 'Invalid file')
+      return
+    }
+    setUploadingAvatar(true)
+    try {
+      const url = await StorageService.uploadProfileAvatar(user.userId, file)
+      setProfile((prev) => ({ ...prev, avatar_url: url }))
+      await DatabaseService.updateProfile(user.userId, { avatar_url: url })
+      showToast('success', 'Avatar updated!')
+    } catch (err) {
+      console.error('Avatar upload failed:', err)
+      showToast('error', 'Failed to upload avatar')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -73,9 +99,30 @@ export default function Settings() {
       try {
         const data = await DatabaseService.getProfile(user.userId) as Record<string, unknown> | null
         if (data) {
+          // Decrypt health fields if encrypted
+          let healthFields = {
+            conditions: (data.conditions as string[]) || [],
+            comorbidities: (data.comorbidities as string[]) || [],
+            medications: (data.medications as string[]) || [],
+            status: (data.status as string) || '',
+          }
+          try {
+            const key = await EncryptionService.getOrCreateUserKey(user.userId)
+            const decrypted = await EncryptionService.decryptFields(data, key)
+            healthFields = {
+              conditions: decrypted.conditions,
+              comorbidities: decrypted.comorbidities,
+              medications: decrypted.medications,
+              status: decrypted.status || '',
+            }
+          } catch (decryptErr) {
+            console.error('Failed to decrypt health data:', decryptErr)
+          }
+
           setProfile({
             ...defaultProfile,
             ...data,
+            ...healthFields,
             age: data.age ? String(data.age) : '',
             notify_matches: data.notify_matches !== false,
             notify_messages: data.notify_messages !== false,
@@ -100,6 +147,18 @@ export default function Settings() {
     if (!user) return
     setSaving(true)
     try {
+      // Encrypt sensitive health data before saving
+      const key = await EncryptionService.getOrCreateUserKey(user.userId)
+      const encryptedFields = await EncryptionService.encryptFields(
+        {
+          conditions: profile.conditions,
+          comorbidities: profile.comorbidities,
+          medications: profile.medications,
+          status: profile.status || null,
+        },
+        key,
+      )
+
       const updates = {
         full_name: profile.full_name,
         username: profile.username,
@@ -107,15 +166,13 @@ export default function Settings() {
         location: profile.location,
         age: profile.age ? parseInt(profile.age, 10) : null,
         pronouns: profile.pronouns,
-        conditions: profile.conditions,
-        comorbidities: profile.comorbidities,
-        medications: profile.medications,
-        status: profile.status,
         is_anonymous: profile.is_anonymous,
         preferred_communication: profile.preferred_communication,
         notify_matches: profile.notify_matches,
         notify_messages: profile.notify_messages,
         notify_groups: profile.notify_groups,
+        // Store encrypted health data (plaintext fields zeroed out by encryptFields)
+        ...encryptedFields,
       }
       await DatabaseService.updateProfile(user.userId, updates)
       showToast('success', 'Profile updated successfully!')
@@ -241,9 +298,24 @@ export default function Settings() {
                     </span>
                   </div>
                 )}
-                <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#B85C3A] flex items-center justify-center text-white shadow-lg">
-                  <i className="ri-camera-line text-xs" />
+                <button
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#B85C3A] flex items-center justify-center text-white shadow-lg"
+                >
+                  {uploadingAvatar ? (
+                    <i className="ri-loader-4-line animate-spin text-xs" />
+                  ) : (
+                    <i className="ri-camera-line text-xs" />
+                  )}
                 </button>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                />
               </div>
               <div className="flex-1">
                 <p className="text-[#eedfc8] text-sm font-medium">Profile Photo</p>
