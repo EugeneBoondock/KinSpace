@@ -242,7 +242,20 @@ export default function SignupPage() {
                   await AuthService.signInWithGoogle();
                   router.push('/dashboard');
                 } catch (err) {
-                  if (err instanceof Error && !err.message.includes('popup-closed')) {
+                  console.error('Google sign-in error:', err);
+                  if (err instanceof Error) {
+                    if (err.message.includes('popup-closed') || err.message.includes('cancelled-popup-request')) {
+                      // User closed the popup, no error needed
+                    } else if (err.message.includes('unauthorized-domain') || err.message.includes('auth-domain')) {
+                      setError('This domain is not authorized for Google sign-in. The site admin needs to add this domain in Firebase Console > Authentication > Settings > Authorized domains.');
+                    } else if (err.message.includes('popup-blocked')) {
+                      setError('Popup was blocked by your browser. Please allow popups for this site and try again.');
+                    } else if (err.message.includes('network-request-failed')) {
+                      setError('Network error. Please check your connection and try again.');
+                    } else {
+                      setError(`Google sign-up failed: ${err.message}`);
+                    }
+                  } else {
                     setError('Google sign-up failed. Please try again.');
                   }
                 } finally {

@@ -2,9 +2,106 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
+
+function AnimatedDnaStrand({ side = 'left', mobile = false }: { side?: 'left' | 'right'; mobile?: boolean }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rungs = 32;
+  const height = 420;
+  const amplitude = 32;
+  const dotRadius = 7;
+  const duration = 4000;
+
+  useEffect(() => {
+    let frame: number;
+    let start: number;
+    function animate(ts: number) {
+      if (!start) start = ts;
+      const phase = ((ts - start) % duration) / duration * 2 * Math.PI;
+      const children = containerRef.current?.children;
+      if (children) {
+        for (let i = 0; i < rungs; i++) {
+          const t = i / (rungs - 1);
+          const angle = phase + t * 2 * Math.PI;
+          const x1 = Math.sin(angle) * amplitude;
+          const x2 = Math.sin(angle + Math.PI) * amplitude;
+          const y = t * height;
+          const z1 = Math.cos(angle) * amplitude;
+          const z2 = Math.cos(angle + Math.PI) * amplitude;
+          const opacity1 = 0.5 + 0.5 * (z1 / amplitude);
+          const opacity2 = 0.5 + 0.5 * (z2 / amplitude);
+          const scale1 = 0.7 + 0.3 * (z1 / amplitude);
+          const scale2 = 0.7 + 0.3 * (z2 / amplitude);
+          const rung = children[i] as HTMLElement;
+          const line = rung.querySelector('.dna-helix-line') as HTMLElement;
+          if (line) {
+            const dx = x2 - x1;
+            const lineLength = Math.sqrt(dx * dx);
+            line.style.width = `${lineLength}px`;
+            line.style.left = `${x1 + amplitude}px`;
+            line.style.top = `${y}px`;
+            line.style.transform = `rotate(${Math.atan2(0, dx)}rad)`;
+            line.style.opacity = `${(opacity1 + opacity2) / 2}`;
+          }
+          const dot1 = rung.querySelector('.dna-helix-dot1') as HTMLElement;
+          const dot2 = rung.querySelector('.dna-helix-dot2') as HTMLElement;
+          if (dot1) {
+            dot1.style.left = `${x1 + amplitude - dotRadius}px`;
+            dot1.style.top = `${y - dotRadius}px`;
+            dot1.style.opacity = `${opacity1}`;
+            dot1.style.transform = `scale(${scale1})`;
+          }
+          if (dot2) {
+            dot2.style.left = `${x2 + amplitude - dotRadius}px`;
+            dot2.style.top = `${y - dotRadius}px`;
+            dot2.style.opacity = `${opacity2}`;
+            dot2.style.transform = `scale(${scale2})`;
+          }
+        }
+      }
+      frame = requestAnimationFrame(animate);
+    }
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  if (mobile) {
+    return (
+      <div className="block sm:hidden fixed top-1/2 left-1/2 z-0 -translate-x-1/2 -translate-y-1/2 opacity-20 pointer-events-none select-none" style={{ perspective: 1000, width: amplitude * 2 + 40, height }}>
+        <div ref={containerRef} className="absolute left-1/2 -translate-x-1/2" style={{ height, width: amplitude * 2 + 20 }}>
+          {Array.from({ length: rungs }).map((_, i) => (
+            <div key={i} className="absolute">
+              <div className="dna-helix-line absolute h-0.5 bg-[#eedfc8] bg-opacity-50" style={{ zIndex: 1 }} />
+              <div className="dna-helix-dot1 absolute w-3 h-3 bg-[#eedfc8] rounded-full" style={{ zIndex: 2 }} />
+              <div className="dna-helix-dot2 absolute w-3 h-3 bg-[#eedfc8] rounded-full" style={{ zIndex: 2 }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`hidden sm:fixed sm:top-1/2 z-20 h-[420px] w-20 sm:-translate-y-1/2 pointer-events-none select-none ${
+        side === 'left' ? 'sm:left-16 -rotate-12' : 'sm:right-16 rotate-12'
+      } sm:flex items-center justify-center`}
+      style={{ perspective: 1000 }}
+    >
+      <div ref={containerRef} className="absolute left-1/2 -translate-x-1/2" style={{ height, width: amplitude * 2 + 20 }}>
+        {Array.from({ length: rungs }).map((_, i) => (
+          <div key={i} className="absolute">
+            <div className="dna-helix-line absolute h-0.5 bg-[#eedfc8] bg-opacity-50" style={{ zIndex: 1 }} />
+            <div className="dna-helix-dot1 absolute w-3 h-3 bg-[#eedfc8] rounded-full" style={{ zIndex: 2 }} />
+            <div className="dna-helix-dot2 absolute w-3 h-3 bg-[#eedfc8] rounded-full" style={{ zIndex: 2 }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const supportCategories = [
   { name: 'Mental Health', icon: 'ri-mental-health-line', members: '12.4k', color: '#6B8A83' },
@@ -58,54 +155,56 @@ export default function LandingPage() {
     );
   }
 
-  if (user) {
-    return null;
-  }
+  if (user) return null;
 
   return (
-    <div className="min-h-screen pb-8">
+    <div className="relative min-h-screen overflow-x-hidden">
+      <AnimatedDnaStrand mobile />
+      <AnimatedDnaStrand side="left" />
+      <AnimatedDnaStrand side="right" />
+
       {/* Hero Section */}
-      <section className="relative px-4 pt-12 pb-16 sm:pt-20 sm:pb-24 overflow-hidden">
-        {/* Background glow */}
+      <section className="relative px-4 sm:px-10 pt-10 pb-12 sm:pt-16 sm:pb-20">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#D19A58] opacity-[0.04] rounded-full blur-[120px] pointer-events-none" />
 
-        <div className="relative z-10 max-w-lg mx-auto text-center">
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <div className="hero-glow rounded-full p-1">
-              <Image
-                src="/images/gather_logo.png"
-                alt="KinSpace Logo"
-                width={96}
-                height={96}
-                className="rounded-full"
-                priority
-              />
+        <div className="relative z-10 max-w-[960px] mx-auto text-center">
+          {/* Hero Image */}
+          <div className="w-full flex justify-center mb-8">
+            <div className="p-4 sm:p-8">
+              <div className="relative w-full max-w-md sm:max-w-lg aspect-square rounded-2xl hero-glow bg-brand-primary">
+                <Image
+                  src="/images/kinspace_hero.png"
+                  alt="Welcome to KinSpace"
+                  fill
+                  priority
+                  className="object-contain rounded-2xl"
+                  sizes="(max-width: 640px) 90vw, 500px"
+                />
+              </div>
             </div>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-bold text-[#eedfc8] mb-3 leading-tight">
-            Your Cozy Corner
-            <br />
-            <span className="text-[#D19A58]">for Healing</span>
+          {/* Hero Text */}
+          <h1 className="text-4xl sm:text-5xl font-black text-[#eedfc8] mb-4 leading-tight tracking-tight">
+            Your Cozy Corner <span className="text-[#D19A58]">for Healing</span>
           </h1>
 
-          <p className="text-[#eedfc8]/70 text-base sm:text-lg mb-8 max-w-md mx-auto leading-relaxed">
-            A warm, supportive community connecting people navigating chronic illness,
-            mental health, addiction recovery, grief, and more.
+          <p className="text-[#eedfc8]/80 text-base sm:text-lg mb-8 max-w-2xl mx-auto leading-relaxed">
+            A warm community where we grow together through life&apos;s challenges &mdash; chronic illness,
+            mental health, addiction, grief, and beyond. Connect with others who understand your journey.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-            <Link href="/signup" className="btn-primary text-base px-8 py-3 w-full sm:w-auto text-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-8">
+            <Link href="/signup" className="btn-primary text-base px-10 py-3.5 w-full sm:w-auto text-center font-bold">
               Join Our Community
             </Link>
-            <Link href="/login" className="btn-secondary text-base px-8 py-3 w-full sm:w-auto text-center">
+            <Link href="/login" className="btn-secondary text-base px-10 py-3.5 w-full sm:w-auto text-center font-bold">
               Sign In
             </Link>
           </div>
 
           {/* Social proof */}
-          <div className="flex items-center justify-center gap-6 mt-8 text-sm text-[#eedfc8]/50">
+          <div className="flex items-center justify-center gap-6 sm:gap-8 text-sm text-[#eedfc8]/50">
             <div className="flex items-center gap-1.5">
               <i className="ri-group-line text-[#D19A58]" />
               <span>42k+ Members</span>
@@ -122,131 +221,338 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Support Categories */}
-      <section className="px-4 mb-12 max-w-lg mx-auto">
-        <h2 className="section-title text-center text-xl mb-6">
-          Find Your People
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {supportCategories.map((cat) => (
-            <div
-              key={cat.name}
-              className="card-light flex flex-col items-center text-center p-4 hover:border-[#eedfc8]/25 transition-all duration-200 cursor-pointer"
-            >
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
-                style={{ backgroundColor: `${cat.color}20` }}
-              >
-                <i className={`${cat.icon} text-xl`} style={{ color: cat.color }} />
+      {/* Community Stats */}
+      <section className="px-4 sm:px-10 mb-12">
+        <div className="max-w-4xl mx-auto">
+          <div className="card bg-[#2A4A42]/50 backdrop-blur-lg border border-[#eedfc8]/20">
+            <h3 className="text-[#eedfc8] text-lg font-bold mb-5 text-center">Our Growing Family</h3>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-2xl sm:text-3xl font-bold text-[#D19A58]">12.5k+</div>
+                <div className="text-sm text-[#eedfc8]/70">Members</div>
               </div>
-              <span className="text-sm font-semibold text-[#eedfc8] mb-1">{cat.name}</span>
-              <span className="text-xs text-[#eedfc8]/50">
-                <i className="ri-group-line mr-1" />
-                {cat.members}
-              </span>
+              <div>
+                <div className="text-2xl sm:text-3xl font-bold text-[#6B8A83]">850+</div>
+                <div className="text-sm text-[#eedfc8]/70">Support Groups</div>
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-bold text-[#B85C3A]">24/7</div>
+                <div className="text-sm text-[#eedfc8]/70">Support</div>
+              </div>
             </div>
-          ))}
+          </div>
         </div>
       </section>
 
-      {/* Emergency Action Bar */}
-      <section className="px-4 mb-12 max-w-lg mx-auto">
-        <div className="card border-[#B85C3A]/30 bg-[#B85C3A]/10">
-          <div className="flex items-center gap-2 mb-3">
-            <i className="ri-first-aid-kit-line text-[#B85C3A] text-lg" />
-            <h3 className="font-semibold text-[#eedfc8] text-sm">Need Immediate Help?</h3>
+      {/* Emergency & Quick Actions */}
+      <section className="px-4 sm:px-10 mb-12">
+        <div className="max-w-4xl mx-auto">
+          <div className="card border-[#B85C3A]/30 bg-[#B85C3A]/10">
+            <div className="flex items-center gap-2 mb-4">
+              <i className="ri-first-aid-kit-line text-[#B85C3A] text-xl" />
+              <h3 className="font-bold text-[#eedfc8] text-lg">Need Help Nearby?</h3>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <a
+                href="tel:988"
+                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#B85C3A]/20 hover:bg-[#B85C3A]/30 transition-colors"
+              >
+                <i className="ri-phone-line text-[#B85C3A] text-2xl" />
+                <span className="text-sm text-[#eedfc8] font-semibold text-center">Call 988 Hotline</span>
+              </a>
+              <a
+                href="https://www.google.com/maps/search/doctor+near+me"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#6B8A83]/20 hover:bg-[#6B8A83]/30 transition-colors"
+              >
+                <i className="ri-stethoscope-line text-[#6B8A83] text-2xl" />
+                <span className="text-sm text-[#eedfc8] font-semibold text-center">Find Doctors</span>
+              </a>
+              <a
+                href="https://www.google.com/maps/search/pharmacy+near+me"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#D19A58]/20 hover:bg-[#D19A58]/30 transition-colors"
+              >
+                <i className="ri-capsule-line text-[#D19A58] text-2xl" />
+                <span className="text-sm text-[#eedfc8] font-semibold text-center">Pharmacies</span>
+              </a>
+            </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <a
-              href="tel:988"
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-[#B85C3A]/20 hover:bg-[#B85C3A]/30 transition-colors"
-            >
-              <i className="ri-phone-line text-[#B85C3A] text-xl" />
-              <span className="text-xs text-[#eedfc8] font-medium text-center">Call 988 Hotline</span>
-            </a>
-            <a
-              href="https://www.google.com/maps/search/doctor+near+me"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-[#6B8A83]/20 hover:bg-[#6B8A83]/30 transition-colors"
-            >
-              <i className="ri-stethoscope-line text-[#6B8A83] text-xl" />
-              <span className="text-xs text-[#eedfc8] font-medium text-center">Find Doctors</span>
-            </a>
-            <a
-              href="https://www.google.com/maps/search/pharmacy+near+me"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-[#D19A58]/20 hover:bg-[#D19A58]/30 transition-colors"
-            >
-              <i className="ri-capsule-line text-[#D19A58] text-xl" />
-              <span className="text-xs text-[#eedfc8] font-medium text-center">Find Pharmacies</span>
-            </a>
+        </div>
+      </section>
+
+      {/* Support Categories */}
+      <section className="px-4 sm:px-10 mb-12">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-[#eedfc8] text-2xl font-bold text-center mb-8">Find Your People</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {supportCategories.map((cat) => (
+              <Link
+                key={cat.name}
+                href="/explore"
+                className="card-light flex flex-col items-center text-center p-5 hover:border-[#eedfc8]/25 transition-all duration-200 cursor-pointer"
+              >
+                <div
+                  className="w-14 h-14 rounded-full flex items-center justify-center mb-3"
+                  style={{ backgroundColor: `${cat.color}20` }}
+                >
+                  <i className={`${cat.icon} text-2xl`} style={{ color: cat.color }} />
+                </div>
+                <span className="text-sm font-semibold text-[#eedfc8] mb-1">{cat.name}</span>
+                <span className="text-xs text-[#eedfc8]/50">
+                  <i className="ri-group-line mr-1" />
+                  {cat.members}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Games & Activities */}
+      <section className="px-4 sm:px-10 mb-12">
+        <div className="max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="card bg-gradient-to-br from-purple-600/15 to-pink-600/15 border-purple-500/20">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="badge bg-[#eedfc8]/15 text-[#eedfc8] text-xs">Fun!</span>
+                <span className="badge bg-[#eedfc8]/15 text-[#eedfc8] text-xs">Play Together</span>
+              </div>
+              <h3 className="text-lg font-bold text-[#eedfc8] mb-2">
+                <i className="ri-gamepad-line mr-2 text-[#D19A58]" />
+                Game Zone Open!
+              </h3>
+              <p className="text-[#eedfc8]/70 text-sm mb-4">
+                Connect with community members through fun games &mdash; chess, tic-tac-toe, wordle, and more!
+              </p>
+              <Link href="/games" className="btn-primary inline-block text-sm px-6 py-2.5">
+                Start Playing
+              </Link>
+            </div>
+
+            <div className="card bg-gradient-to-br from-emerald-600/15 to-teal-600/15 border-emerald-500/20">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="badge bg-[#eedfc8]/15 text-[#eedfc8] text-xs">New!</span>
+                <span className="badge bg-[#eedfc8]/15 text-[#eedfc8] text-xs">Group Adventures</span>
+              </div>
+              <h3 className="text-lg font-bold text-[#eedfc8] mb-2">
+                <i className="ri-hand-heart-line mr-2 text-[#6B8A83]" />
+                Spread Joy Together!
+              </h3>
+              <p className="text-[#eedfc8]/70 text-sm mb-4">
+                Join fellow members for meaningful volunteer activities &mdash; visit orphanages, spend time at hospices, or brighten someone&apos;s day.
+              </p>
+              <Link href="/community" className="btn-primary inline-block text-sm px-6 py-2.5">
+                Join Adventures
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Key Features */}
+      <section className="px-4 sm:px-10 mb-12">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-[#eedfc8] text-2xl font-bold text-center mb-8">Key Features</h2>
+          <div className="flex flex-col gap-6">
+            {/* Feature 1 */}
+            <div className="card overflow-hidden p-0">
+              <div className="flex flex-col md:flex-row">
+                <div className="flex-1 p-6">
+                  <h3 className="text-xl font-bold text-[#eedfc8] mb-3">Personalized Matching</h3>
+                  <p className="text-[#eedfc8]/70 mb-5">Find compatible connections based on shared conditions, interests, and goals.</p>
+                  <Link href="/explore" className="btn-primary inline-block text-sm px-6 py-2.5">
+                    Find Matches
+                  </Link>
+                </div>
+                <div className="h-56 w-full md:h-auto md:w-1/2 relative">
+                  <Image
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBeDRT8DFuw7cUeoYXAmVbKIxx5YBa9E3etYRaYAjhlQxM7xK0tfKp4g-vPuK-eKei4ocJhJ3YqscsFK8pxhcX4Ynk0wSHx6ddC33dO1j-BHtXhtbUd-2SObnuJtrAh7ape128dtXDJVf3SebqzkuXO5VX4mGfXv9Hp3fa6xcVofc93DcrI1uCnVw5fzKxMTiYhCx-ln8zowrE2t91sllnsYJ5dnW1cXqKCAkbUMT2zNL8sFgt_sWs8O_4rEtx7ivx0dYGMs4JQvcYj"
+                    alt="Personalized matching"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="card overflow-hidden p-0">
+              <div className="flex flex-col md:flex-row-reverse">
+                <div className="flex-1 p-6">
+                  <h3 className="text-xl font-bold text-[#eedfc8] mb-3">Support Groups</h3>
+                  <p className="text-[#eedfc8]/70 mb-5">Join condition-specific groups for discussions, advice, and shared experiences.</p>
+                  <Link href="/groups" className="btn-primary inline-block text-sm px-6 py-2.5">
+                    Explore Groups
+                  </Link>
+                </div>
+                <div className="h-56 w-full md:h-auto md:w-1/2 relative">
+                  <Image
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJn5Rf3kj-6m4RualIi8zHttC_JU7nv2acLwqS5wpcSQNuD6rhwYKScV5bYldT44ZOMkYohOmJg1udyaNt9sKytqUbyHpjEQt0cbCMtrletCIBXocDQZ3Yc7nYEcPc848QYMIt5KPCxqxZyuxlIO9lqDY31n84_1a3DUlBI8Y3zlpnjXxrTKxjnCuCyjxTTn0-QIZ58Yy7mxAIpZ-d3tWArLWmy6aymENBmehD8ATWmIJFfWT1tzP3Zoz8xWwjCV0my6pWGYXeHqcu"
+                    alt="Support groups"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="card overflow-hidden p-0">
+              <div className="flex flex-col md:flex-row">
+                <div className="flex-1 p-6">
+                  <h3 className="text-xl font-bold text-[#eedfc8] mb-3">Trauma-Bonding</h3>
+                  <p className="text-[#eedfc8]/70 mb-5">Build meaningful relationships with others who understand the challenges of chronic conditions.</p>
+                  <Link href="/trauma-bonding" className="btn-primary inline-block text-sm px-6 py-2.5">
+                    Discover Connections
+                  </Link>
+                </div>
+                <div className="h-56 w-full md:h-auto md:w-1/2 relative">
+                  <Image
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuA69cErNk7dJcGUaxqrdIzOi0GcQiSpPrzT9LH6t6eNmQ-Gz6IIbwM_08OQ_dp1eTYkdklwwqJjueuTiHXhOljU6SYJ1Cl6HYKw3jVuDs-Bajgt0xZIWWaOUHkQBYgoybDtscPPzZvluPiWMBSkEUBNIyR3nNZuYesIKPtvlzdLVRIjXJONLj8YVhg9ncO4vSalxnzFa5JOsbDk7stVxpQPFEY93j4O4D9E-guNIJ_D0AdbKVRbeVD5UF4iTn3vPBtS8p2l5UTFxic6"
+                    alt="Trauma bonding connections"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Today's Good Vibes */}
+      <section className="px-4 sm:px-10 mb-12">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-[#eedfc8] text-2xl font-bold text-center mb-8">Today&apos;s Good Vibes</h2>
+          <div className="space-y-4">
+            <div className="card bg-gradient-to-r from-teal-600/15 to-emerald-600/15 border-emerald-500/20">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="badge bg-[#6B8A83]/30 text-[#6B8A83] text-xs animate-pulse-dot">Live Now</span>
+              </div>
+              <h4 className="font-bold text-[#eedfc8] text-lg mb-2">Weekly Wellness Circle</h4>
+              <p className="text-[#eedfc8]/70 text-sm mb-4">
+                Join 47 friends sharing self-care wins and cozy chat about feeling good
+              </p>
+              <button className="btn-primary text-sm px-6 py-2.5">Join the Circle</button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="card-light">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#D19A58]/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i className="ri-book-open-line text-[#D19A58]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-[#eedfc8] text-sm">Fresh Resource Added</h4>
+                    <p className="text-xs text-[#eedfc8]/60">Understanding Anxiety: Your Friendly Guide</p>
+                  </div>
+                  <Link href="/resources" className="text-[#D19A58] text-sm font-medium hover:opacity-80 flex-shrink-0">
+                    Read
+                  </Link>
+                </div>
+              </div>
+
+              <div className="card-light">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#6B8A83]/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i className="ri-user-smile-line text-[#6B8A83]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-[#eedfc8] text-sm">New Buddy Available</h4>
+                    <p className="text-xs text-[#eedfc8]/60">Chronic pain warrior offering friendly 1-on-1 chats</p>
+                  </div>
+                  <Link href="/community" className="text-[#D19A58] text-sm font-medium hover:opacity-80 flex-shrink-0">
+                    Say Hi
+                  </Link>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Testimonials */}
-      <section className="px-4 mb-12 max-w-lg mx-auto">
-        <h2 className="section-title text-center text-xl mb-6">
-          Stories from Our Community
-        </h2>
-        <div className="flex flex-col gap-4">
-          {testimonials.map((t, i) => (
-            <div key={i} className="card-light">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#D19A58]/20 flex items-center justify-center flex-shrink-0">
-                  <i className={`${t.avatar} text-[#D19A58]`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-[#eedfc8]/80 italic leading-relaxed mb-2">
+      <section className="px-4 sm:px-10 mb-12">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-[#eedfc8] text-2xl font-bold text-center mb-8">
+            Stories from Our Community
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {testimonials.map((t, i) => (
+              <div key={i} className="card-light">
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-12 h-12 rounded-full bg-[#D19A58]/20 flex items-center justify-center mb-3">
+                    <i className={`${t.avatar} text-xl text-[#D19A58]`} />
+                  </div>
+                  <p className="text-sm text-[#eedfc8]/80 italic leading-relaxed mb-3">
                     &ldquo;{t.quote}&rdquo;
                   </p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-[#eedfc8]">{t.author}</span>
-                    <span className="badge text-xs">{t.condition}</span>
-                  </div>
+                  <span className="text-sm font-semibold text-[#eedfc8]">{t.author}</span>
+                  <span className="badge text-xs mt-1">{t.condition}</span>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="px-4 mb-8 max-w-lg mx-auto">
-        <div className="card text-center py-8">
-          <i className="ri-hand-heart-line text-4xl text-[#D19A58] mb-4 block" />
-          <h2 className="text-xl font-bold text-[#eedfc8] mb-2">
-            You Don&apos;t Have to Do This Alone
-          </h2>
-          <p className="text-sm text-[#eedfc8]/60 mb-6 max-w-sm mx-auto">
-            Join thousands who have found comfort, understanding, and hope in our community.
-          </p>
-          <Link
-            href="/signup"
-            className="btn-accent text-base px-10 py-3 inline-block"
-          >
-            Get Started Free
-          </Link>
-          <p className="text-xs text-[#eedfc8]/40 mt-3">
-            No credit card required. Always free.
-          </p>
+      <section className="px-4 sm:px-10 mb-12">
+        <div className="max-w-4xl mx-auto">
+          <div className="card text-center py-10">
+            <i className="ri-hand-heart-line text-5xl text-[#D19A58] mb-4 block" />
+            <h2 className="text-2xl font-bold text-[#eedfc8] mb-3">
+              You Don&apos;t Have to Do This Alone
+            </h2>
+            <p className="text-[#eedfc8]/60 mb-6 max-w-lg mx-auto">
+              Join thousands who have found comfort, understanding, and hope in our community.
+            </p>
+            <Link href="/signup" className="btn-accent text-base px-10 py-3.5 inline-block font-bold">
+              Get Started Free
+            </Link>
+            <p className="text-xs text-[#eedfc8]/40 mt-3">
+              No credit card required. Always free.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="px-4 max-w-lg mx-auto text-center">
-        <div className="border-t border-[#eedfc8]/10 pt-6">
-          <div className="flex justify-center gap-6 mb-4">
-            <a href="#" className="text-[#eedfc8]/40 hover:text-[#eedfc8]/60 text-sm transition-colors">About</a>
-            <a href="#" className="text-[#eedfc8]/40 hover:text-[#eedfc8]/60 text-sm transition-colors">Privacy</a>
-            <a href="#" className="text-[#eedfc8]/40 hover:text-[#eedfc8]/60 text-sm transition-colors">Terms</a>
-            <a href="#" className="text-[#eedfc8]/40 hover:text-[#eedfc8]/60 text-sm transition-colors">Contact</a>
+      <footer className="border-t border-[#eedfc8]/10 bg-[#27433d] text-[#eedfc8] py-6 px-4 sm:px-10">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row md:justify-between md:items-center gap-6 md:gap-0">
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 text-sm">
+            <a href="#" className="hover:text-[#D19A58] transition-colors">Terms of Service</a>
+            <a href="#" className="hover:text-[#D19A58] transition-colors">Privacy Policy</a>
+            <a href="#" className="hover:text-[#D19A58] transition-colors">Contact Us</a>
           </div>
-          <p className="text-xs text-[#eedfc8]/30">
-            KinSpace &mdash; A safe place for healing, together.
-          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
+            <div className="flex gap-3">
+              <a href="#" className="hover:text-[#D19A58] transition-colors p-2" aria-label="Twitter">
+                <i className="ri-twitter-x-line text-lg" />
+              </a>
+              <a href="#" className="hover:text-[#D19A58] transition-colors p-2" aria-label="Instagram">
+                <i className="ri-instagram-line text-lg" />
+              </a>
+              <a href="#" className="hover:text-[#D19A58] transition-colors p-2" aria-label="Facebook">
+                <i className="ri-facebook-circle-line text-lg" />
+              </a>
+            </div>
+            <p className="text-xs text-[#eedfc8]/50">2025 KinSpace. All rights reserved.</p>
+            <a
+              href="https://boondocklabs.co.za"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary text-xs px-4 py-2"
+            >
+              By Boondock Labs
+            </a>
+          </div>
         </div>
       </footer>
     </div>
