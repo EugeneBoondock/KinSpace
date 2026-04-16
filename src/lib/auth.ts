@@ -7,12 +7,14 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendEmailVerification,
+  sendPasswordResetEmail,
   signInWithPopup,
   GoogleAuthProvider,
   type User,
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from './firebase'
+import { getPlatformAvatarForSeed } from './profile-avatars'
 
 export interface AuthUser {
   userId: string
@@ -52,7 +54,7 @@ export class AuthService {
       email,
       username: userData.username,
       full_name: userData.full_name || userData.username,
-      avatar_url: null,
+      avatar_url: getPlatformAvatarForSeed(user.uid).src,
       bio: null,
       location: null,
       conditions: [],
@@ -99,7 +101,7 @@ export class AuthService {
         email: user.email,
         username: user.displayName?.toLowerCase().replace(/\s+/g, '') || user.email?.split('@')[0] || 'user',
         full_name: user.displayName || '',
-        avatar_url: user.photoURL || null,
+        avatar_url: user.photoURL || getPlatformAvatarForSeed(user.uid).src,
         bio: null,
         location: null,
         conditions: [],
@@ -129,6 +131,10 @@ export class AuthService {
 
   static async signOut() {
     await firebaseSignOut(auth)
+  }
+
+  static async sendPasswordReset(email: string) {
+    await sendPasswordResetEmail(auth, email.trim())
   }
 
   static async getCurrentUser(): Promise<AuthUser | null> {

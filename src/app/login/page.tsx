@@ -13,6 +13,24 @@ function LoginContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showVerified, setShowVerified] = useState(false);
+  const [resetStatus, setResetStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
+
+  const handleForgotPassword = async () => {
+    const target = email.trim();
+    if (!target) {
+      setError('Enter your email above first, then tap "Forgot password".');
+      return;
+    }
+    setError('');
+    setResetStatus('sending');
+    try {
+      await AuthService.sendPasswordReset(target);
+      setResetStatus('sent');
+    } catch (err) {
+      setResetStatus('idle');
+      setError(err instanceof Error ? err.message : 'Could not send reset email.');
+    }
+  };
 
   useEffect(() => {
     if (searchParams.get('verified') === '1') {
@@ -101,9 +119,23 @@ function LoginContent() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-[#eedfc8]/80 mb-1.5">
-              Password
-            </label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label htmlFor="password" className="block text-sm font-medium text-[#eedfc8]/80">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={resetStatus === 'sending'}
+                className="text-xs font-semibold text-[#D19A58] hover:text-[#eedfc8]"
+              >
+                {resetStatus === 'sending'
+                  ? 'Sending...'
+                  : resetStatus === 'sent'
+                    ? 'Email sent ✓'
+                    : 'Forgot password?'}
+              </button>
+            </div>
             <div className="relative">
               <i className="ri-lock-line absolute left-3 top-1/2 -translate-y-1/2 text-[#eedfc8]/40" />
               <input
@@ -116,6 +148,11 @@ function LoginContent() {
                 className="input-field pl-10"
               />
             </div>
+            {resetStatus === 'sent' && (
+              <p className="mt-2 text-xs text-[#6B8A83]">
+                Reset link sent to {email}. Check your inbox (and spam folder).
+              </p>
+            )}
           </div>
 
           {error && (

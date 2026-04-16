@@ -73,6 +73,24 @@ export class RealtimeService {
     return unsub
   }
 
+  static subscribeToGamePlayers(
+    gameId: string,
+    onPlayersUpdate: (players: DocumentData[]) => void,
+  ) {
+    const key = `game-players:${gameId}`
+    this.unsubscribe(key)
+
+    const q = query(collection(db, 'game_players'), where('game_id', '==', gameId))
+
+    const unsub = onSnapshot(q, (snap) => {
+      const players = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      onPlayersUpdate(players)
+    })
+
+    this.subscriptions.set(key, unsub)
+    return unsub
+  }
+
   static subscribeToPosts(
     onUpdate: (posts: DocumentData[]) => void
   ) {

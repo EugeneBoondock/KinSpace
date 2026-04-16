@@ -1,21 +1,25 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
+import ProfileAvatar from '@/components/ProfileAvatar'
+import StrandButton from '@/components/StrandButton'
+import { useToast } from '@/components/Toast'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
-import { formatRelativeTime, getInitials } from '@/lib/platform'
+import { formatRelativeTime } from '@/lib/platform'
 
 type Candidate = Record<string, unknown> & { id: string }
 type Request = Record<string, unknown> & { id: string }
 
 export default function TraumaBondingPage() {
   const { user, loading: authLoading } = useAuth()
+  const { push: toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [receivedRequests, setReceivedRequests] = useState<Request[]>([])
-  const [sendingIds, setSendingIds] = useState<Set<string>>(new Set())
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -44,32 +48,16 @@ export default function TraumaBondingPage() {
     if (!authLoading) loadConnections()
   }, [authLoading, user])
 
-  async function handleConnect(targetUserId: string) {
-    if (!user) return
-    setSendingIds((current) => new Set(current).add(targetUserId))
-
-    try {
-      await DatabaseService.sendConnectionRequest(user.userId, targetUserId)
-      setCandidates((current) => current.filter((candidate) => candidate.id !== targetUserId))
-    } catch (error) {
-      console.error('Failed to send connection request:', error)
-    } finally {
-      setSendingIds((current) => {
-        const next = new Set(current)
-        next.delete(targetUserId)
-        return next
-      })
-    }
-  }
-
   async function handleUpdateRequest(requestId: string, status: 'accepted' | 'declined') {
     setUpdatingIds((current) => new Set(current).add(requestId))
 
     try {
       await DatabaseService.updateConnectionRequest(requestId, status)
       setReceivedRequests((current) => current.filter((request) => request.id !== requestId))
+      toast(status === 'accepted' ? 'Connection accepted' : 'Request declined', 'success')
     } catch (error) {
       console.error('Failed to update connection request:', error)
+      toast('Could not update request', 'error')
     } finally {
       setUpdatingIds((current) => {
         const next = new Set(current)
@@ -84,12 +72,16 @@ export default function TraumaBondingPage() {
       <div className="page-grid">
         <section className="card">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
-            Connections
+            🧬 Discover
           </p>
-          <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Find real people, not simulated matches</h1>
+          <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Find people to strand with</h1>
           <p className="mt-2 max-w-2xl text-sm text-[#eedfc8]/60">
-            This feed now uses live profiles, shared group overlap, and real connection requests.
+            Real profiles, matched by shared groups, location, and preferences. Send a Connect Strand
+            to start a real conversation.
           </p>
+          <Link href="/strands" className="btn-secondary mt-4 inline-block !py-2.5 !px-4 text-sm">
+            My strands →
+          </Link>
         </section>
 
         <div className="page-grid lg:grid-cols-[minmax(0,1.1fr)_22rem] lg:items-start">
@@ -107,22 +99,18 @@ export default function TraumaBondingPage() {
                     (candidate.full_name as string | undefined) ||
                     (candidate.username as string | undefined) ||
                     'KinSpace member'
-                  const sending = sendingIds.has(candidate.id)
 
                   return (
                     <article key={candidate.id} className="card">
                       <div className="flex items-start gap-4">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-[#D19A58]/18 text-lg font-bold text-[#D19A58]">
-                          {candidate.avatar_url ? (
-                            <img
-                              src={candidate.avatar_url as string}
-                              alt={displayName}
-                              className="h-16 w-16 rounded-3xl object-cover"
-                            />
-                          ) : (
-                            getInitials(displayName)
-                          )}
-                        </div>
+                        <ProfileAvatar
+                          alt={displayName}
+                          avatarUrl={candidate.avatar_url as string | undefined}
+                          className="h-16 w-16 rounded-3xl object-cover"
+                          fullName={candidate.full_name as string | undefined}
+                          userId={candidate.id}
+                          username={candidate.username as string | undefined}
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <h2 className="truncate text-lg font-semibold text-[#eedfc8]">{displayName}</h2>
@@ -151,13 +139,15 @@ export default function TraumaBondingPage() {
                       )}
 
                       <div className="mt-5 flex gap-2">
-                        <button
-                          onClick={() => handleConnect(candidate.id)}
-                          disabled={sending}
-                          className="btn-primary flex-1 !py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {sending ? 'Sending...' : 'Send connection request'}
-                        </button>
+                        <StrandButton
+                          targetUserId={candidate.id}
+                          className="flex-1"
+                          onChanged={(status) => {
+                            if (status === 'sent') {
+                              setCandidates((current) => current.filter((c) => c.id !== candidate.id))
+                            }
+                          }}
+                        />
                       </div>
                     </article>
                   )

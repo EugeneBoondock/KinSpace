@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
 import ResponsiveNavbar from "@/components/ResponsiveNavbar";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
+import { ToastProvider } from "@/components/Toast";
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -70,9 +71,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className={`${manrope.className} bg-brand-primary text-brand-background antialiased`}>
         <AuthProvider>
-          <ResponsiveNavbar />
-          <main className="min-h-screen">{children}</main>
-          <ServiceWorkerRegistrar />
+          <ToastProvider>
+            <ResponsiveNavbar />
+            <main className="min-h-screen">{children}</main>
+            <ServiceWorkerRegistrar />
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

@@ -1,515 +1,198 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import BottomNav from '@/components/BottomNav'
+import PageFrame from '@/components/PageFrame'
+import {
+  aiChoose,
+  canPlay,
+  drawCard,
+  labelFor,
+  playCard,
+  setupGame,
+  type UnoCard,
+  type UnoColor,
+  type UnoState,
+} from '@/lib/game-engines/uno'
 
-type CardColor = 'red' | 'blue' | 'green' | 'yellow' | 'black'
-type CardType = 'number' | 'skip' | 'reverse' | 'draw2' | 'wild' | 'wild4'
-
-interface Card {
-  id: string
-  color: CardColor
-  type: CardType
-  value?: number
-}
-
-const createDeck = (): Card[] => {
-  const deck: Card[] = []
-  const colors: CardColor[] = ['red', 'blue', 'green', 'yellow']
-  
-  // Number cards (0-9, 1-9 twice)
-  colors.forEach(color => {
-    for (let num = 0; num <= 9; num++) {
-      deck.push({ id: `${color}-${num}-1`, color, type: 'number', value: num })
-      if (num > 0) {
-        deck.push({ id: `${color}-${num}-2`, color, type: 'number', value: num })
-      }
-    }
-    
-    // Action cards (2 of each)
-    for (let i = 0; i < 2; i++) {
-      deck.push({ id: `${color}-skip-${i}`, color, type: 'skip' })
-      deck.push({ id: `${color}-reverse-${i}`, color, type: 'reverse' })
-      deck.push({ id: `${color}-draw2-${i}`, color, type: 'draw2' })
-    }
-  })
-  
-  // Wild cards
-  for (let i = 0; i < 4; i++) {
-    deck.push({ id: `wild-${i}`, color: 'black', type: 'wild' })
-    deck.push({ id: `wild4-${i}`, color: 'black', type: 'wild4' })
-  }
-  
-  return deck
-}
-
-const shuffleDeck = (deck: Card[]): Card[] => {
-  const shuffled = [...deck]
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-  }
-  return shuffled
-}
-
-function createInitialUnoState() {
-  const newDeck = shuffleDeck(createDeck())
-
-  const playerHand = newDeck.splice(0, 7)
-  const aiHands = [newDeck.splice(0, 7), newDeck.splice(0, 7), newDeck.splice(0, 7)]
-
-  let topCardIndex = 0
-  while (newDeck[topCardIndex].type === 'wild' || newDeck[topCardIndex].type === 'wild4') {
-    topCardIndex++
-  }
-
-  const topCard = newDeck.splice(topCardIndex, 1)[0]
-
-  return {
-    deck: newDeck,
-    playerHand,
-    aiHands,
-    topCard,
-    currentPlayer: 0,
-    gameStatus: 'playing' as const,
-    direction: 1,
-    drawCount: 0,
-  }
+const colorClass: Record<string, string> = {
+  red: 'bg-[#B85C3A] text-[#eedfc8]',
+  yellow: 'bg-[#D19A58] text-[#2A4A42]',
+  green: 'bg-[#6B8A83] text-[#eedfc8]',
+  blue: 'bg-[#3e6d88] text-[#eedfc8]',
+  wild: 'bg-gradient-to-br from-[#B85C3A] via-[#D19A58] to-[#3e6d88] text-[#eedfc8]',
 }
 
 export default function UnoPage() {
-  const [initialGame] = useState(createInitialUnoState)
-  const [deck, setDeck] = useState<Card[]>(initialGame.deck)
-  const [playerHand, setPlayerHand] = useState<Card[]>(initialGame.playerHand)
-  const [aiHands, setAiHands] = useState<Card[][]>(initialGame.aiHands)
-  const [topCard, setTopCard] = useState<Card | null>(initialGame.topCard)
-  const [currentPlayer, setCurrentPlayer] = useState(initialGame.currentPlayer) // 0 = human, 1-3 = AI
-  const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>(initialGame.gameStatus)
-  const [direction, setDirection] = useState(initialGame.direction) // 1 = clockwise, -1 = counterclockwise
-  const [drawCount, setDrawCount] = useState(initialGame.drawCount)
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null)
-  const [showColorPicker, setShowColorPicker] = useState(false)
+  const [state, setState] = useState<UnoState>(() =>
+    setupGame([
+      { id: 'you', name: 'You', isAI: false },
+      { id: 'ai1', name: 'Aiden', isAI: true },
+      { id: 'ai2', name: 'Blaire', isAI: true },
+      { id: 'ai3', name: 'Cory', isAI: true },
+    ]),
+  )
+  const [colorPicker, setColorPicker] = useState<string | null>(null)
 
-  const players = [
-    { name: 'You', avatar: '👤', isHuman: true },
-    { name: 'North AI', avatar: 'N1', isHuman: false },
-    { name: 'East AI', avatar: 'E2', isHuman: false },
-    { name: 'West AI', avatar: 'W3', isHuman: false }
-  ]
+  const reset = useCallback(() => {
+    setState(setupGame([
+      { id: 'you', name: 'You', isAI: false },
+      { id: 'ai1', name: 'Aiden', isAI: true },
+      { id: 'ai2', name: 'Blaire', isAI: true },
+      { id: 'ai3', name: 'Cory', isAI: true },
+    ]))
+    setColorPicker(null)
+  }, [])
 
-  function initializeGame() {
-    const nextGame = createInitialUnoState()
-
-    setDeck(nextGame.deck)
-    setPlayerHand(nextGame.playerHand)
-    setAiHands(nextGame.aiHands)
-    setTopCard(nextGame.topCard)
-    setCurrentPlayer(nextGame.currentPlayer)
-    setGameStatus(nextGame.gameStatus)
-    setDirection(nextGame.direction)
-    setDrawCount(nextGame.drawCount)
-  }
-
-  const canPlayCard = (card: Card, topCard: Card): boolean => {
-    if (card.type === 'wild' || card.type === 'wild4') return true
-    if (card.color === topCard.color) return true
-    if (card.type === topCard.type && card.type !== 'number') return true
-    if (card.type === 'number' && topCard.type === 'number' && card.value === topCard.value) return true
-    return false
-  }
-
-
-
-
-
-  const handlePlayerCardClick = (card: Card) => {
-    if (currentPlayer !== 0 || gameStatus !== 'playing') return
-    if (!topCard || !canPlayCard(card, topCard)) return
-    
-    if (card.type === 'wild' || card.type === 'wild4') {
-      setSelectedCard(card)
-      setShowColorPicker(true)
-    } else {
-      // Inline playCard logic
-      // Remove card from current player's hand
-      setPlayerHand(prev => prev.filter(c => c.id !== card.id))
-      
-      // Set new top card
-      const newTopCard = { ...card }
-      setTopCard(newTopCard)
-      
-      // Handle special cards
-      let nextPlayer = (currentPlayer + direction + 4) % 4
-      
-      const cType = card.type as string
-      if (cType === 'skip') {
-        nextPlayer = (nextPlayer + direction + 4) % 4
-      } else if (cType === 'reverse') {
-        setDirection(-direction)
-        if (players.length === 2) {
-          nextPlayer = (nextPlayer + direction + 4) % 4
-        }
-      } else if (cType === 'draw2') {
-        setDrawCount(2)
-      } else if (cType === 'wild4') {
-        setDrawCount(4)
-      }
-      
-      // Check for win
-      const handSize = playerHand.length - 1
-      if (handSize === 0) {
-        setGameStatus('won')
-        return
-      }
-      
-      setCurrentPlayer(nextPlayer)
-    }
-  }
-
-  const handleColorChoice = (color: CardColor) => {
-    if (selectedCard) {
-      // Inline playCard logic
-      // Remove card from current player's hand
-      setPlayerHand(prev => prev.filter(c => c.id !== selectedCard.id))
-      
-      // Set new top card
-      const newTopCard = { ...selectedCard, color }
-      setTopCard(newTopCard)
-      
-      // Handle special cards
-      let nextPlayer = (currentPlayer + direction + 4) % 4
-      
-      switch (selectedCard.type) {
-        case 'skip':
-          nextPlayer = (nextPlayer + direction + 4) % 4
-          break
-        case 'reverse':
-          setDirection(-direction)
-          if (players.length === 2) {
-            nextPlayer = (nextPlayer + direction + 4) % 4
-          }
-          break
-        case 'draw2':
-          setDrawCount(2)
-          break
-        case 'wild4':
-          setDrawCount(4)
-          break
-      }
-      
-      // Check for win
-      const handSize = playerHand.length - 1
-      if (handSize === 0) {
-        setGameStatus('won')
-        return
-      }
-      
-      setCurrentPlayer(nextPlayer)
-      setSelectedCard(null)
-    }
-    setShowColorPicker(false)
-  }
-
-  const handleDrawCard = () => {
-    if (currentPlayer !== 0 || gameStatus !== 'playing') return
-    
-    if (drawCount > 0) {
-      // Draw penalty cards
-      for (let i = 0; i < drawCount; i++) {
-        if (deck.length > 0) {
-          const newDeck = [...deck]
-          const drawnCard = newDeck.pop()!
-          setDeck(newDeck)
-          setPlayerHand(prev => [...prev, drawnCard])
-        }
-      }
-      setDrawCount(0)
-      setCurrentPlayer((currentPlayer + direction + 4) % 4)
-    } else {
-      // Draw one card
-      if (deck.length > 0) {
-        const newDeck = [...deck]
-        const drawnCard = newDeck.pop()!
-        setDeck(newDeck)
-        setPlayerHand(prev => [...prev, drawnCard])
-      }
-    }
-  }
-
-  // AI turn logic
   useEffect(() => {
-    if (currentPlayer !== 0 && gameStatus === 'playing') {
-      const timer = setTimeout(() => {
-        const aiHand = aiHands[currentPlayer - 1]
-        const playableCards = aiHand.filter(card => topCard && canPlayCard(card, topCard))
-        
-        if (playableCards.length > 0) {
-          const cardToPlay = playableCards[0]
-          const chosenColor = cardToPlay.type === 'wild' || cardToPlay.type === 'wild4' 
-            ? ['red', 'blue', 'green', 'yellow'][Math.floor(Math.random() * 4)] as CardColor
-            : undefined
-          
-          // Inline playCard logic
-          if (!topCard || !canPlayCard(cardToPlay, topCard)) return
-          
-          // Remove card from current player's hand
-          const newAiHands = [...aiHands]
-          newAiHands[currentPlayer - 1] = newAiHands[currentPlayer - 1].filter(c => c.id !== cardToPlay.id)
-          setAiHands(newAiHands)
-          
-          // Set new top card
-          const newTopCard = { ...cardToPlay }
-          if (chosenColor && (cardToPlay.type === 'wild' || cardToPlay.type === 'wild4')) {
-            newTopCard.color = chosenColor
-          }
-          setTopCard(newTopCard)
-          
-          // Handle special cards
-          let nextPlayer = (currentPlayer + direction + 4) % 4
-          
-          switch (cardToPlay.type) {
-            case 'skip':
-              nextPlayer = (nextPlayer + direction + 4) % 4
-              break
-            case 'reverse':
-              setDirection(-direction)
-              if (players.length === 2) {
-                nextPlayer = (nextPlayer + direction + 4) % 4
-              }
-              break
-            case 'draw2':
-              setDrawCount(2)
-              break
-            case 'wild4':
-              setDrawCount(4)
-              break
-          }
-          
-          // Check for win
-          const handSize = newAiHands[currentPlayer - 1].length - 1
-          if (handSize === 0) {
-            setGameStatus('lost')
-            return
-          }
-          
-          setCurrentPlayer(nextPlayer)
-        } else {
-          // AI draws card
-          if (drawCount > 0) {
-            const newAiHands = [...aiHands]
-            for (let i = 0; i < drawCount; i++) {
-              // Inline drawCard logic
-              if (deck.length === 0) continue
-              const newDeck = [...deck]
-              const drawnCard = newDeck.pop()!
-              setDeck(newDeck)
-              newAiHands[currentPlayer - 1].push(drawnCard)
-            }
-            setAiHands(newAiHands)
-            setDrawCount(0)
-          } else {
-            // Inline drawCard logic
-            if (deck.length > 0) {
-              const newDeck = [...deck]
-              const drawnCard = newDeck.pop()!
-              setDeck(newDeck)
-              const newAiHands = [...aiHands]
-              newAiHands[currentPlayer - 1].push(drawnCard)
-              setAiHands(newAiHands)
-            }
-          }
-          
-          setCurrentPlayer((currentPlayer + direction + 4) % 4)
-        }
-      }, 1500)
-      
-      return () => clearTimeout(timer)
-    }
-  }, [currentPlayer, gameStatus, aiHands, direction, drawCount, topCard, deck, players.length])
+    if (state.winner) return
+    const current = state.players[state.currentIndex]
+    if (!current.isAI) return
+    const timer = setTimeout(() => {
+      const choice = aiChoose(state)
+      if (choice.cardId) {
+        setState(playCard(state, choice.cardId, choice.chosenColor))
+      } else {
+        setState(drawCard(state))
+      }
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [state])
 
-  const getCardColor = (card: Card) => {
-    switch (card.color) {
-      case 'red': return 'bg-red-500'
-      case 'blue': return 'bg-blue-500'
-      case 'green': return 'bg-green-500'
-      case 'yellow': return 'bg-yellow-500'
-      default: return 'bg-gray-800'
+  const you = state.players.find((player) => player.id === 'you')!
+  const myTurn = state.players[state.currentIndex].id === 'you' && !state.winner
+
+  function handleCardClick(card: UnoCard) {
+    if (!myTurn) return
+    if (!canPlay(card, state)) return
+    if (card.color === 'wild') {
+      setColorPicker(card.id)
+      return
     }
+    setState(playCard(state, card.id))
   }
 
-  const getCardSymbol = (card: Card) => {
-    switch (card.type) {
-      case 'number': return card.value?.toString()
-      case 'skip': return '🚫'
-      case 'reverse': return '🔄'
-      case 'draw2': return '+2'
-      case 'wild': return '🌈'
-      case 'wild4': return '+4'
-      default: return '?'
-    }
+  function handleColorChoice(color: UnoColor) {
+    if (!colorPicker) return
+    setState(playCard(state, colorPicker, color))
+    setColorPicker(null)
   }
+
+  function handleDraw() {
+    if (!myTurn) return
+    setState(drawCard(state))
+  }
+
+  const topCard = state.discard[state.discard.length - 1]
+  const opponents = useMemo(() => state.players.filter((player) => player.id !== 'you'), [state.players])
 
   return (
-    <div className="min-h-screen bg-brand-primary text-[#eedfc8]">
-      <div className="fixed top-0 left-0 right-0 bg-[#2A4A42]/95 backdrop-blur-md z-50 px-4 py-3 border-b border-[#eedfc8]/20">
-        <div className="flex items-center justify-between max-w-sm mx-auto">
-          <Link href="/games" className="w-8 h-8 flex items-center justify-center">
-            <i className="ri-arrow-left-line text-xl text-[#eedfc8]"></i>
+    <PageFrame>
+      <div className="page-grid">
+        <section className="card">
+          <Link href="/games" className="text-sm text-[#D19A58]">
+            ← Back to games
           </Link>
-          <h1 className="text-lg font-semibold text-[#eedfc8]">UNO</h1>
-          <button onClick={initializeGame} className="w-8 h-8 flex items-center justify-center">
-            <i className="ri-refresh-line text-xl text-[#eedfc8]"></i>
-          </button>
-        </div>
-      </div>
-
-      <div className="pt-16 pb-4 px-4">
-        <div className="max-w-sm mx-auto space-y-4">
-          {gameStatus === 'won' && (
-            <div className="card bg-[#6B8A83]/20 border-[#6B8A83]/30">
-              <div className="text-center">
-                <div className="text-2xl mb-2">🎉</div>
-                <h3 className="font-bold text-lg text-[#eedfc8]">You Won!</h3>
-                <p className="text-[#6B8A83]">Congratulations on your UNO victory!</p>
-              </div>
+          <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/45">UNO</p>
+              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">UNO Cards</h1>
+              <p className="mt-2 max-w-xl text-sm text-[#eedfc8]/60">
+                Four-player match with AI opponents. Match the active color or value. Action cards apply instantly.
+              </p>
             </div>
-          )}
-
-          {gameStatus === 'lost' && (
-            <div className="card bg-[#B85C3A]/20 border-[#B85C3A]/30">
-              <div className="text-center">
-                <div className="text-2xl mb-2">😔</div>
-                <h3 className="font-bold text-lg text-[#eedfc8]">Game Over</h3>
-                <p className="text-[#B85C3A]">{players.find((_, index) => index === currentPlayer)?.name} won this time!</p>
-              </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="badge">Active color: {state.activeColor}</span>
+              <span className="badge">Deck {state.deck.length}</span>
+              {state.drawStack > 0 && <span className="badge bg-[#B85C3A]/25 text-[#B85C3A]">Stack +{state.drawStack}</span>}
             </div>
-          )}
+          </div>
+        </section>
 
-          {/* AI Players */}
-          <div className="grid grid-cols-3 gap-2">
-            {players.slice(1).map((player, index) => (
-              <div key={index} className={`card-light rounded-lg p-3 ${
-                currentPlayer === index + 1 ? 'border-[#D19A58] bg-[#D19A58]/10' : ''
-              }`}>
-                <div className="text-center">
-                  <div className="w-8 h-8 bg-[#6B8A83] rounded-full flex items-center justify-center text-[#eedfc8] font-semibold text-xs mx-auto mb-1">
-                    {player.avatar}
-                  </div>
-                  <div className="text-xs font-medium text-[#eedfc8]">{player.name}</div>
-                  <div className="text-xs text-[#eedfc8]/50">{aiHands[index]?.length || 0} cards</div>
-                </div>
+        <section className="card">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {opponents.map((opponent) => (
+              <div
+                key={opponent.id}
+                className={`rounded-2xl border border-[#eedfc8]/10 bg-[#eedfc8]/5 p-4 ${
+                  state.players[state.currentIndex].id === opponent.id ? 'ring-2 ring-[#D19A58]/60' : ''
+                }`}
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">{opponent.name}</p>
+                <p className="mt-2 text-2xl font-bold text-[#eedfc8]">{opponent.hand.length}</p>
+                <p className="text-xs text-[#eedfc8]/45">cards in hand</p>
               </div>
             ))}
           </div>
+        </section>
 
-          {/* Game Area */}
-          <div className="card">
-            <div className="flex items-center justify-center gap-4 mb-4">
-              {/* Deck */}
-              <div className="text-center">
-                <div className="w-16 h-24 bg-[#1a332d] rounded-lg flex items-center justify-center text-[#D19A58] font-bold border-2 border-[#eedfc8]/30 mb-2">
-                  UNO
-                </div>
-                <button
-                  onClick={handleDrawCard}
-                  disabled={currentPlayer !== 0}
-                  className="text-xs px-2 py-1 btn-primary rounded-lg disabled:opacity-40"
-                >
-                  Draw
-                </button>
-              </div>
-
-              {/* Arrow */}
-              <div className="flex flex-col items-center">
-                <div className={`text-2xl text-[#D19A58] ${direction === 1 ? 'rotate-90' : '-rotate-90'} transition-transform`}>
-                  ➤
-                </div>
-                {drawCount > 0 && (
-                  <div className="text-xs font-bold text-[#B85C3A]">+{drawCount}</div>
-                )}
-              </div>
-
-              {/* Top Card */}
-              <div className="text-center">
-                {topCard && (
-                  <div className={`w-16 h-24 ${getCardColor(topCard)} rounded-lg flex items-center justify-center text-white font-bold border-2 border-[#eedfc8]/30`}>
-                    {getCardSymbol(topCard)}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="text-center text-sm text-[#eedfc8]/70">
-              {currentPlayer === 0 ? "Your turn" : `${players[currentPlayer].name}'s turn`}
-            </div>
-          </div>
-
-          {/* Player Hand */}
-          <div className="card">
-            <h3 className="text-sm font-medium text-[#eedfc8] mb-3">Your Cards ({playerHand.length})</h3>
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {playerHand.map((card) => (
-                <button
-                  key={card.id}
-                  onClick={() => handlePlayerCardClick(card)}
-                  disabled={currentPlayer !== 0 || !topCard || !canPlayCard(card, topCard)}
-                  className={`
-                    flex-shrink-0 w-12 ${getCardColor(card)} rounded-lg flex items-center justify-center
-                    text-white font-bold text-xs border-2 transition-all
-                    ${currentPlayer === 0 && topCard && canPlayCard(card, topCard)
-                      ? 'border-[#D19A58] hover:scale-105 cursor-pointer'
-                      : 'border-[#eedfc8]/20 opacity-60'
-                    }
-                  `}
-                  style={{ minWidth: '48px', height: '72px' }}
-                >
-                  {getCardSymbol(card)}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex gap-3">
+        <section className="card flex flex-col items-center gap-5">
+          <div className="flex items-center gap-4">
             <button
-              onClick={initializeGame}
-              className="flex-1 py-3 px-4 btn-accent rounded-lg font-medium"
+              onClick={handleDraw}
+              disabled={!myTurn}
+              className="flex h-28 w-20 items-center justify-center rounded-2xl bg-[#0f1f1b] text-xs font-semibold text-[#eedfc8]/70 disabled:opacity-50"
             >
-              New Game
+              Draw
             </button>
-            <Link
-              href="/games"
-              className="flex-1 py-3 px-4 btn-secondary rounded-lg font-medium text-center"
-            >
-              Back to Games
-            </Link>
+            <div className={`flex h-28 w-20 items-center justify-center rounded-2xl px-2 text-center text-xs font-bold ${colorClass[topCard.color]}`}>
+              <span className="leading-tight">{labelFor(topCard)}</span>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Color Picker Modal */}
-      {showColorPicker && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="card max-w-xs w-full mx-4">
-            <h3 className="text-lg font-semibold text-[#eedfc8] mb-4 text-center">Choose Color</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {(['red', 'blue', 'green', 'yellow'] as CardColor[]).map((color) => (
+          <p className="text-xs text-[#eedfc8]/55">{state.lastAction}</p>
+
+          {state.winner ? (
+            <div className="rounded-2xl bg-[#eedfc8]/10 px-4 py-3 text-sm font-semibold text-[#D19A58]">
+              {state.winner === 'you' ? 'You won!' : `${state.players.find((player) => player.id === state.winner)?.name} wins.`}
+              <button onClick={reset} className="ml-3 text-[#D19A58] underline">
+                Play again
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">Your hand</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {you.hand.map((card) => {
+                  const disabled = !myTurn || !canPlay(card, state)
+                  return (
+                    <button
+                      key={card.id}
+                      onClick={() => handleCardClick(card)}
+                      disabled={disabled}
+                      className={`flex h-24 w-16 items-center justify-center rounded-xl px-1 text-center text-[10px] font-bold transition-transform ${colorClass[card.color]} ${
+                        disabled ? 'opacity-50' : 'hover:-translate-y-1'
+                      }`}
+                    >
+                      <span className="leading-tight">{labelFor(card)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {colorPicker && (
+            <div className="flex gap-2">
+              {(['red', 'yellow', 'green', 'blue'] as UnoColor[]).map((color) => (
                 <button
                   key={color}
                   onClick={() => handleColorChoice(color)}
-                  className={`py-3 px-4 rounded-lg text-white font-medium capitalize ${
-                    color === 'red' ? 'bg-red-500' :
-                    color === 'blue' ? 'bg-blue-500' :
-                    color === 'green' ? 'bg-green-500' :
-                    'bg-yellow-500'
-                  }`}
-                >
-                  {color}
-                </button>
+                  className={`h-10 w-10 rounded-full ${colorClass[color]}`}
+                  aria-label={color}
+                />
               ))}
             </div>
-          </div>
-        </div>
-      )}
-    </div>
+          )}
+
+          <button onClick={reset} className="btn-secondary !rounded-2xl !px-4 !py-2 text-sm">
+            New game
+          </button>
+        </section>
+      </div>
+
+      <BottomNav />
+    </PageFrame>
   )
 }

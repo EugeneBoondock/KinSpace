@@ -7,8 +7,10 @@ import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
+import { RealtimeService } from '@/lib/realtime'
 import { getGameDefinition, getGameHref } from '@/lib/games'
 import { formatCompactNumber, formatRelativeTime, getInitials } from '@/lib/platform'
+import { useToast } from '@/components/Toast'
 
 type GameRoom = Record<string, unknown> & {
   id: string
@@ -32,9 +34,11 @@ export default function GameRoomPage() {
   const params = useParams<{ gameId: string }>()
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const { push: toast } = useToast()
 
   const [loading, setLoading] = useState(true)
   const [joining, setJoining] = useState(false)
+  const [leaving, setLeaving] = useState(false)
   const [room, setRoom] = useState<GameRoom | null>(null)
   const [players, setPlayers] = useState<GamePlayer[]>([])
 
@@ -67,6 +71,34 @@ export default function GameRoomPage() {
     void loadRoom()
   }, [loadRoom])
 
+  // Real-time: subscribe to room + players updates so the lobby is always fresh.
+  useEffect(() => {
+    if (!params.gameId) return
+
+    const unsubRoom = RealtimeService.subscribeToGame(params.gameId, (data) => {
+      setRoom(data as GameRoom)
+    })
+
+    const unsubPlayers = RealtimeService.subscribeToGamePlayers(params.gameId, async (rawPlayers) => {
+      // rawPlayers lack profile joins — hydrate in a single pass
+      const hydrated = await Promise.all(
+        rawPlayers.map(async (player) => {
+          const userId = (player as { user_id?: string }).user_id
+          if (!userId) return player as GamePlayer
+          const profile = await DatabaseService.getProfile(userId).catch(() => null)
+          return { ...player, profile } as GamePlayer
+        }),
+      )
+      hydrated.sort((a, b) => ((a.player_order as number | undefined) ?? 0) - ((b.player_order as number | undefined) ?? 0))
+      setPlayers(hydrated)
+    })
+
+    return () => {
+      unsubRoom()
+      unsubPlayers()
+    }
+  }, [params.gameId])
+
   const game = getGameDefinition(room?.game_type as string | undefined)
   const playerIds = useMemo(
     () => new Set(players.map((player) => player.user_id as string | undefined).filter(Boolean)),
@@ -85,11 +117,32 @@ export default function GameRoomPage() {
     setJoining(true)
     try {
       await DatabaseService.joinGame(room.id, user.userId)
-      await loadRoom()
+      toast('Joined the room', 'success')
     } catch (error) {
       console.error('Failed to join room:', error)
+      toast('Could not join this room', 'error')
     } finally {
       setJoining(false)
+    }
+  }
+
+  async function handleLeaveRoom() {
+    if (!room || !user) return
+    const confirmMessage = isHost
+      ? 'Leaving as host closes the room for everyone. Continue?'
+      : 'Leave this room?'
+    if (typeof window !== 'undefined' && !window.confirm(confirmMessage)) return
+
+    setLeaving(true)
+    try {
+      const result = await DatabaseService.leaveGame(room.id, user.userId)
+      toast(result.archived ? 'Room closed' : 'Left the room', 'success')
+      router.push('/games')
+    } catch (error) {
+      console.error('Failed to leave room:', error)
+      toast('Could not leave room', 'error')
+    } finally {
+      setLeaving(false)
     }
   }
 
@@ -199,11 +252,29 @@ export default function GameRoomPage() {
                   </Link>
                 )}
                 <button
-                  onClick={() => void loadRoom()}
+                  onClick={async () => {
+                    if (typeof window === 'undefined') return
+                    const link = `${window.location.origin}/games/rooms/${room.id}`
+                    try {
+                      await navigator.clipboard.writeText(link)
+                      toast('Room link copied', 'success')
+                    } catch {
+                      toast('Copy failed — long-press the URL to copy', 'error')
+                    }
+                  }}
                   className="btn-secondary !rounded-2xl !py-3 text-sm"
                 >
-                  Refresh lobby
+                  Copy invite link
                 </button>
+                {isMember && (
+                  <button
+                    onClick={handleLeaveRoom}
+                    disabled={leaving}
+                    className="rounded-2xl border border-[#B85C3A]/30 bg-[#B85C3A]/10 px-4 py-3 text-sm font-medium text-[#B85C3A] transition-colors hover:bg-[#B85C3A]/20 disabled:opacity-50"
+                  >
+                    {leaving ? 'Leaving…' : isHost ? 'Close room' : 'Leave room'}
+                  </button>
+                )}
               </div>
             </div>
 

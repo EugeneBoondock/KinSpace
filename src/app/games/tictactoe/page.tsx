@@ -1,199 +1,151 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import BottomNav from '@/components/BottomNav'
+import PageFrame from '@/components/PageFrame'
+import {
+  availableMoves,
+  checkWinner,
+  computeAiMove,
+  emptyBoard,
+  isDraw,
+  type TTTBoard,
+  type TTTDifficulty,
+} from '@/lib/game-engines/tictactoe'
 
-type Cell = 'X' | 'O' | null
 type Status = 'playing' | 'win' | 'draw'
 
-const LINES = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8],
-  [0, 3, 6], [1, 4, 7], [2, 5, 8],
-  [0, 4, 8], [2, 4, 6],
-]
+export default function TicTacToePage() {
+  const params = useSearchParams()
+  const difficulty = (params.get('difficulty') as TTTDifficulty | null) ?? 'medium'
 
-function checkWinner(b: Cell[]): { winner: Cell; line: number[] | null } {
-  for (const l of LINES) {
-    if (b[l[0]] && b[l[0]] === b[l[1]] && b[l[1]] === b[l[2]]) {
-      return { winner: b[l[0]], line: l }
-    }
-  }
-  return { winner: null, line: null }
-}
-
-function minimax(b: Cell[], isMax: boolean): number {
-  const { winner } = checkWinner(b)
-  if (winner === 'O') return 10
-  if (winner === 'X') return -10
-  if (b.every(c => c !== null)) return 0
-
-  if (isMax) {
-    let best = -Infinity
-    for (let i = 0; i < 9; i++) {
-      if (!b[i]) { b[i] = 'O'; best = Math.max(best, minimax(b, false)); b[i] = null }
-    }
-    return best
-  } else {
-    let best = Infinity
-    for (let i = 0; i < 9; i++) {
-      if (!b[i]) { b[i] = 'X'; best = Math.min(best, minimax(b, true)); b[i] = null }
-    }
-    return best
-  }
-}
-
-function getAiMove(b: Cell[], difficulty: number): number {
-  const empty = b.map((c, i) => c === null ? i : -1).filter(i => i >= 0)
-  if (empty.length === 0) return -1
-
-  // Easy: mostly random
-  if (difficulty === 1 && Math.random() < 0.6) {
-    return empty[Math.floor(Math.random() * empty.length)]
-  }
-
-  // Medium: sometimes random
-  if (difficulty === 2 && Math.random() < 0.25) {
-    return empty[Math.floor(Math.random() * empty.length)]
-  }
-
-  // Hard: always optimal
-  let bestVal = -Infinity, bestMove = empty[0]
-  for (const i of empty) {
-    b[i] = 'O'
-    const val = minimax(b, false)
-    b[i] = null
-    if (val > bestVal) { bestVal = val; bestMove = i }
-  }
-  return bestMove
-}
-
-function getDifficultyFromParam(value: string | null) {
-  if (value === 'easy') return 1
-  if (value === 'hard') return 3
-  return 2
-}
-
-export default function TicTacToe() {
-  const searchParams = useSearchParams()
-  const [board, setBoard] = useState<Cell[]>(Array(9).fill(null))
-  const [xTurn, setXTurn] = useState(true)
+  const [board, setBoard] = useState<TTTBoard>(emptyBoard())
+  const [turn, setTurn] = useState<'X' | 'O'>('X')
   const [status, setStatus] = useState<Status>('playing')
-  const [winLine, setWinLine] = useState<number[] | null>(null)
-  const [score, setScore] = useState({ player: 0, ai: 0, draw: 0 })
-  const difficulty = getDifficultyFromParam(searchParams.get('difficulty'))
-  const aiThinking = !xTurn && status === 'playing'
+  const [winningLine, setWinningLine] = useState<number[] | null>(null)
+  const [scores, setScores] = useState({ you: 0, ai: 0, draw: 0 })
 
-  // AI move
+  const reset = useCallback(() => {
+    setBoard(emptyBoard())
+    setTurn('X')
+    setStatus('playing')
+    setWinningLine(null)
+  }, [])
+
+  const handleCell = (index: number) => {
+    if (status !== 'playing' || turn !== 'X' || board[index] !== null) return
+    const next = [...board]
+    next[index] = 'X'
+    setBoard(next)
+    setTurn('O')
+  }
+
   useEffect(() => {
-    if (xTurn || status !== 'playing') return
-    const timer = setTimeout(() => {
-      const b = [...board]
-      const move = getAiMove(b, difficulty)
-      if (move >= 0) {
-        const nb = [...board]
-        nb[move] = 'O'
-        setBoard(nb)
-        const { winner, line } = checkWinner(nb)
-        if (winner) {
-          setStatus('win'); setWinLine(line)
-          setScore(s => ({ ...s, ai: s.ai + 1 }))
-        } else if (nb.every(c => c !== null)) {
-          setStatus('draw')
-          setScore(s => ({ ...s, draw: s.draw + 1 }))
-        } else {
-          setXTurn(true)
-        }
-      }
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [xTurn, board, status, difficulty])
-
-  const handleClick = (i: number) => {
-    if (board[i] || !xTurn || status !== 'playing' || aiThinking) return
-    const nb = [...board]
-    nb[i] = 'X'
-    setBoard(nb)
-    const { winner, line } = checkWinner(nb)
+    const { winner, line } = checkWinner(board)
     if (winner) {
-      setStatus('win'); setWinLine(line)
-      setScore(s => ({ ...s, player: s.player + 1 }))
-    } else if (nb.every(c => c !== null)) {
-      setStatus('draw')
-      setScore(s => ({ ...s, draw: s.draw + 1 }))
-    } else {
-      setXTurn(false)
+      setStatus('win')
+      setWinningLine(line)
+      setScores((current) => ({
+        ...current,
+        you: current.you + (winner === 'X' ? 1 : 0),
+        ai: current.ai + (winner === 'O' ? 1 : 0),
+      }))
+      return
     }
-  }
+    if (isDraw(board)) {
+      setStatus('draw')
+      setScores((current) => ({ ...current, draw: current.draw + 1 }))
+      return
+    }
+    if (turn === 'O' && status === 'playing') {
+      const timer = setTimeout(() => {
+        const aiIndex = computeAiMove(board, 'O', difficulty)
+        if (aiIndex === null) return
+        const next = [...board]
+        next[aiIndex] = 'O'
+        setBoard(next)
+        setTurn('X')
+      }, 380)
+      return () => clearTimeout(timer)
+    }
+  }, [board, turn, status, difficulty])
 
-  const reset = () => {
-    setBoard(Array(9).fill(null)); setXTurn(true); setStatus('playing'); setWinLine(null)
-  }
-
-  const diffLabel = difficulty === 1 ? 'Easy' : difficulty === 3 ? 'Hard' : 'Medium'
-  const { winner } = checkWinner(board)
+  const availableCount = useMemo(() => availableMoves(board).length, [board])
 
   return (
-    <div className="min-h-screen bg-brand-primary">
-      <div className="sticky top-0 z-40 bg-brand-primary/95 backdrop-blur-md border-b border-[#eedfc8]/10 px-4 py-3">
-        <div className="flex items-center justify-between max-w-md mx-auto">
-          <Link href="/games" className="text-[#eedfc8]/70"><i className="ri-arrow-left-line text-xl" /></Link>
-          <h1 className="text-[#eedfc8] font-bold text-sm">Tic Tac Toe ({diffLabel})</h1>
-          <button onClick={reset} className="text-[#eedfc8]/70"><i className="ri-refresh-line text-xl" /></button>
-        </div>
-      </div>
-
-      <div className="px-4 pt-6 max-w-sm mx-auto space-y-6">
-        {/* Score */}
-        <div className="flex justify-center gap-6 text-center">
-          <div><p className="text-[#eedfc8] text-2xl font-bold">{score.player}</p><p className="text-[#eedfc8]/50 text-xs">You (X)</p></div>
-          <div><p className="text-[#eedfc8]/50 text-2xl font-bold">{score.draw}</p><p className="text-[#eedfc8]/50 text-xs">Draw</p></div>
-          <div><p className="text-brand-accent1 text-2xl font-bold">{score.ai}</p><p className="text-[#eedfc8]/50 text-xs">AI (O)</p></div>
-        </div>
-
-        {/* Status */}
-        <div className="text-center">
-          {status === 'playing' && (
-            <p className="text-[#eedfc8]/70 text-sm">
-              {aiThinking ? 'AI is thinking...' : 'Your turn (X)'}
-            </p>
-          )}
-          {status === 'win' && (
-            <p className={`font-bold text-lg ${winner === 'X' ? 'text-green-400' : 'text-brand-accent1'}`}>
-              {winner === 'X' ? 'You Win!' : 'AI Wins!'}
-            </p>
-          )}
-          {status === 'draw' && <p className="text-brand-accent2 font-bold text-lg">It&apos;s a Draw!</p>}
-        </div>
-
-        {/* Board */}
-        <div className="grid grid-cols-3 gap-2 aspect-square max-w-[320px] mx-auto">
-          {board.map((cell, i) => {
-            const isWin = winLine?.includes(i)
-            return (
-              <button
-                key={i}
-                onClick={() => handleClick(i)}
-                disabled={!!cell || status !== 'playing' || !xTurn}
-                className={`aspect-square rounded-xl flex items-center justify-center text-4xl sm:text-5xl font-bold transition-all
-                  ${!cell ? 'bg-[#eedfc8]/8 hover:bg-[#eedfc8]/15 active:scale-95' : 'bg-[#eedfc8]/5'}
-                  ${isWin ? 'ring-2 ring-brand-accent2 bg-brand-accent2/10' : ''}
-                  border border-[#eedfc8]/10
-                `}
-              >
-                {cell === 'X' && <span className="text-[#eedfc8]">X</span>}
-                {cell === 'O' && <span className="text-brand-accent1">O</span>}
-              </button>
-            )
-          })}
-        </div>
-
-        {status !== 'playing' && (
-          <div className="text-center">
-            <button onClick={reset} className="btn-primary px-8 py-3">Play Again</button>
+    <PageFrame>
+      <div className="page-grid">
+        <section className="card">
+          <Link href="/games" className="text-sm text-[#D19A58]">
+            ← Back to games
+          </Link>
+          <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/45">
+                Tic Tac Toe · {difficulty}
+              </p>
+              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Tic Tac Toe</h1>
+              <p className="mt-2 max-w-xl text-sm text-[#eedfc8]/60">
+                You play X, AI plays O. Win lines glow; square count updates live.
+              </p>
+            </div>
+            <div className="flex gap-2 text-xs">
+              <span className="badge">You {scores.you}</span>
+              <span className="badge bg-[#B85C3A]/20 text-[#B85C3A]">AI {scores.ai}</span>
+              <span className="badge">Draw {scores.draw}</span>
+              <span className="badge">{availableCount} open</span>
+            </div>
           </div>
-        )}
+        </section>
+
+        <section className="card flex flex-col items-center">
+          <div className="grid grid-cols-3 gap-3 text-5xl font-bold">
+            {board.map((cell, index) => (
+              <button
+                key={index}
+                onClick={() => handleCell(index)}
+                disabled={status !== 'playing' || turn !== 'X'}
+                className={`flex h-24 w-24 items-center justify-center rounded-2xl border transition-all ${
+                  winningLine?.includes(index)
+                    ? 'border-[#D19A58] bg-[#D19A58]/15 text-[#D19A58]'
+                    : 'border-[#eedfc8]/12 bg-[#eedfc8]/4 text-[#eedfc8]'
+                } ${cell === null && status === 'playing' ? 'hover:bg-[#eedfc8]/10' : ''}`}
+                aria-label={`cell-${index}`}
+              >
+                {cell ?? ''}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button onClick={reset} className="btn-primary !rounded-2xl !px-4 !py-2 text-sm">
+              New match
+            </button>
+            <Link href="/games/tictactoe?difficulty=easy" className="btn-secondary !rounded-2xl !px-4 !py-2 text-sm">
+              Easy
+            </Link>
+            <Link href="/games/tictactoe?difficulty=medium" className="btn-secondary !rounded-2xl !px-4 !py-2 text-sm">
+              Medium
+            </Link>
+            <Link href="/games/tictactoe?difficulty=hard" className="btn-secondary !rounded-2xl !px-4 !py-2 text-sm">
+              Hard
+            </Link>
+          </div>
+
+          {status !== 'playing' && (
+            <p className="mt-4 text-sm font-semibold text-[#D19A58]">
+              {status === 'win'
+                ? checkWinner(board).winner === 'X'
+                  ? 'You won!'
+                  : 'AI won this one.'
+                : 'Draw — even ground.'}
+            </p>
+          )}
+        </section>
       </div>
-    </div>
+      <BottomNav />
+    </PageFrame>
   )
 }

@@ -1,0 +1,206 @@
+// AI-assisted "Ask" feature: user describes a symptom or question,
+// we search Reddit + the wider web via DuckDuckGo, pair that with any
+// previously-asked KinSpace questions, and feed the whole context into
+// gpt-5.4-mini for a warm, grounded, NEVER-DIAGNOSING answer.
+//
+// Cost shape per ask: 1 plan-free LLM call, ~4-6 page fetches, no sync.
+
+import OpenAI from 'openai'
+import { fetchPage, searchWeb, type WebPage } from './web-research'
+
+export type RedditHit = {
+  title: string
+  url: string
+  subreddit: string
+  snippet: string
+}
+
+export type AskAnswer = {
+  answer_markdown: string
+  plain_language_summary: string
+  red_flags: string[]
+  self_care_suggestions: string[]
+  when_to_see_a_professional: string[]
+  tags: string[]
+  sources: Array<{ index: number; title: string; url: string; domain: string }>
+  reddit_threads: RedditHit[]
+}
+
+export type AskContext = {
+  /** The user's self-reported profile, if they are signed in. May be empty. */
+  conditions: string[]
+  medications: string[]
+  age?: number | null
+  /** Past questions on KinSpace that look similar — used for "others asked" UI. */
+  relatedQuestions: Array<{ id: string; question: string; created_at?: unknown }>
+}
+
+let client: OpenAI | null = null
+
+function getClient(): OpenAI {
+  if (client) return client
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
+  client = new OpenAI({ apiKey })
+  return client
+}
+
+function subredditFromUrl(url: string): string {
+  const match = url.match(/reddit\.com\/r\/([^/?#]+)/i)
+  return match ? match[1] : 'reddit'
+}
+
+export async function searchReddit(question: string, max = 4): Promise<RedditHit[]> {
+  const query = `${question} site:reddit.com`
+  const results = await searchWeb(query, max + 4)
+  return results
+    .filter((result) => result.url.includes('reddit.com'))
+    .slice(0, max)
+    .map((result) => ({
+      title: result.title,
+      url: result.url,
+      subreddit: subredditFromUrl(result.url),
+      snippet: result.snippet,
+    }))
+}
+
+async function gatherWebSources(question: string, max = 4): Promise<WebPage[]> {
+  const results = await searchWeb(question, max + 4)
+  const pages: WebPage[] = []
+  const seen = new Set<string>()
+  for (const result of results) {
+    if (result.url.includes('reddit.com')) continue // reddit handled separately
+    if (seen.has(result.url)) continue
+    seen.add(result.url)
+    const page = await fetchPage(result.url)
+    if (page) {
+      pages.push(page)
+      if (pages.length >= max) break
+    }
+  }
+  return pages
+}
+
+const SYSTEM_PROMPT = `You are KinSpace Ask — a warm, careful health companion that helps people make sense of symptoms and health questions WITHOUT replacing a clinician.
+
+Your job: take the user's question, any prior context about them, and the web sources we collected, and respond with a steady, plain-language answer.
+
+Absolute rules:
+- Never diagnose. Never prescribe.
+- Always name uncertainty. Real symptoms have many possible causes.
+- Always include red-flag warnings that mean "seek urgent care".
+- Treat every source as provisional. Prefer clinical sources (Mayo Clinic, NHS, NIH, CDC, UpToDate, Cleveland Clinic, WHO, peer-reviewed journals) over random blogs.
+- If the user profile includes conditions or medications that change the interpretation, say so explicitly.
+- If this looks like a medical emergency (chest pain + breathlessness, suicidal ideation, severe bleeding, stroke signs, anaphylaxis, etc.), say so first — "This sounds like something to get checked right now" — and give the best next step.
+- Cite sources with [1], [2] etc. matching the numbered sources we pass you.
+- Tone: warmth without cheerfulness. Honest. Brief.
+
+Return STRICT JSON matching:
+{
+  "answer_markdown": string,               // 300-500 words, markdown, with [1][2] citations
+  "plain_language_summary": string,         // 1-3 sentences, 6th-grade reading level
+  "red_flags": string[],                    // 1-4 warning signs that mean "seek urgent care"
+  "self_care_suggestions": string[],         // 0-4 reasonable at-home steps
+  "when_to_see_a_professional": string[],    // 1-3 scenarios
+  "tags": string[]                          // 3-6 short lowercase tags for search (e.g. "swollen-elbow", "joint-pain")
+}`
+
+function formatSourcesForPrompt(pages: WebPage[]): string {
+  return pages
+    .map((page, index) => {
+      const body = page.excerpt.slice(0, 2000)
+      return `[${index + 1}] ${page.title} — ${page.domain}\nURL: ${page.url}\n---\n${body}\n`
+    })
+    .join('\n\n')
+}
+
+function formatRedditForPrompt(hits: RedditHit[]): string {
+  if (hits.length === 0) return '(no Reddit discussion found)'
+  return hits
+    .map((hit, index) => `[r${index + 1}] r/${hit.subreddit} — ${hit.title}\n${hit.snippet}`)
+    .join('\n\n')
+}
+
+function formatContextForPrompt(context: AskContext): string {
+  const parts: string[] = []
+  if (context.age) parts.push(`Age: ${context.age}`)
+  if (context.conditions.length > 0) parts.push(`Conditions: ${context.conditions.join(', ')}`)
+  if (context.medications.length > 0) parts.push(`Medications: ${context.medications.join(', ')}`)
+  if (context.relatedQuestions.length > 0) {
+    const preview = context.relatedQuestions
+      .slice(0, 4)
+      .map((item) => `- "${item.question}"`)
+      .join('\n')
+    parts.push(`KinSpace members previously asked:\n${preview}`)
+  }
+  return parts.length > 0 ? parts.join('\n') : '(no profile context provided)'
+}
+
+export async function answerAsk(
+  question: string,
+  context: AskContext,
+): Promise<AskAnswer | null> {
+  const [redditHits, webPages] = await Promise.all([
+    searchReddit(question, 4),
+    gatherWebSources(question, 4),
+  ])
+
+  const model = process.env.OPENAI_MODEL || 'gpt-5.4-mini'
+  const openai = getClient()
+
+  const userPrompt = `User's question: ${question}
+
+Context about the user:
+${formatContextForPrompt(context)}
+
+Clinical / web sources we retrieved:
+${formatSourcesForPrompt(webPages)}
+
+Reddit discussions we found:
+${formatRedditForPrompt(redditHits)}
+
+Respond with strict JSON only.`
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.35,
+      max_completion_tokens: 1600,
+    })
+
+    const text = completion.choices[0]?.message?.content?.trim()
+    if (!text) return null
+    const parsed = JSON.parse(text) as Partial<AskAnswer>
+    if (!parsed.answer_markdown) return null
+
+    return {
+      answer_markdown: parsed.answer_markdown.trim(),
+      plain_language_summary: (parsed.plain_language_summary ?? '').trim(),
+      red_flags: Array.isArray(parsed.red_flags) ? parsed.red_flags.slice(0, 4) : [],
+      self_care_suggestions: Array.isArray(parsed.self_care_suggestions)
+        ? parsed.self_care_suggestions.slice(0, 4)
+        : [],
+      when_to_see_a_professional: Array.isArray(parsed.when_to_see_a_professional)
+        ? parsed.when_to_see_a_professional.slice(0, 3)
+        : [],
+      tags: Array.isArray(parsed.tags)
+        ? parsed.tags.map((tag) => String(tag).toLowerCase().trim()).slice(0, 6)
+        : [],
+      sources: webPages.map((page, index) => ({
+        index: index + 1,
+        title: page.title,
+        url: page.url,
+        domain: page.domain,
+      })),
+      reddit_threads: redditHits,
+    }
+  } catch (error) {
+    console.error('Ask answer failed:', error)
+    return null
+  }
+}

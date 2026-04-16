@@ -1,10 +1,11 @@
-const CACHE_NAME = 'kinspace-v1'
+const CACHE_NAME = 'kinspace-v2'
 const OFFLINE_URL = '/offline'
 
 const PRECACHE_URLS = [
   '/',
   '/offline',
   '/images/gather_logo.png',
+  '/images/gather_logo1.png',
   '/manifest.json',
 ]
 

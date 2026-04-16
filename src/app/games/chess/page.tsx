@@ -1,347 +1,202 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { Chess } from 'chess.js'
+import { Chessboard } from 'react-chessboard'
+import BottomNav from '@/components/BottomNav'
+import PageFrame from '@/components/PageFrame'
 
-type Piece = 'k' | 'q' | 'r' | 'b' | 'n' | 'p' | 'K' | 'Q' | 'R' | 'B' | 'N' | 'P' | null
+type Difficulty = 'easy' | 'medium' | 'hard'
 
-const PIECE_SYMBOLS: Record<string, string> = {
-  K: '\u2654', Q: '\u2655', R: '\u2656', B: '\u2657', N: '\u2658', P: '\u2659',
-  k: '\u265A', q: '\u265B', r: '\u265C', b: '\u265D', n: '\u265E', p: '\u265F',
+function difficultyLevel(difficulty: Difficulty): number {
+  if (difficulty === 'easy') return 0
+  if (difficulty === 'medium') return 2
+  return 3
 }
 
-const PIECE_VALUES: Record<string, number> = {
-  p: 1, n: 3, b: 3, r: 5, q: 9, k: 100,
-  P: -1, N: -3, B: -3, R: -5, Q: -9, K: -100,
-}
+type AiMoveFn = (fen: string, level?: number) => Record<string, string>
 
-// --- Pure game logic (no hooks) ---
-function parseFEN(fen: string): Piece[][] {
-  const board: Piece[][] = Array(8).fill(null).map(() => Array(8).fill(null))
-  const rows = fen.split('/')
-  for (let r = 0; r < 8; r++) {
-    let c = 0
-    for (const ch of rows[r]) {
-      if (ch >= '1' && ch <= '8') c += parseInt(ch)
-      else { board[r][c] = ch as Piece; c++ }
+export default function ChessPage() {
+  const params = useSearchParams()
+  const difficulty = (params.get('difficulty') as Difficulty | null) ?? 'medium'
+
+  const chessRef = useRef(new Chess())
+  const [fen, setFen] = useState(chessRef.current.fen())
+  const [status, setStatus] = useState<'playing' | 'win' | 'loss' | 'draw'>('playing')
+  const [thinking, setThinking] = useState(false)
+  const [history, setHistory] = useState<string[]>([])
+  const [aiMoveFn, setAiMoveFn] = useState<AiMoveFn | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    import('js-chess-engine')
+      .then((mod) => {
+        if (cancelled) return
+        const candidate: AiMoveFn | undefined =
+          typeof (mod as { aiMove?: AiMoveFn }).aiMove === 'function'
+            ? (mod as { aiMove: AiMoveFn }).aiMove
+            : (mod as { default?: { aiMove?: AiMoveFn } }).default?.aiMove
+        if (candidate) setAiMoveFn(() => candidate)
+      })
+      .catch((error) => console.error('Failed to load chess engine:', error))
+    return () => {
+      cancelled = true
     }
-  }
-  return board
-}
+  }, [])
 
-function boardToFEN(board: Piece[][]): string {
-  return board.map(row => {
-    let s = '', e = 0
-    for (const p of row) {
-      if (p) { if (e) { s += e; e = 0 }; s += p } else e++
+  const resetGame = useCallback(() => {
+    chessRef.current = new Chess()
+    setFen(chessRef.current.fen())
+    setHistory([])
+    setStatus('playing')
+  }, [])
+
+  const evaluateStatus = useCallback(() => {
+    const chess = chessRef.current
+    if (chess.isCheckmate()) {
+      setStatus(chess.turn() === 'w' ? 'loss' : 'win')
+    } else if (chess.isDraw() || chess.isStalemate() || chess.isThreefoldRepetition() || chess.isInsufficientMaterial()) {
+      setStatus('draw')
     }
-    if (e) s += e
-    return s
-  }).join('/')
-}
+  }, [])
 
-function sq(r: number, c: number) { return String.fromCharCode(97 + c) + (8 - r) }
-function rc(s: string): [number, number] { return [8 - parseInt(s[1]), s.charCodeAt(0) - 97] }
+  const performAiMove = useCallback(() => {
+    if (!aiMoveFn) return
+    const chess = chessRef.current
+    if (chess.turn() !== 'b' || chess.isGameOver()) return
+    setThinking(true)
+    setTimeout(() => {
+      try {
+        const aiChoice = aiMoveFn(chess.fen(), difficultyLevel(difficulty))
+        const [fromRaw, toRaw] = Object.entries(aiChoice)[0] ?? []
+        if (fromRaw && toRaw) {
+          chess.move({ from: fromRaw.toLowerCase(), to: toRaw.toLowerCase(), promotion: 'q' })
+          setFen(chess.fen())
+          setHistory([...chess.history()])
+        }
+      } catch (error) {
+        console.error('AI move failed:', error)
+      } finally {
+        setThinking(false)
+        evaluateStatus()
+      }
+    }, 250)
+  }, [aiMoveFn, difficulty, evaluateStatus])
 
-function isWhite(p: Piece) { return p !== null && p === p.toUpperCase() }
-function sameColor(a: Piece, b: Piece) { return a !== null && b !== null && isWhite(a) === isWhite(b) }
+  useEffect(() => {
+    if (status !== 'playing') return
+    if (chessRef.current.turn() === 'b') performAiMove()
+  }, [fen, status, performAiMove])
 
-function pathClear(fr: number, fc: number, tr: number, tc: number, board: Piece[][]) {
-  const dr = Math.sign(tr - fr), dc = Math.sign(tc - fc)
-  let r = fr + dr, c = fc + dc
-  while (r !== tr || c !== tc) { if (board[r][c]) return false; r += dr; c += dc }
-  return true
-}
-
-function canMove(from: string, to: string, board: Piece[][], white: boolean): boolean {
-  const [fr, fc] = rc(from), [tr, tc] = rc(to)
-  const p = board[fr][fc]
-  if (!p || isWhite(p) !== white) return false
-  if (sameColor(p, board[tr][tc])) return false
-  const dr = tr - fr, dc = tc - fc, adr = Math.abs(dr), adc = Math.abs(dc)
-
-  switch (p.toLowerCase()) {
-    case 'p': {
-      const dir = isWhite(p) ? -1 : 1, start = isWhite(p) ? 6 : 1
-      if (dc === 0 && dr === dir && !board[tr][tc]) return true
-      if (dc === 0 && fr === start && dr === 2 * dir && !board[tr][tc] && !board[fr + dir][fc]) return true
-      if (adc === 1 && dr === dir && board[tr][tc]) return true
+  function handleDrop({
+    sourceSquare,
+    targetSquare,
+  }: {
+    sourceSquare: string
+    targetSquare: string | null
+  }): boolean {
+    if (status !== 'playing' || thinking) return false
+    if (!targetSquare) return false
+    const chess = chessRef.current
+    try {
+      const move = chess.move({ from: sourceSquare, to: targetSquare, promotion: 'q' })
+      if (!move) return false
+      setFen(chess.fen())
+      setHistory([...chess.history()])
+      evaluateStatus()
+      return true
+    } catch {
       return false
     }
-    case 'r': return (dr === 0 || dc === 0) && pathClear(fr, fc, tr, tc, board)
-    case 'n': return (adr === 2 && adc === 1) || (adr === 1 && adc === 2)
-    case 'b': return adr === adc && adr > 0 && pathClear(fr, fc, tr, tc, board)
-    case 'q': return ((dr === 0 || dc === 0) || (adr === adc)) && (adr + adc > 0) && pathClear(fr, fc, tr, tc, board)
-    case 'k': return adr <= 1 && adc <= 1 && (adr + adc > 0)
-    default: return false
-  }
-}
-
-function getValidSquares(from: string, board: Piece[][], white: boolean): string[] {
-  const moves: string[] = []
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-    const to = sq(r, c)
-    if (canMove(from, to, board, white)) moves.push(to)
-  }
-  return moves
-}
-
-function allMoves(board: Piece[][], white: boolean) {
-  const moves: { from: string; to: string }[] = []
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-    const p = board[r][c]
-    if (p && isWhite(p) === white) {
-      const f = sq(r, c)
-      for (const t of getValidSquares(f, board, white)) moves.push({ from: f, to: t })
-    }
-  }
-  return moves
-}
-
-function applyMove(board: Piece[][], from: string, to: string): Piece[][] {
-  const nb = board.map(r => [...r])
-  const [fr, fc] = rc(from), [tr, tc] = rc(to)
-  const p = nb[fr][fc]
-  nb[tr][tc] = p
-  nb[fr][fc] = null
-  // Pawn promotion
-  if (p?.toLowerCase() === 'p' && (tr === 0 || tr === 7)) {
-    nb[tr][tc] = isWhite(p) ? 'Q' : 'q'
-  }
-  return nb
-}
-
-function evaluate(board: Piece[][]) {
-  let score = 0
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-    const p = board[r][c]
-    if (p) score += PIECE_VALUES[p] || 0
-  }
-  return score
-}
-
-function minimax(board: Piece[][], depth: number, maximizing: boolean, alpha: number, beta: number): number {
-  if (depth === 0) return evaluate(board)
-  const moves = allMoves(board, maximizing)
-  if (moves.length === 0) return maximizing ? -999 : 999
-  if (maximizing) {
-    let best = -Infinity
-    for (const m of moves) {
-      best = Math.max(best, minimax(applyMove(board, m.from, m.to), depth - 1, false, alpha, beta))
-      alpha = Math.max(alpha, best)
-      if (beta <= alpha) break
-    }
-    return best
-  } else {
-    let best = Infinity
-    for (const m of moves) {
-      best = Math.min(best, minimax(applyMove(board, m.from, m.to), depth - 1, true, alpha, beta))
-      beta = Math.min(beta, best)
-      if (beta <= alpha) break
-    }
-    return best
-  }
-}
-
-function getDifficultyFromParam(value: string | null) {
-  if (value === 'easy') return 1
-  if (value === 'hard') return 3
-  return 2
-}
-
-// --- Component ---
-export default function ChessGame() {
-  const searchParams = useSearchParams()
-  const [fen, setFen] = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
-  const [whitesTurn, setWhitesTurn] = useState(true)
-  const [selected, setSelected] = useState<string | null>(null)
-  const [valid, setValid] = useState<string[]>([])
-  const [moves, setMoves] = useState<string[]>([])
-  const [status, setStatus] = useState<'playing' | 'checkmate' | 'stalemate'>('playing')
-  const [captured, setCaptured] = useState<{ white: string[]; black: string[] }>({ white: [], black: [] })
-  const difficulty = getDifficultyFromParam(searchParams.get('difficulty'))
-  const aiThinking = !whitesTurn && status === 'playing'
-
-  const board = parseFEN(fen)
-
-  const doMove = useCallback((from: string, to: string) => {
-    const b = parseFEN(fen)
-    const [tr, tc] = rc(to)
-    const cap = b[tr][tc]
-    const nb = applyMove(b, from, to)
-    setFen(boardToFEN(nb))
-
-    if (cap) {
-      setCaptured(prev => {
-        const key = isWhite(cap) ? 'white' : 'black'
-        return { ...prev, [key]: [...prev[key], PIECE_SYMBOLS[cap] || ''] }
-      })
-    }
-
-    setMoves(prev => [...prev, `${from}${to}`])
-    setWhitesTurn(w => !w)
-    setSelected(null)
-    setValid([])
-
-    // Check game end
-    const nextWhite = !whitesTurn
-    const nextMoves = allMoves(nb, nextWhite)
-    if (nextMoves.length === 0) {
-      setStatus('checkmate')
-    }
-  }, [fen, whitesTurn])
-
-  // AI move
-  useEffect(() => {
-    if (whitesTurn || status !== 'playing') return
-    const timer = setTimeout(() => {
-      const b = parseFEN(fen)
-      const mvs = allMoves(b, false) // black = AI
-      if (mvs.length === 0) {
-        setStatus('stalemate')
-        return
-      }
-
-      let best = mvs[0], bestVal = -Infinity
-      if (difficulty === 1 && Math.random() < 0.4) {
-        best = mvs[Math.floor(Math.random() * mvs.length)]
-      } else {
-        for (const m of mvs) {
-          const v = minimax(applyMove(b, m.from, m.to), difficulty, false, -Infinity, Infinity)
-          if (v > bestVal) { bestVal = v; best = m }
-        }
-      }
-      doMove(best.from, best.to)
-    }, 600)
-    return () => clearTimeout(timer)
-  }, [whitesTurn, fen, status, difficulty, doMove])
-
-  const handleClick = (r: number, c: number) => {
-    if (status !== 'playing' || !whitesTurn || aiThinking) return
-    const s = sq(r, c)
-    const p = board[r][c]
-
-    if (selected) {
-      if (valid.includes(s)) {
-        doMove(selected, s)
-      } else if (p && isWhite(p)) {
-        setSelected(s)
-        setValid(getValidSquares(s, board, true))
-      } else {
-        setSelected(null); setValid([])
-      }
-    } else if (p && isWhite(p)) {
-      setSelected(s)
-      setValid(getValidSquares(s, board, true))
-    }
   }
 
-  const reset = () => {
-    setFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
-    setWhitesTurn(true); setSelected(null); setValid([]); setMoves([])
-    setStatus('playing'); setCaptured({ white: [], black: [] })
-  }
-
-  const diffLabel = difficulty === 1 ? 'Easy' : difficulty === 3 ? 'Hard' : 'Medium'
+  const moveSummary = useMemo(() => {
+    if (history.length === 0) return 'Make your first move.'
+    return history.slice(-4).join(' · ')
+  }, [history])
 
   return (
-    <div className="min-h-screen bg-brand-primary">
-      <div className="sticky top-0 z-40 bg-brand-primary/95 backdrop-blur-md border-b border-[#eedfc8]/10 px-4 py-3">
-        <div className="flex items-center justify-between max-w-md mx-auto">
-          <Link href="/games" className="text-[#eedfc8]/70 hover:text-[#eedfc8]"><i className="ri-arrow-left-line text-xl" /></Link>
-          <h1 className="text-[#eedfc8] font-bold">Chess vs AI ({diffLabel})</h1>
-          <button onClick={reset} className="text-[#eedfc8]/70 hover:text-[#eedfc8]"><i className="ri-refresh-line text-xl" /></button>
-        </div>
-      </div>
-
-      <div className="px-4 pt-4 max-w-md mx-auto space-y-4">
-        {/* AI info */}
-        <div className="card flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[#eedfc8]/10 rounded-lg flex items-center justify-center text-lg">&#x1F916;</div>
+    <PageFrame>
+      <div className="page-grid">
+        <section className="card">
+          <Link href="/games" className="text-sm text-[#D19A58]">
+            ← Back to games
+          </Link>
+          <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-[#eedfc8] font-semibold text-sm">AI ({diffLabel})</p>
-              <p className="text-[#eedfc8]/40 text-xs">Black pieces</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/45">
+                Chess · {difficulty}
+              </p>
+              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Chess vs AI</h1>
+              <p className="mt-2 max-w-xl text-sm text-[#eedfc8]/60">
+                Legal-move detection by chess.js. AI opponent by js-chess-engine. You play white.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="badge">{thinking ? 'AI thinking...' : 'Your move'}</span>
+              <span className="badge">{history.length} plies</span>
+              <span className="badge">{moveSummary}</span>
             </div>
           </div>
-          <div className="text-xs text-[#eedfc8]/50">{captured.black.join(' ')}</div>
-          {!whitesTurn && status === 'playing' && <div className="w-2 h-2 bg-brand-accent2 rounded-full pulse-dot" />}
-        </div>
+        </section>
 
-        {/* Board */}
-        <div className="aspect-square w-full max-w-[min(100%,400px)] mx-auto">
-          <div className="grid grid-cols-8 gap-0 rounded-lg overflow-hidden border-2 border-[#eedfc8]/20">
-            {board.map((row, r) => row.map((piece, c) => {
-              const s = sq(r, c)
-              const light = (r + c) % 2 === 0
-              const isSel = selected === s
-              const isValid = valid.includes(s)
-              return (
-                <button
-                  key={s}
-                  onClick={() => handleClick(r, c)}
-                  className={`aspect-square flex items-center justify-center text-[clamp(1.2rem,5vw,2.2rem)] transition-all relative
-                    ${light ? 'bg-[#eedfc8]' : 'bg-brand-accent3'}
-                    ${isSel ? 'ring-2 ring-brand-accent2 ring-inset z-10' : ''}
-                    ${isValid ? 'after:absolute after:w-[30%] after:h-[30%] after:rounded-full after:bg-brand-accent2/40' : ''}
-                    ${isValid && piece ? 'ring-2 ring-brand-accent1/60 ring-inset' : ''}
-                  `}
-                >
-                  {piece && <span className={isWhite(piece) ? 'drop-shadow-sm' : 'drop-shadow-sm'}>{PIECE_SYMBOLS[piece]}</span>}
-                </button>
-              )
-            }))}
-          </div>
-        </div>
+        <section className="page-grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+          <div className="card flex flex-col items-center gap-4">
+            <div className="w-full max-w-[520px]">
+              <Chessboard
+                options={{
+                  position: fen,
+                  onPieceDrop: handleDrop,
+                  boardOrientation: 'white',
+                  allowDragging: status === 'playing' && !thinking && chessRef.current.turn() === 'w',
+                }}
+              />
+            </div>
 
-        {/* Player info */}
-        <div className="card flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-brand-accent2/20 rounded-lg flex items-center justify-center text-[#eedfc8] font-bold text-sm">You</div>
-            <div>
-              <p className="text-[#eedfc8] font-semibold text-sm">You</p>
-              <p className="text-[#eedfc8]/40 text-xs">White pieces</p>
+            {status !== 'playing' && (
+              <div className="rounded-2xl bg-[#eedfc8]/8 px-4 py-2 text-sm font-semibold text-[#D19A58]">
+                {status === 'win' && 'Checkmate — you win!'}
+                {status === 'loss' && 'Checkmate — AI wins.'}
+                {status === 'draw' && 'Drawn position.'}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <button onClick={resetGame} className="btn-primary !rounded-2xl !px-4 !py-2 text-sm">
+                New game
+              </button>
+              <Link href="/games/chess?difficulty=easy" className="btn-secondary !rounded-2xl !px-4 !py-2 text-sm">
+                Easy
+              </Link>
+              <Link href="/games/chess?difficulty=medium" className="btn-secondary !rounded-2xl !px-4 !py-2 text-sm">
+                Medium
+              </Link>
+              <Link href="/games/chess?difficulty=hard" className="btn-secondary !rounded-2xl !px-4 !py-2 text-sm">
+                Hard
+              </Link>
             </div>
           </div>
-          <div className="text-xs text-[#eedfc8]/50">{captured.white.join(' ')}</div>
-          {whitesTurn && status === 'playing' && <div className="w-2 h-2 bg-green-400 rounded-full pulse-dot" />}
-        </div>
 
-        {/* Status */}
-        {status !== 'playing' && (
-          <div className="card text-center">
-            <p className="text-brand-accent2 font-bold text-lg mb-2">
-              {status === 'checkmate' ? (whitesTurn ? 'AI Wins!' : 'You Win!') : 'Stalemate!'}
-            </p>
-            <button onClick={reset} className="btn-primary">Play Again</button>
-          </div>
-        )}
-
-        {aiThinking && (
-          <div className="text-center text-[#eedfc8]/50 text-sm flex items-center justify-center gap-2">
-            <div className="w-4 h-4 border-2 border-[#eedfc8]/20 border-t-[#eedfc8]/60 rounded-full animate-spin" />
-            AI is thinking...
-          </div>
-        )}
-
-        {/* Move history */}
-        <div className="card">
-          <h3 className="text-[#eedfc8]/70 text-xs font-semibold mb-2">MOVES ({moves.length})</h3>
-          <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
-            {moves.length === 0 ? <span className="text-[#eedfc8]/30 text-xs">No moves yet</span> : moves.map((m, i) => (
-              <span key={i} className="text-[10px] font-mono text-[#eedfc8]/60 bg-[#eedfc8]/5 px-1.5 py-0.5 rounded">
-                {i % 2 === 0 ? `${Math.floor(i / 2) + 1}.` : ''}{m}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex gap-3 pb-8">
-          <button onClick={reset} className="flex-1 btn-secondary text-sm">New Game</button>
-          <button onClick={() => setStatus('checkmate')} className="flex-1 btn-accent text-sm">Resign</button>
-        </div>
+          <aside className="card">
+            <h2 className="section-title">Move log</h2>
+            {history.length === 0 ? (
+              <p className="text-sm text-[#eedfc8]/50">No moves yet.</p>
+            ) : (
+              <ol className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-[#eedfc8]/75">
+                {history.map((move, index) => (
+                  <li key={`${move}-${index}`}>
+                    <span className="text-[#eedfc8]/40">{Math.floor(index / 2) + 1}.</span> {move}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </aside>
+        </section>
       </div>
-    </div>
+
+      <BottomNav />
+    </PageFrame>
   )
 }

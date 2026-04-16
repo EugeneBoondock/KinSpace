@@ -3,17 +3,20 @@
 import { use, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import ProfileAvatar from '@/components/ProfileAvatar'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { StorageService } from '@/lib/storage'
 import { EncryptionService } from '@/lib/encryption'
 import BottomNav from '@/components/BottomNav'
+import StrandButton from '@/components/StrandButton'
+import { useToast } from '@/components/Toast'
 
 interface Profile {
   id: string
   full_name?: string
   username?: string
-  avatar_url?: string
+  avatar_url?: string | null
   cover_image_url?: string
   bio?: string
   location?: string
@@ -71,14 +74,14 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   const { userId } = use(params)
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const { push: toast } = useToast()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'groups' | 'activity'>('overview')
-  const [connectionState, setConnectionState] = useState<'idle' | 'sending' | 'sent' | 'received' | 'accepted'>('idle')
+  const [connectionState, setConnectionState] = useState<'idle' | 'sent' | 'received' | 'accepted'>('idle')
   const [connectionRequestId, setConnectionRequestId] = useState<string | null>(null)
-  const [connectionBusy, setConnectionBusy] = useState(false)
 
   // Post creation
   const [newPostContent, setNewPostContent] = useState('')
@@ -220,56 +223,13 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   }
 
   const displayName = profile.full_name || profile.username || 'User'
-  const initial = displayName.charAt(0).toUpperCase()
   const visibleConditions = (profile.conditions || []).filter((condition) => condition !== 'Private')
-  const connectionButtonLabel =
-    connectionBusy || connectionState === 'sending'
-      ? 'Saving...'
-      : connectionState === 'received'
-        ? 'Accept request'
-        : connectionState === 'sent'
-          ? 'Request sent'
-          : connectionState === 'accepted'
-            ? 'Connected'
-            : 'Connect'
-  const connectionButtonIcon =
-    connectionState === 'received'
-      ? 'ri-check-line'
-      : connectionState === 'accepted'
-        ? 'ri-user-heart-line'
-        : 'ri-user-add-line'
 
   const tabs = [
     { key: 'overview' as const, label: 'Overview', icon: 'ri-user-line' },
     { key: 'groups' as const, label: 'Groups', icon: 'ri-group-line' },
     { key: 'activity' as const, label: 'Activity', icon: 'ri-time-line' },
   ]
-
-  async function handleConnectionAction() {
-    if (!user || isOwnProfile || connectionBusy) return
-
-    setConnectionBusy(true)
-
-    try {
-      if (connectionState === 'received' && connectionRequestId) {
-        await DatabaseService.updateConnectionRequest(connectionRequestId, 'accepted')
-        setConnectionState('accepted')
-        return
-      }
-
-      if (connectionState !== 'idle') return
-
-      setConnectionState('sending')
-      const requestId = await DatabaseService.sendConnectionRequest(user.userId, userId)
-      setConnectionRequestId(requestId)
-      setConnectionState('sent')
-    } catch (error) {
-      console.error('Failed to update connection request:', error)
-      setConnectionState((current) => (current === 'sending' ? 'idle' : current))
-    } finally {
-      setConnectionBusy(false)
-    }
-  }
 
   async function handleCreatePost() {
     if (!user || !newPostContent.trim() || !isOwnProfile) return
@@ -286,8 +246,10 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
       const refreshedPosts = await DatabaseService.getCommunityPosts(20, { userId })
       setPosts(refreshedPosts as Post[])
       setNewPostContent('')
+      toast('Post shared to your profile', 'success')
     } catch (error) {
       console.error('Failed to create post:', error)
+      toast('Could not share post, please try again', 'error')
     } finally {
       setPosting(false)
     }
@@ -302,8 +264,10 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
       const coverUrl = await StorageService.uploadProfileCover(user.userId, file)
       await DatabaseService.updateProfile(user.userId, { cover_image_url: coverUrl })
       setProfile((prev) => prev ? { ...prev, cover_image_url: coverUrl } : prev)
+      toast('Cover photo updated', 'success')
     } catch (error) {
       console.error('Failed to upload cover:', error)
+      toast('Cover upload failed', 'error')
     } finally {
       setUploadingCover(false)
       if (coverInputRef.current) coverInputRef.current.value = ''
@@ -366,17 +330,14 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         <div className="relative z-10 px-4 -mt-12">
         {/* Avatar */}
         <div className="mb-3">
-          {profile.avatar_url ? (
-            <img
-              src={profile.avatar_url}
-              alt={displayName}
-              className="w-24 h-24 rounded-full object-cover border-4 border-brand-primary shadow-lg"
-            />
-          ) : (
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-brand-accent2/40 to-brand-accent1/30 border-4 border-brand-primary flex items-center justify-center shadow-lg">
-              <span className="text-3xl font-bold text-[#D19A58]">{initial}</span>
-            </div>
-          )}
+          <ProfileAvatar
+            alt={displayName}
+            avatarUrl={profile.avatar_url}
+            className="w-24 h-24 rounded-full object-cover border-4 border-brand-primary shadow-lg"
+            fullName={profile.full_name}
+            userId={profile.id}
+            username={profile.username}
+          />
         </div>
 
         {/* Name & Username */}
@@ -427,14 +388,22 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         {/* Conditions Badges */}
         {visibleConditions.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
-            {visibleConditions.map((condition, idx) => (
-              <span
-                key={condition}
-                className={`badge !text-xs ${conditionColors[idx % conditionColors.length]}`}
-              >
-                {condition}
-              </span>
-            ))}
+            {visibleConditions.map((condition, idx) => {
+              const slug = condition
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '')
+              return (
+                <Link
+                  key={condition}
+                  href={`/conditions/${slug}`}
+                  className={`badge !text-xs transition-opacity hover:opacity-80 ${conditionColors[idx % conditionColors.length]}`}
+                  title={`See what works for ${condition}`}
+                >
+                  {condition}
+                </Link>
+              )
+            })}
           </div>
         )}
 
@@ -457,14 +426,21 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         {/* Action Buttons (if not own profile) */}
         {!isOwnProfile && user && (
           <div className="mb-5 space-y-3">
-            <div className="flex gap-3">
-              <button
-                onClick={() => void handleConnectionAction()}
-                disabled={connectionBusy || connectionState === 'sent' || connectionState === 'accepted'}
-                className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <i className={connectionButtonIcon} /> {connectionButtonLabel}
-              </button>
+            <div className="flex flex-wrap gap-3">
+              <StrandButton
+                targetUserId={userId}
+                initialStatus={
+                  connectionState === 'accepted'
+                    ? 'accepted'
+                    : connectionState === 'received'
+                      ? 'received'
+                      : connectionState === 'sent'
+                        ? 'sent'
+                        : 'idle'
+                }
+                initialRequestId={connectionRequestId}
+                className="flex-1"
+              />
               <button
                 onClick={() => setActiveTab('groups')}
                 className="btn-secondary flex-1 flex items-center justify-center gap-2"
@@ -474,12 +450,12 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
             </div>
             <p className="text-xs text-[#eedfc8]/45">
               {connectionState === 'received'
-                ? 'This member already reached out. You can accept the request here.'
+                ? '🧬 They sent you a strand. Accept to connect.'
                 : connectionState === 'sent'
-                    ? 'Your connection request has been saved and is waiting for their reply.'
-                    : connectionState === 'accepted'
-                      ? 'This connection is already confirmed.'
-                    : 'Send a real connection request directly from this profile.'}
+                  ? 'Strand pending, tap to withdraw.'
+                  : connectionState === 'accepted'
+                    ? '🧬 You are stranded with this member.'
+                    : 'A strand is how KinSpace friends say hi, no algorithms, just you reaching out.'}
             </p>
           </div>
         )}
@@ -569,13 +545,18 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
               </div>
             )}
 
-            {/* About */}
-            {!profile.bio && (
+            {/* About — only the owner sees this nudge when bio is empty */}
+            {!profile.bio && isOwnProfile && (
               <div className="card">
                 <h3 className="text-[#eedfc8] font-semibold text-sm mb-3 flex items-center gap-2">
                   <i className="ri-information-line text-[#D19A58]" /> About
                 </h3>
-                <p className="text-[#eedfc8]/40 text-sm">No bio yet.</p>
+                <p className="text-[#eedfc8]/55 text-sm">
+                  Add a short bio so the community has a sense of who you are.
+                </p>
+                <Link href="/settings" className="btn-primary mt-3 inline-block !py-2 !px-4 text-xs">
+                  Write your bio
+                </Link>
               </div>
             )}
 
@@ -673,13 +654,14 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
               posts.map((post) => (
                 <div key={post.id} className="card-light">
                   <div className="flex items-center gap-2 mb-2">
-                    {profile.avatar_url ? (
-                      <img src={profile.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-7 h-7 rounded-full bg-brand-accent2/30 flex items-center justify-center">
-                        <span className="text-[#D19A58] text-xs font-bold">{initial}</span>
-                      </div>
-                    )}
+                    <ProfileAvatar
+                      alt={displayName}
+                      avatarUrl={profile.avatar_url}
+                      className="w-7 h-7 rounded-full object-cover"
+                      fullName={profile.full_name}
+                      userId={profile.id}
+                      username={profile.username}
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-[#eedfc8] text-sm font-semibold truncate">{displayName}</p>
                       <p className="text-[#eedfc8]/40 text-xs">

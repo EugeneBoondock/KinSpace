@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import PlatformAvatarPicker from '@/components/PlatformAvatarPicker';
+import ProfileAvatar from '@/components/ProfileAvatar';
 import { useAuth } from '@/lib/AuthContext';
 import { DatabaseService } from '@/lib/database';
 import { EncryptionService } from '@/lib/encryption';
+import { resolveAvatarUrl } from '@/lib/profile-avatars';
 import { StorageService } from '@/lib/storage';
 
 const conditionSuggestions = [
@@ -144,6 +146,25 @@ export default function OnboardingPage() {
       setError('Failed to upload avatar. Please try again.');
     } finally {
       setUploadingAvatar(false);
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handlePlatformAvatarSelect = async (selectedAvatarUrl: string) => {
+    if (!user) return;
+
+    setUploadingAvatar(true);
+    setError('');
+    try {
+      setAvatarUrl(selectedAvatarUrl);
+      await DatabaseService.updateProfile(user.userId, { avatar_url: selectedAvatarUrl });
+    } catch (err) {
+      console.error('Platform avatar update failed:', err);
+      setError('Failed to update profile photo. Please try again.');
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -210,6 +231,13 @@ export default function OnboardingPage() {
   }
 
   if (!user) return null;
+
+  const currentAvatarUrl = resolveAvatarUrl({
+    avatar_url: avatarUrl,
+    full_name: fullName || user.displayName || '',
+    userId: user.userId,
+    username: user.username,
+  });
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-start px-4 py-8">
@@ -315,37 +343,60 @@ export default function OnboardingPage() {
             </p>
 
             {/* Avatar Upload */}
-            <div className="flex flex-col items-center gap-3">
-              <div className="relative">
-                <div className="w-20 h-20 rounded-full bg-[#eedfc8]/10 flex items-center justify-center overflow-hidden border-2 border-[#eedfc8]/20">
-                  {avatarUrl ? (
-                    <Image src={avatarUrl} alt="Avatar" width={80} height={80} className="object-cover w-full h-full" />
-                  ) : (
-                    <i className="ri-user-line text-3xl text-[#eedfc8]/30" />
-                  )}
-                  {uploadingAvatar && (
-                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
-                      <i className="ri-loader-4-line animate-spin text-white text-xl" />
-                    </div>
-                  )}
+            <div className="space-y-4">
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full bg-[#eedfc8]/10 flex items-center justify-center overflow-hidden border-2 border-[#eedfc8]/20">
+                    <ProfileAvatar
+                      alt="Avatar"
+                      avatarUrl={avatarUrl}
+                      className="h-full w-full object-cover"
+                      fullName={fullName || user.displayName || ''}
+                      userId={user.userId}
+                      username={user.username}
+                    />
+                    {uploadingAvatar && (
+                      <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                        <i className="ri-loader-4-line animate-spin text-white text-xl" />
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#D19A58] flex items-center justify-center text-white text-sm hover:bg-[#D19A58]/80 transition-colors"
+                  >
+                    <i className="ri-camera-line" />
+                  </button>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => avatarInputRef.current?.click()}
+                <div className="text-center">
+                  <p className="text-xs text-[#eedfc8]/40">Upload your own or choose a KinSpace icon.</p>
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="btn-secondary mt-3 !py-2 !px-4 disabled:opacity-60"
+                  >
+                    Upload from device
+                  </button>
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-medium text-[#eedfc8]/50">KinSpace icons</p>
+                <PlatformAvatarPicker
                   disabled={uploadingAvatar}
-                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#D19A58] flex items-center justify-center text-white text-sm hover:bg-[#D19A58]/80 transition-colors"
-                >
-                  <i className="ri-camera-line" />
-                </button>
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={handleAvatarUpload}
-                  className="hidden"
+                  onSelect={handlePlatformAvatarSelect}
+                  selectedAvatarUrl={currentAvatarUrl}
                 />
               </div>
-              <p className="text-xs text-[#eedfc8]/40">Add a profile photo</p>
             </div>
 
             <div>

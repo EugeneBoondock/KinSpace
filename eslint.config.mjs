@@ -8,6 +8,8 @@ const eslintConfig = [
     rules: {
       '@next/next/no-img-element': 'warn',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // Game pages react to player moves by updating derived state inside effects — that's the point.
+      'react-hooks/set-state-in-effect': 'warn',
     },
   },
 ]

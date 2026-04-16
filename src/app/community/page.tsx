@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
+import ProfileAvatar from '@/components/ProfileAvatar'
+import { useToast } from '@/components/Toast'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { StorageService, detectMediaType } from '@/lib/storage'
-import { formatCompactNumber, formatRelativeTime, getInitials } from '@/lib/platform'
+import { formatCompactNumber, formatRelativeTime } from '@/lib/platform'
 import { getTopReactions, isEmoji, applyReactionMutation } from '@/lib/social'
 
 type Tab = 'discussions' | 'angels' | 'mentors' | 'activities'
@@ -29,6 +31,7 @@ export default function CommunityPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
+  const { push: toast } = useToast()
 
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null)
@@ -62,6 +65,14 @@ export default function CommunityPage() {
   const [rekindlingPostId, setRekindlingPostId] = useState<string | null>(null)
   const [rekindleComment, setRekindleComment] = useState('')
   const [rekindling, setRekindling] = useState(false)
+
+  // Comments
+  type CommentEntry = Record<string, unknown> & { id: string; profile: Record<string, unknown> | null }
+  const [openCommentsFor, setOpenCommentsFor] = useState<Set<string>>(new Set())
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentEntry[]>>({})
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({})
+  const [commentingPostId, setCommentingPostId] = useState<string | null>(null)
+  const [loadingCommentsFor, setLoadingCommentsFor] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -108,7 +119,22 @@ export default function CommunityPage() {
     if (user) loadCommunity()
   }, [user])
 
-  const featuredPosts = useMemo(() => posts.slice(0, 8), [posts])
+  const [postSearch, setPostSearch] = useState('')
+  const filteredPosts = useMemo(() => {
+    if (!postSearch.trim()) return posts
+    const needle = postSearch.trim().toLowerCase()
+    return posts.filter((post) => {
+      const content = String(post.content ?? '').toLowerCase()
+      const tags = (post.tags as string[] | undefined)?.join(' ').toLowerCase() ?? ''
+      const profileName = String(
+        (post.profile as Record<string, unknown> | null)?.full_name ??
+          (post.profile as Record<string, unknown> | null)?.username ??
+          '',
+      ).toLowerCase()
+      return content.includes(needle) || tags.includes(needle) || profileName.includes(needle)
+    })
+  }, [posts, postSearch])
+  const featuredPosts = useMemo(() => filteredPosts.slice(0, 24), [filteredPosts])
 
   async function handleCreatePost() {
     if (!user || (!newPostContent.trim() && pendingMedia.length === 0)) return
@@ -136,8 +162,10 @@ export default function CommunityPage() {
       // Clean up previews
       pendingMedia.forEach((item) => URL.revokeObjectURL(item.preview))
       setPendingMedia([])
+      toast('Post shared with the community', 'success')
     } catch (error) {
       console.error('Failed to create post:', error)
+      toast('Could not share post, please try again', 'error')
     } finally {
       setPosting(false)
     }
@@ -208,10 +236,71 @@ export default function CommunityPage() {
       setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, content: editContent.trim(), edited: true } : p))
       setEditingPostId(null)
       setEditContent('')
+      toast('Post updated', 'success')
     } catch (error) {
       console.error('Failed to edit post:', error)
+      toast('Could not save edit', 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function toggleComments(postId: string) {
+    const isOpen = openCommentsFor.has(postId)
+    setOpenCommentsFor((current) => {
+      const next = new Set(current)
+      if (isOpen) next.delete(postId)
+      else next.add(postId)
+      return next
+    })
+    if (!isOpen && !commentsByPost[postId]) {
+      setLoadingCommentsFor((current) => new Set(current).add(postId))
+      try {
+        const grouped = await DatabaseService.getCommentsForPosts([postId], 50)
+        setCommentsByPost((current) => ({
+          ...current,
+          [postId]: (grouped.get(postId) as CommentEntry[] | undefined) ?? [],
+        }))
+      } catch (error) {
+        console.error('Failed to load comments:', error)
+      } finally {
+        setLoadingCommentsFor((current) => {
+          const next = new Set(current)
+          next.delete(postId)
+          return next
+        })
+      }
+    }
+  }
+
+  async function submitComment(postId: string) {
+    if (!user) return
+    const draft = (commentDrafts[postId] ?? '').trim()
+    if (!draft) return
+    setCommentingPostId(postId)
+    try {
+      await DatabaseService.addPostComment(postId, user.userId, draft, Boolean(profile?.is_anonymous))
+      // refresh comments for this post
+      const grouped = await DatabaseService.getCommentsForPosts([postId], 50)
+      setCommentsByPost((current) => ({
+        ...current,
+        [postId]: (grouped.get(postId) as CommentEntry[] | undefined) ?? [],
+      }))
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? { ...post, comments_count: ((post.comments_count as number | undefined) ?? 0) + 1 }
+            : post,
+        ),
+      )
+      setCommentDrafts((current) => ({ ...current, [postId]: '' }))
+      setOpenCommentsFor((current) => new Set(current).add(postId))
+      toast('Comment added', 'success')
+    } catch (error) {
+      console.error('Failed to comment:', error)
+      toast('Could not add comment', 'error')
+    } finally {
+      setCommentingPostId(null)
     }
   }
 
@@ -224,8 +313,10 @@ export default function CommunityPage() {
       setPosts(refreshedPosts as Post[])
       setRekindlingPostId(null)
       setRekindleComment('')
+      toast('Rekindled to your circle', 'success')
     } catch (error) {
       console.error('Failed to rekindle:', error)
+      toast('Rekindle failed', 'error')
     } finally {
       setRekindling(false)
     }
@@ -373,19 +464,41 @@ export default function CommunityPage() {
             </div>
           </div>
 
-          <div className="mt-6 flex gap-2 overflow-x-auto rounded-2xl bg-[#eedfc8]/5 p-1.5">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex min-w-fit items-center gap-2 rounded-2xl px-4 py-2.5 text-sm transition-all ${
-                  activeTab === tab.id ? 'tab-active' : 'tab-inactive'
-                }`}
-              >
-                <i className={tab.icon} />
-                {tab.label}
-              </button>
-            ))}
+          <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="flex gap-2 overflow-x-auto rounded-2xl bg-[#eedfc8]/5 p-1.5">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex min-w-fit items-center gap-2 rounded-2xl px-4 py-2.5 text-sm transition-all ${
+                    activeTab === tab.id ? 'tab-active' : 'tab-inactive'
+                  }`}
+                >
+                  <i className={tab.icon} />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {activeTab === 'discussions' && (
+              <div className="relative flex-1 md:max-w-sm">
+                <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[#eedfc8]/40" />
+                <input
+                  value={postSearch}
+                  onChange={(event) => setPostSearch(event.target.value)}
+                  placeholder="Search posts, tags, authors"
+                  className="input-field !pl-10"
+                />
+                {postSearch && (
+                  <button
+                    onClick={() => setPostSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#eedfc8]/45 hover:text-[#eedfc8]"
+                    aria-label="Clear search"
+                  >
+                    <i className="ri-close-line" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
@@ -394,24 +507,14 @@ export default function CommunityPage() {
             <div className="space-y-4">
               <section className="card">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#D19A58]/18 text-[#D19A58]">
-                    {profile?.avatar_url ? (
-                      <img
-                        src={profile.avatar_url as string}
-                        alt=""
-                        className="h-12 w-12 rounded-2xl object-cover"
-                      />
-                    ) : (
-                      <span className="text-sm font-bold">
-                        {getInitials(
-                          (profile?.full_name as string | undefined) ||
-                            (profile?.username as string | undefined) ||
-                            user?.displayName ||
-                            'You',
-                        )}
-                      </span>
-                    )}
-                  </div>
+                  <ProfileAvatar
+                    alt="Your profile"
+                    avatarUrl={profile?.avatar_url as string | undefined}
+                    className="h-12 w-12 rounded-2xl object-cover"
+                    fullName={(profile?.full_name as string | undefined) || user?.displayName || undefined}
+                    userId={(profile?.id as string | undefined) || user?.userId}
+                    username={profile?.username as string | undefined}
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-[#eedfc8]">Start a discussion</p>
                     <p className="text-xs text-[#eedfc8]/45">
@@ -517,8 +620,19 @@ export default function CommunityPage() {
                     return (
                       <article key={post.id} className="card">
                         <div className="flex items-start gap-3">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eedfc8]/10 text-sm font-bold text-[#D19A58]">
-                            {post.is_anonymous ? <i className="ri-spy-line text-base" /> : getInitials(author)}
+                          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#eedfc8]/10 text-sm font-bold text-[#D19A58]">
+                            {post.is_anonymous ? (
+                              <i className="ri-spy-line text-base" />
+                            ) : (
+                              <ProfileAvatar
+                                alt={author}
+                                avatarUrl={post.profile?.avatar_url as string | undefined}
+                                className="h-11 w-11 rounded-2xl object-cover"
+                                fullName={post.profile?.full_name as string | undefined}
+                                userId={post.profile?.id as string | undefined}
+                                username={post.profile?.username as string | undefined}
+                              />
+                            )}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
@@ -704,10 +818,16 @@ export default function CommunityPage() {
                             <i className={liked ? 'ri-heart-fill' : 'ri-heart-line'} />
                             {formatCompactNumber(post.likes_count as number | undefined)}
                           </button>
-                          <span className="flex items-center gap-1.5 text-[#eedfc8]/45">
+                          <button
+                            onClick={() => toggleComments(post.id)}
+                            className={`flex items-center gap-1.5 transition-colors ${
+                              openCommentsFor.has(post.id) ? 'text-[#D19A58]' : 'text-[#eedfc8]/45 hover:text-[#D19A58]'
+                            }`}
+                            title="Comments"
+                          >
                             <i className="ri-chat-1-line" />
                             {formatCompactNumber(post.comments_count as number | undefined)}
-                          </span>
+                          </button>
 
                           {/* Rekindle button */}
                           <button
@@ -762,6 +882,83 @@ export default function CommunityPage() {
                             )}
                           </div>
                         </div>
+
+                        {openCommentsFor.has(post.id) && (
+                          <div className="mt-3 space-y-3 border-t border-[#eedfc8]/8 pt-3">
+                            {loadingCommentsFor.has(post.id) ? (
+                              <p className="text-xs text-[#eedfc8]/45">Loading comments…</p>
+                            ) : (commentsByPost[post.id] ?? []).length === 0 ? (
+                              <p className="text-xs text-[#eedfc8]/45">Be the first to reply.</p>
+                            ) : (
+                              <ul className="space-y-3">
+                                {(commentsByPost[post.id] ?? []).map((comment) => {
+                                  const authorProfile = comment.profile
+                                  const commentAuthorName = comment.is_anonymous
+                                    ? 'Anonymous'
+                                    : ((authorProfile?.full_name as string | undefined) ||
+                                        (authorProfile?.username as string | undefined) ||
+                                        'Community member')
+                                  return (
+                                    <li key={comment.id} className="flex gap-3">
+                                      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6B8A83]/25 text-xs font-bold text-[#6B8A83]">
+                                        {comment.is_anonymous ? (
+                                          <i className="ri-spy-line text-sm" />
+                                        ) : (
+                                          <ProfileAvatar
+                                            alt={commentAuthorName}
+                                            avatarUrl={authorProfile?.avatar_url as string | undefined}
+                                            className="h-8 w-8 rounded-full object-cover"
+                                            fullName={authorProfile?.full_name as string | undefined}
+                                            userId={authorProfile?.id as string | undefined}
+                                            username={authorProfile?.username as string | undefined}
+                                          />
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex-1 rounded-2xl bg-[#eedfc8]/6 px-3 py-2">
+                                        <div className="flex items-center gap-2 text-xs text-[#eedfc8]/50">
+                                          <span className="font-semibold text-[#eedfc8]/80">{commentAuthorName}</span>
+                                          <span>·</span>
+                                          <span>{formatRelativeTime(comment.created_at)}</span>
+                                        </div>
+                                        <p className="mt-1 whitespace-pre-wrap text-sm text-[#eedfc8]/80">
+                                          {comment.content as string}
+                                        </p>
+                                      </div>
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                            )}
+
+                            <div className="flex items-start gap-2">
+                              <textarea
+                                value={commentDrafts[post.id] ?? ''}
+                                onChange={(event) =>
+                                  setCommentDrafts((current) => ({
+                                    ...current,
+                                    [post.id]: event.target.value,
+                                  }))
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' && !event.shiftKey) {
+                                    event.preventDefault()
+                                    void submitComment(post.id)
+                                  }
+                                }}
+                                placeholder="Write a supportive reply…"
+                                rows={1}
+                                className="input-field flex-1 !py-2 text-sm"
+                              />
+                              <button
+                                onClick={() => void submitComment(post.id)}
+                                disabled={commentingPostId === post.id || !(commentDrafts[post.id] ?? '').trim()}
+                                className="btn-primary !rounded-2xl !px-4 !py-2 text-sm disabled:opacity-50"
+                              >
+                                {commentingPostId === post.id ? 'Sending…' : 'Reply'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </article>
                     )
                   })
@@ -811,9 +1008,14 @@ export default function CommunityPage() {
                 return (
                   <article key={angel.id as string} className="card">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#D19A58]/20 text-sm font-bold text-[#D19A58]">
-                        {getInitials(name)}
-                      </div>
+                      <ProfileAvatar
+                        alt={name}
+                        avatarUrl={profileData.avatar_url as string | undefined}
+                        className="h-12 w-12 rounded-2xl object-cover"
+                        fullName={profileData.full_name as string | undefined}
+                        userId={profileData.id as string | undefined}
+                        username={profileData.username as string | undefined}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <h2 className="truncate font-semibold text-[#eedfc8]">{name}</h2>
@@ -867,9 +1069,14 @@ export default function CommunityPage() {
                 return (
                   <article key={mentor.id as string} className="card">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#B85C3A]/16 text-sm font-bold text-[#B85C3A]">
-                        {getInitials(name)}
-                      </div>
+                      <ProfileAvatar
+                        alt={name}
+                        avatarUrl={profileData.avatar_url as string | undefined}
+                        className="h-12 w-12 rounded-2xl object-cover"
+                        fullName={profileData.full_name as string | undefined}
+                        userId={profileData.id as string | undefined}
+                        username={profileData.username as string | undefined}
+                      />
                       <div className="min-w-0 flex-1">
                         <h2 className="truncate font-semibold text-[#eedfc8]">{name}</h2>
                         <p className="text-xs text-[#eedfc8]/45">

@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import BottomNav from '@/components/BottomNav'
+import PlatformAvatarPicker from '@/components/PlatformAvatarPicker'
+import ProfileAvatar from '@/components/ProfileAvatar'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
-import { StorageService } from '@/lib/storage'
 import { EncryptionService } from '@/lib/encryption'
-import BottomNav from '@/components/BottomNav'
+import { invalidateCachedProfile } from '@/lib/profile-cache'
+import { resolveAvatarUrl } from '@/lib/profile-avatars'
+import { StorageService } from '@/lib/storage'
 
 interface ProfileData {
   full_name: string
@@ -24,6 +28,7 @@ interface ProfileData {
   notify_matches: boolean
   notify_messages: boolean
   notify_groups: boolean
+  avatar_url?: string | null
   [key: string]: unknown
 }
 
@@ -80,10 +85,29 @@ export default function Settings() {
       const url = await StorageService.uploadProfileAvatar(user.userId, file)
       setProfile((prev) => ({ ...prev, avatar_url: url }))
       await DatabaseService.updateProfile(user.userId, { avatar_url: url })
+      invalidateCachedProfile(user.userId)
       showToast('success', 'Avatar updated!')
     } catch (err) {
       console.error('Avatar upload failed:', err)
       showToast('error', 'Failed to upload avatar')
+    } finally {
+      setUploadingAvatar(false)
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
+    }
+  }
+
+  const handlePlatformAvatarSelect = async (avatarUrl: string) => {
+    if (!user) return
+
+    setUploadingAvatar(true)
+    try {
+      setProfile((prev) => ({ ...prev, avatar_url: avatarUrl }))
+      await DatabaseService.updateProfile(user.userId, { avatar_url: avatarUrl })
+      invalidateCachedProfile(user.userId)
+      showToast('success', 'Profile photo updated!')
+    } catch (err) {
+      console.error('Platform avatar update failed:', err)
+      showToast('error', 'Failed to update profile photo')
     } finally {
       setUploadingAvatar(false)
     }
@@ -188,6 +212,7 @@ export default function Settings() {
         ...encryptedFields,
       }
       await DatabaseService.updateProfile(user.userId, updates)
+      invalidateCachedProfile(user.userId)
       showToast('success', 'Profile updated successfully!')
     } catch (err) {
       console.error('Failed to save profile:', err)
@@ -226,6 +251,13 @@ export default function Settings() {
       console.error('Sign out error:', err)
     }
   }
+
+  const currentAvatarUrl = resolveAvatarUrl({
+    avatar_url: profile.avatar_url,
+    full_name: profile.full_name,
+    userId: user?.userId,
+    username: profile.username,
+  })
 
   if (authLoading || loading) {
     return (
@@ -296,21 +328,16 @@ export default function Settings() {
           </h2>
           <div className="space-y-4">
             {/* Avatar Upload Placeholder */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-start gap-4">
               <div className="relative">
-                {profile.avatar_url ? (
-                  <img
-                    src={profile.avatar_url as string}
-                    alt="Avatar"
-                    className="w-16 h-16 rounded-full object-cover border-2 border-[#D19A58]"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-full bg-brand-accent2/30 flex items-center justify-center border-2 border-[#D19A58]">
-                    <span className="text-[#D19A58] font-bold text-xl">
-                      {(profile.full_name || profile.username || '?').charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
+                <ProfileAvatar
+                  alt="Avatar"
+                  avatarUrl={profile.avatar_url}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-[#D19A58]"
+                  fullName={profile.full_name}
+                  userId={user?.userId}
+                  username={profile.username}
+                />
                 <button
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={uploadingAvatar}
@@ -330,10 +357,28 @@ export default function Settings() {
                   className="hidden"
                 />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 space-y-3">
                 <p className="text-[#eedfc8] text-sm font-medium">Profile Photo</p>
-                <p className="text-[#eedfc8]/40 text-xs">Tap the camera icon to upload</p>
+                <p className="text-[#eedfc8]/40 text-xs">
+                  Upload your own or choose a KinSpace icon.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="btn-secondary !py-2 !px-4 disabled:opacity-60"
+                >
+                  Upload from device
+                </button>
               </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[#eedfc8]/50 text-xs font-medium">KinSpace icons</p>
+              <PlatformAvatarPicker
+                disabled={uploadingAvatar}
+                onSelect={handlePlatformAvatarSelect}
+                selectedAvatarUrl={currentAvatarUrl}
+              />
             </div>
 
             {/* Full Name */}

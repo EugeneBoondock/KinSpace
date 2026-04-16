@@ -8,7 +8,7 @@ service cloud.firestore {
       allow create, update: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Community posts: authenticated users can read all, create their own, like any
+    // Community posts
     match /community_posts/{postId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
@@ -27,29 +27,27 @@ service cloud.firestore {
       allow read, create: if request.auth != null;
     }
 
-    // Chat messages: authenticated users can read/write
+    // Chat messages
     match /chat_messages/{messageId} {
       allow read, create: if request.auth != null;
     }
 
-    // Groups: authenticated users can read all, create, join
+    // Groups
     match /groups/{groupId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update: if request.auth != null;
     }
 
-    // Group members
     match /group_members/{memberId} {
       allow read, create: if request.auth != null;
     }
 
-    // Games: authenticated users can read/write
+    // Games
     match /games/{gameId} {
       allow read, create, update: if request.auth != null;
     }
 
-    // Game players
     match /game_players/{playerId} {
       allow read, create: if request.auth != null;
     }
@@ -60,7 +58,6 @@ service cloud.firestore {
       allow create, update: if request.auth != null;
     }
 
-    // Angel-soul relationships
     match /angel_soul_relationships/{relationshipId} {
       allow read, create: if request.auth != null;
     }
@@ -70,7 +67,7 @@ service cloud.firestore {
       allow read, create, update: if request.auth != null;
     }
 
-    // Activities and activity signups
+    // Activities
     match /community_activities/{activityId} {
       allow read, create, update: if request.auth != null;
     }
@@ -79,13 +76,20 @@ service cloud.firestore {
       allow read, create: if request.auth != null;
     }
 
-    // Support directory and resources
+    // Support directory
     match /support_locations/{locationId} {
       allow read, create, update: if request.auth != null;
     }
 
+    // Research & resources — reads public to signed-in users; writes mostly server-side via Admin SDK
     match /resources/{resourceId} {
-      allow read, create, update: if request.auth != null;
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+    }
+
+    match /research_requests/{requestId} {
+      allow read: if request.auth != null && (resource == null || resource.data.user_id == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
     }
 
     // Connection requests
@@ -93,9 +97,77 @@ service cloud.firestore {
       allow read, create, update: if request.auth != null;
     }
 
-    // Encryption keys: only the owner can read/write their key
+    // Encryption keys
     match /encryption_keys/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // StuffThatWorks-style insights
+    match /conditions/{slug} {
+      allow read: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    match /treatments/{slug} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+    }
+
+    match /condition_treatments/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /experiences/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+    }
+
+    match /experience_votes/{id} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+    }
+
+    match /symptoms/{slug} {
+      allow read: if request.auth != null;
+    }
+
+    match /condition_symptoms/{id} {
+      allow read: if request.auth != null;
+    }
+
+    match /triggers/{slug} {
+      allow read: if request.auth != null;
+    }
+
+    match /condition_triggers/{id} {
+      allow read: if request.auth != null;
+    }
+
+    // Ask (symptom + health questions)
+    match /ask_questions/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+    }
+
+    match /ask_answers/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+    }
+
+    match /ask_answer_votes/{id} {
+      allow read: if request.auth != null;
+      allow create, delete: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+    }
+
+    // Daily mood check-ins (owner only — server API reads with Admin SDK)
+    match /mood_checkins/{id} {
+      allow read, write: if request.auth != null && request.resource.data.user_id == request.auth.uid;
     }
   }
 }

@@ -7,7 +7,10 @@
       "Bash(npm info:*)",
       "Bash(npx next:*)",
       "Bash(xargs wc:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(grep -E \"error|^\\\\./src|^C:\\\\\\\\\\\\\\\\\")",
+      "Bash(xargs grep:*)",
+      "Bash(ls -la public/images/gather_logo*.png)"
     ]
   }
 }

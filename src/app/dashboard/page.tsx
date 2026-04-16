@@ -5,9 +5,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
+import ProfileAvatar from '@/components/ProfileAvatar'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
-import { formatCompactNumber, formatRelativeTime, getInitials, toDate } from '@/lib/platform'
+import { updateCachedProfile } from '@/lib/profile-cache'
+import { formatCompactNumber, formatRelativeTime, toDate } from '@/lib/platform'
 
 type Profile = Record<string, unknown> & {
   id: string
@@ -44,10 +46,10 @@ const moodChoices = [
 ]
 
 const quickActions = [
-  { href: '/community', label: 'Community', icon: 'ri-chat-3-line' },
-  { href: '/groups', label: 'Groups', icon: 'ri-group-line' },
-  { href: '/therapy', label: 'Support', icon: 'ri-heart-pulse-line' },
-  { href: '/map', label: 'Nearby', icon: 'ri-map-pin-line' },
+  { href: '/ask', label: 'Ask', icon: 'ri-search-2-line' },
+  { href: '/insights', label: 'Insights', icon: 'ri-heart-pulse-line' },
+  { href: '/strands', label: 'Strands', icon: 'ri-links-line' },
+  { href: '/research', label: 'Research', icon: 'ri-flask-line' },
 ]
 
 function getGreeting() {
@@ -68,6 +70,12 @@ export default function DashboardPage() {
   const [recentPosts, setRecentPosts] = useState<Post[]>([])
   const [supportTeamCount, setSupportTeamCount] = useState(0)
   const [selectedMood, setSelectedMood] = useState<string | null>(null)
+  const [moodPattern, setMoodPattern] = useState<{ streak: number; recent: string[]; hint: string | null }>({
+    streak: 0,
+    recent: [],
+    hint: null,
+  })
+  const [strandPending, setStrandPending] = useState(0)
   const [communitySignals, setCommunitySignals] = useState<{
     topConditions: SignalEntry[]
     topMedications: SignalEntry[]
@@ -89,13 +97,15 @@ export default function DashboardPage() {
       if (!user) return
 
       try {
-        const [profileData, groupMemberships, recommended, posts, angels, signals] = await Promise.all([
+        const [profileData, groupMemberships, recommended, posts, angels, signals, pattern, strandCounts] = await Promise.all([
           DatabaseService.getProfile(user.userId),
           DatabaseService.getUserGroupMemberships(user.userId),
           DatabaseService.getRecommendedGroups(user.userId, 4),
           DatabaseService.getCommunityPosts(6),
           DatabaseService.getUserAngels(user.userId),
           DatabaseService.getCommunitySignals(5),
+          DatabaseService.analyzeMoodPattern(user.userId),
+          DatabaseService.getStrandCounts(user.userId),
         ])
 
         const typedProfile = profileData as Profile | null
@@ -116,6 +126,8 @@ export default function DashboardPage() {
           topMedications: SignalEntry[]
           topTopics: SignalEntry[]
         })
+        setMoodPattern(pattern)
+        setStrandPending(strandCounts.pendingReceived)
       } catch (error) {
         console.error('Failed to load dashboard:', error)
       } finally {
@@ -146,10 +158,15 @@ export default function DashboardPage() {
     if (!user) return
 
     try {
-      await DatabaseService.updateProfile(user.userId, {
-        daily_mood: value,
-        mood_updated_at: new Date().toISOString(),
-      })
+      const moodUpdatedAt = new Date().toISOString()
+      await Promise.all([
+        DatabaseService.updateProfile(user.userId, {
+          daily_mood: value,
+          mood_updated_at: moodUpdatedAt,
+        }),
+        DatabaseService.recordMoodCheckin(user.userId, { mood: value }),
+      ])
+      updateCachedProfile(user.userId, { daily_mood: value, mood_updated_at: moodUpdatedAt })
     } catch (error) {
       console.error('Failed to save mood:', error)
     }
@@ -180,17 +197,14 @@ export default function DashboardPage() {
               <p className="text-sm text-[#eedfc8]/60">{getGreeting()},</p>
               <div className="mt-2 flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-4">
-                  {profile?.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt={displayName}
-                      className="h-14 w-14 rounded-2xl object-cover border border-[#eedfc8]/20"
-                    />
-                  ) : (
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#D19A58]/20 text-lg font-bold text-[#D19A58]">
-                      {getInitials(displayName)}
-                    </div>
-                  )}
+                  <ProfileAvatar
+                    alt={displayName}
+                    avatarUrl={profile?.avatar_url}
+                    className="h-14 w-14 rounded-2xl object-cover border border-[#eedfc8]/20"
+                    fullName={profile?.full_name}
+                    userId={profile?.id}
+                    username={profile?.username}
+                  />
                   <div>
                     <h1 className="text-3xl font-bold text-[#eedfc8]">{displayName}</h1>
                     <p className="mt-1 text-sm text-[#eedfc8]/60">
@@ -289,7 +303,61 @@ export default function DashboardPage() {
                   </button>
                 ))}
               </div>
+
+              {moodPattern.recent.length > 0 && (
+                <div className="mt-5 rounded-2xl bg-[#eedfc8]/4 p-4">
+                  <div className="flex items-center justify-between gap-3 text-xs text-[#eedfc8]/55">
+                    <span>Last {moodPattern.recent.length} days</span>
+                    <Link href="/therapy" className="font-medium text-[#D19A58]">
+                      Talk to the Guide →
+                    </Link>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {moodPattern.recent.map((mood, index) => {
+                      const tone =
+                        mood === 'heavy' || mood === 'tired'
+                          ? 'bg-[#B85C3A]/30 text-[#B85C3A]'
+                          : mood === 'stretched'
+                            ? 'bg-[#D19A58]/30 text-[#D19A58]'
+                            : mood === 'grounded' || mood === 'hopeful'
+                              ? 'bg-[#6B8A83]/30 text-[#6B8A83]'
+                              : 'bg-[#eedfc8]/10 text-[#eedfc8]/60'
+                      return (
+                        <span key={index} className={`rounded-full px-2 py-1 text-[10px] capitalize ${tone}`}>
+                          {mood}
+                        </span>
+                      )
+                    })}
+                  </div>
+                  {moodPattern.hint && (
+                    <p className="mt-3 text-sm leading-relaxed text-[#eedfc8]/75">
+                      <i className="ri-sparkling-line mr-1 text-[#D19A58]" />
+                      {moodPattern.hint}
+                    </p>
+                  )}
+                </div>
+              )}
             </section>
+
+            {strandPending > 0 && (
+              <Link
+                href="/strands"
+                className="card block transition-colors hover:border-[#D19A58]/40"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#D19A58]/18 text-[#D19A58]">
+                    <i className="ri-links-line text-xl" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-[#eedfc8]">
+                      🧬 {strandPending} new {strandPending === 1 ? 'strand' : 'strands'} waiting for you
+                    </p>
+                    <p className="text-xs text-[#eedfc8]/55">Accept, decline, or say hi.</p>
+                  </div>
+                  <i className="ri-arrow-right-s-line text-xl text-[#eedfc8]/40" />
+                </div>
+              </Link>
+            )}
 
             <section className="card">
               <div className="mb-4 flex items-center justify-between gap-3">
@@ -371,11 +439,18 @@ export default function DashboardPage() {
                         className="rounded-2xl border border-[#eedfc8]/8 bg-[#eedfc8]/4 p-4"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#D19A58]/18 text-sm font-bold text-[#D19A58]">
+                          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-[#D19A58]/18 text-sm font-bold text-[#D19A58]">
                             {post.is_anonymous ? (
                               <i className="ri-spy-line text-base" />
                             ) : (
-                              getInitials(author)
+                              <ProfileAvatar
+                                alt={author}
+                                avatarUrl={post.profile?.avatar_url as string | undefined}
+                                className="h-10 w-10 rounded-2xl object-cover"
+                                fullName={post.profile?.full_name as string | undefined}
+                                userId={post.profile?.id as string | undefined}
+                                username={post.profile?.username as string | undefined}
+                              />
                             )}
                           </div>
                           <div className="min-w-0 flex-1">

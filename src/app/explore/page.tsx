@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
+import { useToast } from '@/components/Toast'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { formatCompactNumber } from '@/lib/platform'
@@ -11,6 +12,7 @@ type Group = Record<string, unknown> & { id: string }
 
 export default function ExplorePage() {
   const { user, loading: authLoading } = useAuth()
+  const { push: toast } = useToast()
 
   const [loading, setLoading] = useState(true)
   const [groups, setGroups] = useState<Group[]>([])
@@ -91,8 +93,15 @@ export default function ExplorePage() {
       await DatabaseService.joinGroup(groupId, user.userId)
       const refreshedGroups = await DatabaseService.getGroups()
       setGroups(refreshedGroups as Group[])
+      toast('Joined the group', 'success')
     } catch (error) {
       console.error('Failed to join group:', error)
+      setJoinedGroupIds((current) => {
+        const next = new Set(current)
+        next.delete(groupId)
+        return next
+      })
+      toast('Could not join group', 'error')
     }
   }
 

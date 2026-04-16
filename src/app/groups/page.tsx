@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
+import { useToast } from '@/components/Toast'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { geocodeQueries } from '@/lib/map-client'
@@ -26,6 +27,7 @@ const tabs: Array<{ id: Tab; label: string; icon: string }> = [
 
 export default function GroupsPage() {
   const { user, loading: authLoading } = useAuth()
+  const { push: toast } = useToast()
   const searchParams = useSearchParams()
 
   const [loading, setLoading] = useState(true)
@@ -124,8 +126,10 @@ export default function GroupsPage() {
       setNewGroupType('virtual')
       setNewGroupLocation('')
       setActiveTab('your-groups')
+      toast('Group created', 'success')
     } catch (error) {
       console.error('Failed to create group:', error)
+      toast('Could not create group', 'error')
     } finally {
       setCreating(false)
     }
@@ -137,8 +141,23 @@ export default function GroupsPage() {
       await DatabaseService.joinGroup(groupId, user.userId)
       await refreshGroups()
       setActiveTab('following')
+      toast('Joined the group', 'success')
     } catch (error) {
       console.error('Failed to join group:', error)
+      toast('Could not join group', 'error')
+    }
+  }
+
+  async function handleLeaveGroup(groupId: string) {
+    if (!user) return
+    if (typeof window !== 'undefined' && !window.confirm('Leave this group?')) return
+    try {
+      await DatabaseService.leaveGroup(groupId, user.userId)
+      await refreshGroups()
+      toast('Left the group', 'success')
+    } catch (error) {
+      console.error('Failed to leave group:', error)
+      toast('Could not leave group', 'error')
     }
   }
 
@@ -255,8 +274,11 @@ export default function GroupsPage() {
               joinedGroups.map((membership) =>
                 renderGroupCard(
                   membership.group || {},
-                  <button className="btn-secondary w-full !py-2.5 text-sm">
-                    Following
+                  <button
+                    onClick={() => handleLeaveGroup((membership.group?.id as string) ?? '')}
+                    className="btn-secondary w-full !py-2.5 text-sm hover:text-[#B85C3A]"
+                  >
+                    Leave group
                   </button>,
                 ),
               )

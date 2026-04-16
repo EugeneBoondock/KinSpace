@@ -111,7 +111,7 @@ interface SupportReply {
   mood: 'steady' | 'supportive' | 'urgent'
 }
 
-function detectConcern(message: string) {
+export function detectConcern(message: string) {
   const lower = message.toLowerCase()
 
   if (/(suicide|kill myself|self harm|hurt myself|end it all|overdose)/.test(lower)) {

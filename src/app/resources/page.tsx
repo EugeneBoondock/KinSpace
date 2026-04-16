@@ -251,6 +251,9 @@ export default function ResourcesPage() {
                               {resource.type as string}
                             </span>
                           )}
+                          {Boolean(resource.ai_generated) && (
+                            <span className="badge bg-[#D19A58]/15 text-[#D19A58]">✨ AI</span>
+                          )}
                         </div>
                         <h2 className="mt-4 text-lg font-semibold text-[#eedfc8]">
                           {resource.title as string}
@@ -286,19 +289,29 @@ export default function ResourcesPage() {
                     </div>
 
                     <div className="mt-5 flex gap-2">
+                      {Boolean(resource.ai_generated) && (
+                        <Link
+                          href={`/research/${resource.id}`}
+                          className="btn-primary flex-1 py-2.5 text-center text-sm"
+                        >
+                          Read summary
+                        </Link>
+                      )}
                       {(resource.url as string | undefined) ? (
                         <a
                           href={resource.url as string}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="btn-primary flex-1 py-2.5 text-center text-sm"
+                          className={`${Boolean(resource.ai_generated) ? 'btn-secondary' : 'btn-primary'} flex-1 py-2.5 text-center text-sm`}
                         >
-                          Open
+                          {Boolean(resource.ai_generated) ? 'Source ↗' : 'Open'}
                         </a>
                       ) : (
-                        <span className="btn-secondary flex-1 py-2.5 text-center text-sm">
-                          Link unavailable
-                        </span>
+                        !resource.ai_generated && (
+                          <span className="btn-secondary flex-1 py-2.5 text-center text-sm">
+                            Link unavailable
+                          </span>
+                        )
                       )}
                     </div>
                   </article>

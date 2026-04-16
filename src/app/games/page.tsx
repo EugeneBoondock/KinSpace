@@ -7,7 +7,15 @@ import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
-import { gameCatalog, getGameDefinition, getGameHref, type GameDifficulty, type GameId } from '@/lib/games'
+import {
+  gameCatalog,
+  gameCategories,
+  getGameDefinition,
+  getGameHref,
+  type GameCategory,
+  type GameDifficulty,
+  type GameId,
+} from '@/lib/games'
 import { formatCompactNumber, formatRelativeTime } from '@/lib/platform'
 
 type ActiveTab = 'practice' | 'rooms'
@@ -37,20 +45,20 @@ export default function GamesPage() {
 
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<ActiveTab>('practice')
+  const [category, setCategory] = useState<GameCategory | 'all'>('all')
   const [rooms, setRooms] = useState<GameRoom[]>([])
+  const [scores, setScores] = useState<Record<string, number>>({})
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedGameId, setSelectedGameId] = useState<GameId>('chess')
   const [selectedCapacity, setSelectedCapacity] = useState(2)
   const [creatingRoom, setCreatingRoom] = useState(false)
   const [refreshingRooms, setRefreshingRooms] = useState(false)
-  const [practiceDifficulty, setPracticeDifficulty] = useState<Record<GameId, GameDifficulty>>({
-    chess: 'medium',
-    checkers: 'medium',
-    tictactoe: 'medium',
-    wordle: 'medium',
-    uno: 'medium',
-    drawing: 'medium',
-  })
+  const [practiceDifficulty, setPracticeDifficulty] = useState<Record<string, GameDifficulty>>({})
+
+  const filteredGames = useMemo(() => {
+    if (category === 'all') return gameCatalog
+    return gameCatalog.filter((game) => game.category === category)
+  }, [category])
 
   const selectedGame = useMemo(
     () => gameCatalog.find((game) => game.id === selectedGameId) ?? gameCatalog[0],
@@ -66,10 +74,8 @@ export default function GamesPage() {
   const loadRooms = useCallback(
     async (options?: { quiet?: boolean }) => {
       if (!user) return
-
       if (options?.quiet) setRefreshingRooms(true)
       else setLoading(true)
-
       try {
         const openRooms = await DatabaseService.getActiveGames()
         setRooms(openRooms as GameRoom[])
@@ -84,21 +90,25 @@ export default function GamesPage() {
   )
 
   useEffect(() => {
-    if (user) {
-      void loadRooms()
-    }
+    if (!user) return
+    void loadRooms()
+    DatabaseService.getProfile(user.userId)
+      .then((profile) => {
+        const high = (profile?.games_high_scores as Record<string, number> | undefined) ?? {}
+        setScores(high)
+      })
+      .catch(() => undefined)
   }, [loadRooms, user])
 
   function openCreateModal(gameId: GameId) {
     const game = gameCatalog.find((item) => item.id === gameId) ?? gameCatalog[0]
     setSelectedGameId(game.id)
-    setSelectedCapacity(game.maxPlayers)
+    setSelectedCapacity(Math.max(2, game.maxPlayers))
     setShowCreateModal(true)
   }
 
   async function handleCreateRoom() {
     if (!user) return
-
     setCreatingRoom(true)
     try {
       const room = await DatabaseService.createGame(
@@ -107,7 +117,6 @@ export default function GamesPage() {
         selectedCapacity,
         false,
       )
-
       setShowCreateModal(false)
       await loadRooms({ quiet: true })
       router.push(`/games/rooms/${room.id}`)
@@ -143,6 +152,18 @@ export default function GamesPage() {
     return counts
   }, [rooms])
 
+  const topScores = useMemo(() => {
+    return Object.entries(scores)
+      .map(([gameId, score]) => ({
+        gameId,
+        score,
+        game: getGameDefinition(gameId),
+      }))
+      .filter((item) => item.game)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4)
+  }, [scores])
+
   if (authLoading || loading || (!user && !authLoading)) {
     return (
       <PageFrame>
@@ -170,11 +191,11 @@ export default function GamesPage() {
                 Games
               </p>
               <h1 className="mt-3 text-3xl font-bold text-[#eedfc8]">
-                Play together in live rooms
+                Short games, live rooms, real wins
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#eedfc8]/60">
-                Practice solo, challenge the AI, or open real rooms backed by Firestore so
-                people can actually gather before a session.
+                Solo puzzles for a quick breath, classic strategy vs AI, or open rooms for real company.
+                All game logic now runs on mature open-source libraries.
               </p>
 
               <div className="mt-6 flex flex-wrap gap-3 text-xs text-[#eedfc8]/50">
@@ -186,28 +207,22 @@ export default function GamesPage() {
 
             <div className="border-t border-[#eedfc8]/10 bg-[#eedfc8]/4 p-6 lg:border-l lg:border-t-0">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
-                Live snapshot
+                Your high scores
               </p>
-              <div className="mt-4 space-y-3">
-                <div className="card-light !p-4">
-                  <p className="text-xs text-[#eedfc8]/45">Rooms waiting for players</p>
-                  <p className="mt-2 text-3xl font-bold text-[#D19A58]">
-                    {formatCompactNumber(rooms.length)}
-                  </p>
+              {topScores.length > 0 ? (
+                <div className="mt-4 space-y-3">
+                  {topScores.map(({ gameId, score, game }) => (
+                    <div key={gameId} className="card-light !p-4">
+                      <p className="text-xs text-[#eedfc8]/45">{game?.name}</p>
+                      <p className="mt-1 text-2xl font-bold text-[#D19A58]">{score.toLocaleString()}</p>
+                    </div>
+                  ))}
                 </div>
-                <div className="card-light !p-4">
-                  <p className="text-xs text-[#eedfc8]/45">Most active game</p>
-                  <p className="mt-2 text-sm font-semibold text-[#eedfc8]">
-                    {gameCatalog
-                      .slice()
-                      .sort(
-                        (first, second) =>
-                          (gamesWithRooms.get(second.id) ?? 0) -
-                          (gamesWithRooms.get(first.id) ?? 0),
-                      )[0]?.name ?? 'No live rooms yet'}
-                  </p>
-                </div>
-              </div>
+              ) : (
+                <p className="mt-4 text-sm text-[#eedfc8]/45">
+                  Play a solo game — your best scores land here.
+                </p>
+              )}
             </div>
           </div>
         </section>
@@ -230,98 +245,121 @@ export default function GamesPage() {
         </section>
 
         {activeTab === 'practice' ? (
-          <section className="page-card-grid">
-            {gameCatalog.map((game) => (
-              <article key={game.id} className="card">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eedfc8]/10 text-3xl">
-                    {game.icon}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-xl font-semibold text-[#eedfc8]">{game.name}</h2>
-                      <span className="badge text-[10px]">{game.difficultyLabel}</span>
-                      {(gamesWithRooms.get(game.id) ?? 0) > 0 && (
-                        <span className="badge bg-[#D19A58]/12 text-[10px] text-[#D19A58]">
-                          {formatCompactNumber(gamesWithRooms.get(game.id))}
-                          {' '}live room
-                          {(gamesWithRooms.get(game.id) ?? 0) === 1 ? '' : 's'}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-2 text-sm leading-relaxed text-[#eedfc8]/65">
-                      {game.description}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-4 text-xs text-[#eedfc8]/45">
-                  <span className="flex items-center gap-1.5">
-                    <i className="ri-user-line" />
-                    {game.playersLabel}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <i className="ri-time-line" />
-                    {game.duration}
-                  </span>
-                </div>
-
-                {game.supportsDifficulty && (
-                  <div className="mt-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#eedfc8]/35">
-                      Difficulty
-                    </p>
-                    <div className="mt-2 grid grid-cols-3 gap-2">
-                      {(['easy', 'medium', 'hard'] as GameDifficulty[]).map((level) => (
-                        <button
-                          key={level}
-                          onClick={() =>
-                            setPracticeDifficulty((current) => ({
-                              ...current,
-                              [game.id]: level,
-                            }))
-                          }
-                          className={`rounded-2xl border px-3 py-2 text-xs font-semibold capitalize transition-colors ${
-                            practiceDifficulty[game.id] === level
-                              ? 'border-[#D19A58]/50 bg-[#D19A58]/12 text-[#D19A58]'
-                              : 'border-[#eedfc8]/10 bg-[#eedfc8]/4 text-[#eedfc8]/55 hover:bg-[#eedfc8]/8'
-                          }`}
-                        >
-                          {level}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                  <Link
-                    href={getGameHref(game.id, {
-                      difficulty: practiceDifficulty[game.id],
-                    })}
-                    className="btn-primary flex-1 !rounded-2xl !py-3 text-center text-sm"
+          <>
+            <section className="card">
+              <div className="flex gap-2 overflow-x-auto">
+                {gameCategories.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => setCategory(option.id)}
+                    className={`whitespace-nowrap rounded-full px-4 py-2 text-sm transition-colors ${
+                      category === option.id
+                        ? 'bg-[#eedfc8] text-[#2A4A42]'
+                        : 'bg-[#eedfc8]/8 text-[#eedfc8]/65'
+                    }`}
                   >
-                    {game.practiceLabel}
-                  </Link>
-                  {game.maxPlayers > 1 && (
-                    <button
-                      onClick={() => openCreateModal(game.id)}
-                      className="btn-secondary flex-1 !rounded-2xl !py-3 text-sm"
-                    >
-                      Open live room
-                    </button>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="page-card-grid">
+              {filteredGames.map((game) => (
+                <article key={game.id} className="card">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eedfc8]/10 text-3xl">
+                      {game.icon}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-xl font-semibold text-[#eedfc8]">{game.name}</h2>
+                        <span className="badge text-[10px] capitalize">{game.category}</span>
+                        <span className="badge text-[10px]">{game.difficultyLabel}</span>
+                        {(gamesWithRooms.get(game.id) ?? 0) > 0 && (
+                          <span className="badge bg-[#D19A58]/12 text-[10px] text-[#D19A58]">
+                            {formatCompactNumber(gamesWithRooms.get(game.id))}
+                            {' '}live room
+                            {(gamesWithRooms.get(game.id) ?? 0) === 1 ? '' : 's'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm leading-relaxed text-[#eedfc8]/65">
+                        {game.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-4 text-xs text-[#eedfc8]/45">
+                    <span className="flex items-center gap-1.5">
+                      <i className="ri-user-line" />
+                      {game.playersLabel}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <i className="ri-time-line" />
+                      {game.duration}
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[#eedfc8]/35">
+                      {game.engine}
+                    </span>
+                  </div>
+
+                  {game.supportsDifficulty && (
+                    <div className="mt-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#eedfc8]/35">
+                        Difficulty
+                      </p>
+                      <div className="mt-2 grid grid-cols-3 gap-2">
+                        {(['easy', 'medium', 'hard'] as GameDifficulty[]).map((level) => (
+                          <button
+                            key={level}
+                            onClick={() =>
+                              setPracticeDifficulty((current) => ({
+                                ...current,
+                                [game.id]: level,
+                              }))
+                            }
+                            className={`rounded-2xl border px-3 py-2 text-xs font-semibold capitalize transition-colors ${
+                              (practiceDifficulty[game.id] ?? 'medium') === level
+                                ? 'border-[#D19A58]/50 bg-[#D19A58]/12 text-[#D19A58]'
+                                : 'border-[#eedfc8]/10 bg-[#eedfc8]/4 text-[#eedfc8]/55 hover:bg-[#eedfc8]/8'
+                            }`}
+                          >
+                            {level}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </div>
-              </article>
-            ))}
-          </section>
+
+                  <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                    <Link
+                      href={getGameHref(game.id, {
+                        difficulty: practiceDifficulty[game.id] ?? 'medium',
+                      })}
+                      className="btn-primary flex-1 !rounded-2xl !py-3 text-center text-sm"
+                    >
+                      {game.practiceLabel}
+                    </Link>
+                    {game.isMultiplayer && (
+                      <button
+                        onClick={() => openCreateModal(game.id)}
+                        className="btn-secondary flex-1 !rounded-2xl !py-3 text-sm"
+                      >
+                        Open live room
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </section>
+          </>
         ) : (
           <div className="page-grid lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-start">
             <section className="space-y-4">
               {rooms.length > 0 ? (
                 rooms.map((room) => {
                   const game = getGameDefinition(room.game_type as string | undefined)
-
                   return (
                     <article key={room.id} className="card">
                       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -339,8 +377,7 @@ export default function GamesPage() {
                               </span>
                             </div>
                             <p className="mt-2 text-sm text-[#eedfc8]/60">
-                              Hosted by {getHostName(room)} · Opened{' '}
-                              {formatRelativeTime(room.created_at)}
+                              Hosted by {getHostName(room)} · Opened {formatRelativeTime(room.created_at)}
                             </p>
                             <p className="mt-3 text-sm leading-relaxed text-[#eedfc8]/65">
                               {(room.current_players as number | undefined) ?? 0} of{' '}
