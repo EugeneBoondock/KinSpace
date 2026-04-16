@@ -1,8 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/research/generate",
-      "schedule": "0 */6 * * *"
+      "path": "/api/research/generate?max=4",
+      "schedule": "0 6 * * *"
     }
   ]
 }
