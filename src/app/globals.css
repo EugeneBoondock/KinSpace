@@ -238,12 +238,22 @@ html, body {
 .page-grid {
   display: grid;
   gap: 1.25rem;
+  min-width: 0;
+}
+
+.page-grid > * {
+  min-width: 0;
 }
 
 .page-card-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+  min-width: 0;
+}
+
+.page-card-grid > * {
+  min-width: 0;
 }
 
 .support-map-shell {
