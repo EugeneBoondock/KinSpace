@@ -9,11 +9,11 @@ export const maxDuration = 60
 type RequestBody = {
   userId?: string
   messages?: TherapyMessage[]
-  /**
-   * Client can pass a pre-hydrated profile snapshot so we can skip the read
-   * when the client already has it cached. We re-verify against the userId.
-   */
   profileCache?: Record<string, unknown> | null
+  /** Session id for this therapy room, used to bump message_count. */
+  sessionId?: string | null
+  /** Client-chosen persona slug; falls back to profile.therapist_persona. */
+  personaId?: string | null
 }
 
 type InsightEntry = TherapyContext['conditionInsights'][number]
@@ -22,6 +22,7 @@ async function hydrateContext(
   db: FirebaseFirestore.Firestore,
   userId: string,
   profileCache: Record<string, unknown> | null,
+  personaOverride?: string | null,
 ): Promise<TherapyContext | null> {
   const profile = profileCache ?? (await db.collection('profiles').doc(userId).get()).data()
   if (!profile) return null
@@ -148,6 +149,8 @@ async function hydrateContext(
     currentMoodAt: profile.mood_updated_at ? new Date(profile.mood_updated_at as string) : null,
     recentMoods,
     moodPatternHint,
+    personaId: personaOverride ?? (profile.therapist_persona as string | undefined) ?? null,
+    priorSessions: [], // filled in at the callsite below after we have db handle + userId
   }
 }
 
@@ -187,9 +190,53 @@ export async function POST(request: NextRequest) {
   }
 
   const db = getAdminDb()
-  const context = await hydrateContext(db, body.userId, body.profileCache ?? null)
+  const context = await hydrateContext(db, body.userId, body.profileCache ?? null, body.personaId ?? null)
   if (!context) {
     return NextResponse.json({ ok: false, error: 'Profile not found' }, { status: 404 })
+  }
+
+  // Pull up to 5 prior session summaries so the Guide has memory across rooms.
+  try {
+    const priorSnap = await db
+      .collection('therapy_sessions')
+      .where('user_id', '==', body.userId)
+      .get()
+    const priors = priorSnap.docs
+      .map((doc) => doc.data())
+      .filter((entry) => Boolean(entry.summary))
+      .sort((a, b) => {
+        const aTime = a.started_at?.toDate?.()?.getTime() ?? 0
+        const bTime = b.started_at?.toDate?.()?.getTime() ?? 0
+        return bTime - aTime
+      })
+      .slice(0, 5)
+      .map((entry) => ({
+        summary: String(entry.summary ?? ''),
+        key_themes: Array.isArray(entry.key_themes) ? (entry.key_themes as string[]) : [],
+        mood_at_start: (entry.mood_at_start as string | null) ?? null,
+        mood_at_end: (entry.mood_at_end as string | null) ?? null,
+        started_at: entry.started_at?.toDate?.()?.toISOString?.() ?? null,
+      }))
+    context.priorSessions = priors
+  } catch (error) {
+    console.warn('Could not load prior therapy sessions:', error)
+  }
+
+  // Bump message_count on the active session doc
+  if (body.sessionId) {
+    void db
+      .collection('therapy_sessions')
+      .doc(body.sessionId)
+      .set(
+        {
+          message_count: (await db.collection('therapy_sessions').doc(body.sessionId).get()).data()?.message_count
+            ? ((await db.collection('therapy_sessions').doc(body.sessionId).get()).data()?.message_count ?? 0) + 1
+            : 1,
+          updated_at: new Date(),
+        },
+        { merge: true },
+      )
+      .catch(() => undefined)
   }
 
   try {

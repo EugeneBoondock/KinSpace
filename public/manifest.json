@@ -1,35 +1,29 @@
 {
-  "name": "KinSpace",
+  "name": "KinSpace — Your Cozy Corner for Healing",
   "short_name": "KinSpace",
-  "description": "Your Cozy Corner for Healing - Connect, support, and thrive together",
-  "start_url": "/",
+  "description": "Connect, support, and thrive with a community for chronic illness, mental health, and recovery.",
+  "id": "/",
+  "start_url": "/dashboard",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#2A4A42",
   "theme_color": "#2A4A42",
   "orientation": "portrait-primary",
   "scope": "/",
+  "lang": "en",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "categories": ["health", "social", "lifestyle"],
   "icons": [
     {
       "src": "/images/gather_logo.png",
-      "sizes": "192x192",
+      "sizes": "any",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/gather_logo.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/images/gather_logo1.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/images/gather_logo1.png",
-      "sizes": "512x512",
+      "sizes": "any",
       "type": "image/png",
       "purpose": "maskable"
     },
@@ -40,8 +34,27 @@
       "purpose": "any"
     }
   ],
-  "categories": ["health", "social", "lifestyle"],
-  "lang": "en",
-  "dir": "ltr",
-  "prefer_related_applications": false
+  "shortcuts": [
+    {
+      "name": "Ask",
+      "short_name": "Ask",
+      "description": "Ask about a symptom or health question.",
+      "url": "/ask",
+      "icons": [{ "src": "/images/gather_logo.png", "sizes": "any" }]
+    },
+    {
+      "name": "Community",
+      "short_name": "Community",
+      "description": "See what the community is sharing.",
+      "url": "/community",
+      "icons": [{ "src": "/images/gather_logo.png", "sizes": "any" }]
+    },
+    {
+      "name": "Guide",
+      "short_name": "Guide",
+      "description": "Warm peer-support AI.",
+      "url": "/therapy",
+      "icons": [{ "src": "/images/gather_logo.png", "sizes": "any" }]
+    }
+  ]
 }

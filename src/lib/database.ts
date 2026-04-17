@@ -442,21 +442,58 @@ export class DatabaseService {
   }
 
   static async addPostComment(postId: string, userId: string, content: string, isAnonymous = false) {
+    const trimmed = (content ?? '').trim()
+    if (!trimmed) throw new Error('Comment cannot be empty')
+    if (!postId || !userId) throw new Error('Missing post or user id')
+
     const reference = await addDoc(collection(db, 'post_comments'), {
       post_id: postId,
       user_id: userId,
-      content,
+      content: trimmed,
       is_anonymous: isAnonymous,
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
     })
 
+    // Count-bump is a nice-to-have — don't fail the comment if this update errors.
     await updateDoc(doc(db, 'community_posts', postId), {
       comments_count: increment(1),
       updated_at: serverTimestamp(),
+    }).catch((error) => {
+      console.warn('comments_count increment failed (non-fatal):', error)
     })
 
     return { id: reference.id }
+  }
+
+  static async deletePost(postId: string, userId: string) {
+    const postRef = doc(db, 'community_posts', postId)
+    const snap = await getDoc(postRef)
+    if (!snap.exists()) return { deleted: false, reason: 'not-found' as const }
+    if ((snap.data().user_id as string | undefined) !== userId) {
+      throw new Error('Only the post owner can delete it')
+    }
+    await deleteDoc(postRef)
+
+    // Decrement the user's own post count
+    await updateDoc(doc(db, 'profiles', userId), {
+      postsCount: increment(-1),
+      updated_at: serverTimestamp(),
+    }).catch(() => undefined)
+
+    // Best-effort cleanup of per-post relations
+    const [likesSnap, reactionsSnap, commentsSnap] = await Promise.all([
+      getDocs(query(collection(db, 'post_likes'), where('post_id', '==', postId))),
+      getDocs(query(collection(db, 'post_reactions'), where('post_id', '==', postId))),
+      getDocs(query(collection(db, 'post_comments'), where('post_id', '==', postId))),
+    ])
+    await Promise.all([
+      ...likesSnap.docs.map((document) => deleteDoc(doc(db, 'post_likes', document.id)).catch(() => undefined)),
+      ...reactionsSnap.docs.map((document) => deleteDoc(doc(db, 'post_reactions', document.id)).catch(() => undefined)),
+      ...commentsSnap.docs.map((document) => deleteDoc(doc(db, 'post_comments', document.id)).catch(() => undefined)),
+    ])
+
+    return { deleted: true }
   }
 
   static async getCommentsForPosts(postIds: string[], limitCount = 3) {
@@ -545,15 +582,26 @@ export class DatabaseService {
     const memberships = await Promise.all(
       membershipSnap.docs.map(async (document) => {
         const data = document.data()
-        const groupSnap = await getDoc(doc(db, 'groups', data.group_id as string))
+        const groupId = data.group_id as string | undefined
+        let group: (FirestoreRecord & { id: string }) | null = null
+        if (groupId) {
+          try {
+            const groupSnap = await getDoc(doc(db, 'groups', groupId))
+            if (groupSnap.exists()) group = withId(groupSnap.id, groupSnap.data())
+          } catch (error) {
+            console.warn(`Could not read group ${groupId}:`, error)
+          }
+        }
         return {
           ...withId(document.id, data),
-          group: groupSnap.exists() ? withId(groupSnap.id, groupSnap.data()) : null,
+          group,
         }
       }),
     )
 
-    return memberships.filter((membership) => membership.group)
+    // Keep membership records even if the group read fails — better than hiding
+    // the user's groups silently. Filter only removes orphaned memberships with no group_id at all.
+    return memberships.filter((membership) => Boolean((membership as FirestoreRecord).group_id))
   }
 
   static async getRecommendedGroups(userId: string, limitCount = 6) {
@@ -643,6 +691,38 @@ export class DatabaseService {
     return member.id
   }
 
+  static async updateGroup(
+    groupId: string,
+    userId: string,
+    updates: {
+      name?: string
+      description?: string
+      category?: string
+      type?: 'virtual' | 'in-person' | 'hybrid'
+      location?: string | null
+      tags?: string[]
+      isPrivate?: boolean
+    },
+  ) {
+    const ref = doc(db, 'groups', groupId)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) throw new Error('Group not found')
+    if ((snap.data().created_by as string | undefined) !== userId) {
+      throw new Error('Only the group creator can edit it')
+    }
+    // Build payload as `any` keyed bag — Firestore SDK's PartialWithFieldValue is awkward to type precisely.
+    const payload: Record<string, unknown> = { updated_at: serverTimestamp() }
+    if (updates.name !== undefined) payload.name = updates.name
+    if (updates.description !== undefined) payload.description = updates.description
+    if (updates.category !== undefined) payload.category = updates.category
+    if (updates.type !== undefined) payload.type = updates.type
+    if (updates.location !== undefined) payload.location = updates.location
+    if (updates.tags !== undefined) payload.tags = updates.tags
+    if (updates.isPrivate !== undefined) payload.is_private = updates.isPrivate
+
+    await updateDoc(ref, payload as never)
+  }
+
   static async leaveGroup(groupId: string, userId: string) {
     const snap = await getDocs(
       query(
@@ -678,6 +758,80 @@ export class DatabaseService {
       .filter((resource) => !filters?.type || resource.type === filters.type)
       .filter((resource) => !filters?.featured || resource.featured === true)
       .sort((first, second) => sortByNewest(first, second))
+  }
+
+  // ---------- Crowd-sourced research contributions ----------
+
+  static async addResourceContribution(
+    resourceId: string,
+    userId: string,
+    data: {
+      kind: 'experience' | 'source' | 'note'
+      content: string
+      url?: string | null
+      is_anonymous?: boolean
+    },
+  ) {
+    if (!(data.content ?? '').trim()) throw new Error('Contribution cannot be empty')
+    const ref = await addDoc(collection(db, 'resource_contributions'), {
+      resource_id: resourceId,
+      user_id: userId,
+      kind: data.kind,
+      content: data.content.trim(),
+      url: data.url ?? null,
+      upvotes: 0,
+      is_anonymous: Boolean(data.is_anonymous),
+      created_at: serverTimestamp(),
+    })
+
+    await updateDoc(doc(db, 'resources', resourceId), {
+      contributions_count: increment(1),
+      updated_at: serverTimestamp(),
+    }).catch(() => undefined)
+
+    return { id: ref.id }
+  }
+
+  static async getResourceContributions(resourceId: string, limit = 40) {
+    const snap = await getDocs(
+      query(collection(db, 'resource_contributions'), where('resource_id', '==', resourceId)),
+    )
+    const items = await Promise.all(
+      snap.docs.map(async (document) => {
+        const data = document.data()
+        const profile = data.is_anonymous
+          ? null
+          : await getProfileSummary(data.user_id as string | undefined)
+        return { ...withId(document.id, data), profile }
+      }),
+    )
+    return items
+      .sort((a, b) => {
+        const aVotes = ((a as unknown as Record<string, number>).upvotes ?? 0)
+        const bVotes = ((b as unknown as Record<string, number>).upvotes ?? 0)
+        if (bVotes !== aVotes) return bVotes - aVotes
+        return (toDate((b as FirestoreRecord).created_at) ?? new Date(0)).getTime() -
+          (toDate((a as FirestoreRecord).created_at) ?? new Date(0)).getTime()
+      })
+      .slice(0, limit)
+  }
+
+  static async upvoteContribution(userId: string, contributionId: string) {
+    const voteId = `${contributionId}_${userId}`
+    const voteRef = doc(db, 'resource_contribution_votes', voteId)
+    const existing = await getDoc(voteRef)
+    if (existing.exists()) {
+      await deleteDoc(voteRef)
+      await updateDoc(doc(db, 'resource_contributions', contributionId), {
+        upvotes: increment(-1),
+      }).catch(() => undefined)
+      return { voted: false }
+    }
+    await setDoc(voteRef, { contribution_id: contributionId, user_id: userId, created_at: serverTimestamp() })
+    await updateDoc(doc(db, 'resource_contributions', contributionId), {
+      upvotes: increment(1),
+    }).catch(() => undefined)
+    return { voted: true }
   }
 
   static async createResource(userId: string, data: ResourceInput) {
@@ -1170,6 +1324,57 @@ export class DatabaseService {
         return when.getTime() >= cutoff
       })
       .sort((a, b) => (toDate(a.created_at) ?? new Date(0)).getTime() - (toDate(b.created_at) ?? new Date(0)).getTime())
+  }
+
+  // ---------- Therapy sessions (memory across rooms) ----------
+
+  static async startTherapySession(
+    userId: string,
+    data: { persona?: string | null; theme?: string | null; mood?: string | null },
+  ) {
+    const ref = await addDoc(collection(db, 'therapy_sessions'), {
+      user_id: userId,
+      persona: data.persona ?? null,
+      theme: data.theme ?? null,
+      mood_at_start: data.mood ?? null,
+      message_count: 0,
+      summary: null,
+      started_at: serverTimestamp(),
+      ended_at: null,
+      updated_at: serverTimestamp(),
+    })
+    return { id: ref.id }
+  }
+
+  static async touchTherapySession(sessionId: string) {
+    await updateDoc(doc(db, 'therapy_sessions', sessionId), {
+      updated_at: serverTimestamp(),
+      message_count: increment(1),
+    }).catch(() => undefined)
+  }
+
+  static async saveTherapySessionSummary(
+    sessionId: string,
+    payload: { summary: string; mood_at_end?: string | null; key_themes?: string[] },
+  ) {
+    await updateDoc(doc(db, 'therapy_sessions', sessionId), {
+      summary: payload.summary,
+      mood_at_end: payload.mood_at_end ?? null,
+      key_themes: payload.key_themes ?? [],
+      ended_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    }).catch(() => undefined)
+  }
+
+  static async getRecentTherapySessions(userId: string, limitCount = 5) {
+    const snap = await getDocs(
+      query(collection(db, 'therapy_sessions'), where('user_id', '==', userId)),
+    )
+    return snap.docs
+      .map((document) => withId(document.id, document.data()))
+      .filter((session) => Boolean(session.summary))
+      .sort(sortByNewest)
+      .slice(0, limitCount)
   }
 
   /** Cheap pattern detector — returns a terse human note if the last 7 days trends in one direction. */

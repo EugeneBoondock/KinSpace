@@ -41,6 +41,17 @@ export default function GroupsPage() {
   const [newGroupCategory, setNewGroupCategory] = useState('general')
   const [newGroupType, setNewGroupType] = useState<'virtual' | 'in-person' | 'hybrid'>('virtual')
   const [newGroupLocation, setNewGroupLocation] = useState('')
+  const [newGroupPrivacy, setNewGroupPrivacy] = useState<'public' | 'private'>('public')
+
+  // Edit mode
+  const [editingGroup, setEditingGroup] = useState<Record<string, unknown> | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editCategory, setEditCategory] = useState('general')
+  const [editType, setEditType] = useState<'virtual' | 'in-person' | 'hybrid'>('virtual')
+  const [editLocation, setEditLocation] = useState('')
+  const [editPrivacy, setEditPrivacy] = useState<'public' | 'private'>('public')
+  const [savingEdit, setSavingEdit] = useState(false)
 
   useEffect(() => {
     async function loadGroupsPage() {
@@ -116,6 +127,7 @@ export default function GroupsPage() {
         location: newGroupLocation.trim() || null,
         latitude,
         longitude,
+        isPrivate: newGroupPrivacy === 'private',
       })
 
       await refreshGroups()
@@ -125,6 +137,7 @@ export default function GroupsPage() {
       setNewGroupCategory('general')
       setNewGroupType('virtual')
       setNewGroupLocation('')
+      setNewGroupPrivacy('public')
       setActiveTab('your-groups')
       toast('Group created', 'success')
     } catch (error) {
@@ -145,6 +158,39 @@ export default function GroupsPage() {
     } catch (error) {
       console.error('Failed to join group:', error)
       toast('Could not join group', 'error')
+    }
+  }
+
+  function openEditGroup(group: Record<string, unknown>) {
+    setEditingGroup(group)
+    setEditName((group.name as string | undefined) ?? '')
+    setEditDescription((group.description as string | undefined) ?? '')
+    setEditCategory((group.category as string | undefined) ?? 'general')
+    setEditType(((group.type as 'virtual' | 'in-person' | 'hybrid' | undefined) ?? 'virtual'))
+    setEditLocation((group.location as string | undefined) ?? '')
+    setEditPrivacy(group.is_private ? 'private' : 'public')
+  }
+
+  async function handleSaveGroupEdit() {
+    if (!user || !editingGroup) return
+    setSavingEdit(true)
+    try {
+      await DatabaseService.updateGroup(editingGroup.id as string, user.userId, {
+        name: editName.trim(),
+        description: editDescription.trim(),
+        category: editCategory.trim().toLowerCase(),
+        type: editType,
+        location: editLocation.trim() || null,
+        isPrivate: editPrivacy === 'private',
+      })
+      await refreshGroups()
+      setEditingGroup(null)
+      toast('Group updated', 'success')
+    } catch (error) {
+      console.error('Failed to update group:', error)
+      toast(error instanceof Error ? error.message : 'Could not save changes', 'error')
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -294,15 +340,25 @@ export default function GroupsPage() {
         {!loading && activeTab === 'your-groups' && (
           <section className="page-card-grid">
             {createdGroups.length > 0 ? (
-              createdGroups.map((membership) =>
-                renderGroupCard(
-                  membership.group || {},
-                  <button className="btn-secondary w-full !py-2.5 text-sm">
-                    You manage this group
+              createdGroups.map((membership) => {
+                const group = membership.group || {}
+                const isPrivate = Boolean(group.is_private)
+                return renderGroupCard(
+                  group,
+                  <button
+                    onClick={() => openEditGroup(group)}
+                    className="btn-primary w-full !py-2.5 text-sm"
+                  >
+                    <i className="ri-pencil-line mr-1.5" /> Edit group
                   </button>,
-                  <span className="badge bg-[#6B8A83]/18 text-[#6B8A83]">Admin</span>,
-                ),
-              )
+                  <>
+                    <span className="badge bg-[#6B8A83]/18 text-[#6B8A83]">Admin</span>
+                    <span className="badge text-[10px]">
+                      {isPrivate ? '🔒 Private' : '🌍 Public'}
+                    </span>
+                  </>,
+                )
+              })
             ) : (
               <div className="card-light text-center">
                 <i className="ri-team-line text-3xl text-[#eedfc8]/30" />
@@ -317,101 +373,131 @@ export default function GroupsPage() {
       </div>
 
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 md:p-6">
+        <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6">
           <button
             aria-label="Close create group modal"
             className="absolute inset-0 bg-black/60"
             onClick={() => setShowCreateModal(false)}
           />
-          <div className="relative w-full max-w-2xl rounded-t-[2rem] border border-[#eedfc8]/10 bg-brand-primary p-6 md:rounded-[2rem]">
-            <div className="flex items-center justify-between gap-3">
+          <div className="relative flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[2rem] border border-[#eedfc8]/10 bg-brand-primary md:max-h-[85dvh] md:rounded-[2rem]">
+            <div className="flex items-center justify-between gap-3 border-b border-[#eedfc8]/8 p-5">
               <div>
                 <h2 className="text-xl font-bold text-[#eedfc8]">Create a live group</h2>
                 <p className="mt-1 text-sm text-[#eedfc8]/50">
-                  This writes directly to the real groups collection and adds you as the first member.
+                  This adds you as the first member.
                 </p>
               </div>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#eedfc8]/8 text-[#eedfc8]/60"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eedfc8]/8 text-[#eedfc8]/60"
               >
                 <i className="ri-close-line text-xl" />
               </button>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
-                  Group name
-                </label>
-                <input
-                  value={newGroupName}
-                  onChange={(event) => setNewGroupName(event.target.value)}
-                  className="input-field"
-                  placeholder="Name your group"
-                />
+            <div className="flex-1 overflow-y-auto p-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                    Group name
+                  </label>
+                  <input
+                    value={newGroupName}
+                    onChange={(event) => setNewGroupName(event.target.value)}
+                    className="input-field"
+                    placeholder="Name your group"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                    Description
+                  </label>
+                  <textarea
+                    value={newGroupDescription}
+                    onChange={(event) => setNewGroupDescription(event.target.value)}
+                    className="input-field resize-none"
+                    rows={4}
+                    placeholder="What support or conversation does this group offer?"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                    Category
+                  </label>
+                  <input
+                    value={newGroupCategory}
+                    onChange={(event) => setNewGroupCategory(event.target.value)}
+                    className="input-field"
+                    placeholder="mental-health"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                    Location
+                  </label>
+                  <input
+                    value={newGroupLocation}
+                    onChange={(event) => setNewGroupLocation(event.target.value)}
+                    className="input-field"
+                    placeholder="Optional city or venue"
+                  />
+                </div>
               </div>
 
-              <div className="md:col-span-2">
+              <div className="mt-4">
                 <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
-                  Description
+                  Format
                 </label>
-                <textarea
-                  value={newGroupDescription}
-                  onChange={(event) => setNewGroupDescription(event.target.value)}
-                  className="input-field resize-none"
-                  rows={4}
-                  placeholder="What support or conversation does this group offer?"
-                />
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {(['virtual', 'in-person', 'hybrid'] as const).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setNewGroupType(type)}
+                      className={`rounded-2xl border px-4 py-3 text-sm capitalize transition-all ${
+                        newGroupType === type
+                          ? 'border-[#D19A58]/40 bg-[#D19A58]/12 text-[#D19A58]'
+                          : 'border-[#eedfc8]/8 bg-[#eedfc8]/4 text-[#eedfc8]/65'
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div>
+              <div className="mt-4">
                 <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
-                  Category
+                  Privacy
                 </label>
-                <input
-                  value={newGroupCategory}
-                  onChange={(event) => setNewGroupCategory(event.target.value)}
-                  className="input-field"
-                  placeholder="mental-health"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
-                  Location
-                </label>
-                <input
-                  value={newGroupLocation}
-                  onChange={(event) => setNewGroupLocation(event.target.value)}
-                  className="input-field"
-                  placeholder="Optional city or venue"
-                />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(['public', 'private'] as const).map((privacy) => (
+                    <button
+                      key={privacy}
+                      onClick={() => setNewGroupPrivacy(privacy)}
+                      className={`rounded-2xl border px-4 py-3 text-left transition-all ${
+                        newGroupPrivacy === privacy
+                          ? 'border-[#D19A58]/40 bg-[#D19A58]/12 text-[#D19A58]'
+                          : 'border-[#eedfc8]/8 bg-[#eedfc8]/4 text-[#eedfc8]/65'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 text-sm font-semibold">
+                        <span>{privacy === 'public' ? '🌍 Public' : '🔒 Private'}</span>
+                      </div>
+                      <p className="mt-1 text-xs opacity-80">
+                        {privacy === 'public'
+                          ? 'Anyone on KinSpace can find and join.'
+                          : 'Hidden from Explore. Invite-only.'}
+                      </p>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="mt-4">
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
-                Format
-              </label>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {(['virtual', 'in-person', 'hybrid'] as const).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setNewGroupType(type)}
-                    className={`rounded-2xl border px-4 py-3 text-sm capitalize transition-all ${
-                      newGroupType === type
-                        ? 'border-[#D19A58]/40 bg-[#D19A58]/12 text-[#D19A58]'
-                        : 'border-[#eedfc8]/8 bg-[#eedfc8]/4 text-[#eedfc8]/65'
-                    }`}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 border-t border-[#eedfc8]/8 bg-brand-primary/60 p-5 sm:flex-row">
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="btn-secondary flex-1 !py-3 text-sm"
@@ -424,6 +510,146 @@ export default function GroupsPage() {
                 className="btn-primary flex-1 !py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {creating ? 'Creating...' : 'Create group'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingGroup && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6">
+          <button
+            aria-label="Close edit group"
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setEditingGroup(null)}
+          />
+          <div className="relative flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[2rem] border border-[#eedfc8]/10 bg-brand-primary md:max-h-[85dvh] md:rounded-[2rem]">
+            <div className="flex items-center justify-between gap-3 border-b border-[#eedfc8]/8 p-5">
+              <div>
+                <h2 className="text-xl font-bold text-[#eedfc8]">Edit group</h2>
+                <p className="mt-1 text-sm text-[#eedfc8]/50">
+                  Change the basics or flip to private.
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingGroup(null)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eedfc8]/8 text-[#eedfc8]/60"
+              >
+                <i className="ri-close-line text-xl" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                    Group name
+                  </label>
+                  <input
+                    value={editName}
+                    onChange={(event) => setEditName(event.target.value)}
+                    className="input-field"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                    Description
+                  </label>
+                  <textarea
+                    value={editDescription}
+                    onChange={(event) => setEditDescription(event.target.value)}
+                    className="input-field resize-none"
+                    rows={4}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                    Category
+                  </label>
+                  <input
+                    value={editCategory}
+                    onChange={(event) => setEditCategory(event.target.value)}
+                    className="input-field"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                    Location
+                  </label>
+                  <input
+                    value={editLocation}
+                    onChange={(event) => setEditLocation(event.target.value)}
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                  Format
+                </label>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {(['virtual', 'in-person', 'hybrid'] as const).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setEditType(type)}
+                      className={`rounded-2xl border px-4 py-3 text-sm capitalize transition-all ${
+                        editType === type
+                          ? 'border-[#D19A58]/40 bg-[#D19A58]/12 text-[#D19A58]'
+                          : 'border-[#eedfc8]/8 bg-[#eedfc8]/4 text-[#eedfc8]/65'
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[#eedfc8]/40">
+                  Privacy
+                </label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(['public', 'private'] as const).map((privacy) => (
+                    <button
+                      key={privacy}
+                      onClick={() => setEditPrivacy(privacy)}
+                      className={`rounded-2xl border px-4 py-3 text-left transition-all ${
+                        editPrivacy === privacy
+                          ? 'border-[#D19A58]/40 bg-[#D19A58]/12 text-[#D19A58]'
+                          : 'border-[#eedfc8]/8 bg-[#eedfc8]/4 text-[#eedfc8]/65'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 text-sm font-semibold">
+                        <span>{privacy === 'public' ? '🌍 Public' : '🔒 Private'}</span>
+                      </div>
+                      <p className="mt-1 text-xs opacity-80">
+                        {privacy === 'public'
+                          ? 'Anyone on KinSpace can find and join.'
+                          : 'Hidden from Explore. Invite-only.'}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-[#eedfc8]/8 bg-brand-primary/60 p-5 sm:flex-row">
+              <button
+                onClick={() => setEditingGroup(null)}
+                className="btn-secondary flex-1 !py-3 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveGroupEdit}
+                disabled={savingEdit || !editName.trim()}
+                className="btn-primary flex-1 !py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingEdit ? 'Saving…' : 'Save changes'}
               </button>
             </div>
           </div>

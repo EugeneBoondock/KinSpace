@@ -43,20 +43,25 @@ export default function ResearchPage() {
     if (!user || !requestText.trim()) return
     setRequestStatus('sending')
     try {
-      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore')
-      const { db } = await import('@/lib/firebase')
-      await addDoc(collection(db, 'research_requests'), {
-        user_id: user.userId,
-        request: requestText.trim(),
-        status: 'pending',
-        created_at: serverTimestamp(),
+      const response = await fetch('/api/research/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.userId, topic: requestText.trim() }),
       })
+      const data = (await response.json().catch(() => null)) as
+        | { ok: boolean; articleId?: string; error?: string }
+        | null
+      if (!response.ok || !data?.ok || !data.articleId) {
+        throw new Error(data?.error ?? 'Request failed')
+      }
       setRequestStatus('sent')
       setRequestText('')
-      setTimeout(() => setRequestStatus('idle'), 3000)
+      // Navigate directly to the fresh article
+      window.location.href = `/research/${data.articleId}`
     } catch (error) {
       console.error('Failed to submit request:', error)
       setRequestStatus('error')
+      setTimeout(() => setRequestStatus('idle'), 4000)
     }
   }
 
@@ -241,22 +246,34 @@ export default function ResearchPage() {
                   onChange={(event) => setRequestText(event.target.value)}
                   placeholder="e.g., recent studies on vagus nerve stimulation and depression"
                   className="input-field h-24 resize-none"
+                  disabled={requestStatus === 'sending'}
                 />
                 <button
                   type="submit"
-                  disabled={!user || requestStatus === 'sending'}
+                  disabled={!user || requestStatus === 'sending' || !requestText.trim()}
                   className="btn-primary w-full !py-2.5 text-sm disabled:opacity-50"
                 >
                   {!user
                     ? 'Sign in to request'
                     : requestStatus === 'sending'
-                      ? 'Sending...'
+                      ? 'Researching — takes ~30s…'
                       : requestStatus === 'sent'
                         ? 'Sent ✓'
                         : requestStatus === 'error'
                           ? 'Try again'
-                          : 'Send request'}
+                          : 'Research this'}
                 </button>
+                {requestStatus === 'sending' && (
+                  <p className="text-xs text-[#eedfc8]/50">
+                    Pulling sources, summarising, and saving to the library. Stay on this page —
+                    we&apos;ll jump you to the article.
+                  </p>
+                )}
+                {requestStatus === 'error' && (
+                  <p className="text-xs text-[#B85C3A]">
+                    We could not build an article for that topic. Try rephrasing or narrowing it.
+                  </p>
+                )}
               </form>
             </section>
 

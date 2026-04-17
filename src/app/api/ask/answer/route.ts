@@ -4,7 +4,7 @@ import { getAdminDb, isAdminConfigured } from '@/lib/server/firebase-admin'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 90
+export const maxDuration = 60
 
 type RequestBody = {
   questionId?: string

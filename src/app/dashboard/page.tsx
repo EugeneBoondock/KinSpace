@@ -469,10 +469,14 @@ export default function DashboardPage() {
                       </div>
                     )
                   })
+                ) : loading ? (
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="h-20 skeleton rounded-3xl" />
+                  ))
                 ) : (
                   <div className="card-light text-center">
                     <i className="ri-chat-smile-3-line text-3xl text-[#eedfc8]/30" />
-                    <p className="mt-3 text-sm text-[#eedfc8]/60">Your community feed is still quiet.</p>
+                    <p className="mt-3 text-sm text-[#eedfc8]/60">Nothing new in the feed yet.</p>
                     <Link href="/community" className="btn-secondary mt-4 inline-flex !px-4 !py-2.5 text-xs">
                       Start a post
                     </Link>

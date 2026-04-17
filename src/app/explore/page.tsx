@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
 import { useToast } from '@/components/Toast'
@@ -172,23 +173,28 @@ export default function ExplorePage() {
             <div className="page-card-grid">
               {filteredGroups.map((group) => {
                 const joined = joinedGroupIds.has(group.id)
+                const isOwnGroup = user?.userId === (group.created_by as string | undefined)
                 const groupType = (group.type as string | undefined) || 'virtual'
 
                 return (
                   <article key={group.id} className="card">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-lg font-semibold text-[#eedfc8]">{group.name as string}</h2>
-                          {joined && (
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-lg font-semibold text-[#eedfc8] break-words">
+                            {group.name as string}
+                          </h2>
+                          {isOwnGroup ? (
+                            <span className="badge bg-[#6B8A83]/20 text-[#6B8A83]">You manage this</span>
+                          ) : joined ? (
                             <span className="badge bg-[#D19A58]/15 text-[#D19A58]">Joined</span>
-                          )}
+                          ) : null}
                         </div>
                         <p className="mt-1 text-xs text-[#eedfc8]/45">
                           {(group.category as string | undefined) || 'General'} • {groupType}
                         </p>
                       </div>
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#6B8A83]/16 text-[#6B8A83]">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#6B8A83]/16 text-[#6B8A83]">
                         <i className={`${(group.icon as string | undefined) || 'ri-group-line'} text-xl`} />
                       </div>
                     </div>
@@ -207,23 +213,35 @@ export default function ExplorePage() {
                       </div>
                     )}
 
-                    <div className="mt-5 flex items-center justify-between text-xs text-[#eedfc8]/45">
-                      <span>{formatCompactNumber(group.members_count as number | undefined)} members</span>
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-2 text-xs text-[#eedfc8]/45">
+                      <span>
+                        {formatCompactNumber(group.members_count as number | undefined)}{' '}
+                        {(group.members_count as number | undefined) === 1 ? 'member' : 'members'}
+                      </span>
                       {(group.location as string | undefined) && <span>{group.location as string}</span>}
                     </div>
 
                     <div className="mt-5 flex gap-2">
-                      <button
-                        onClick={() => handleJoinGroup(group.id)}
-                        disabled={joined}
-                        className={`flex-1 rounded-full py-2.5 text-sm font-semibold transition-all ${
-                          joined
-                            ? 'border border-[#D19A58]/30 bg-[#D19A58]/15 text-[#D19A58]'
-                            : 'btn-primary'
-                        }`}
-                      >
-                        {joined ? 'Already joined' : 'Join group'}
-                      </button>
+                      {isOwnGroup ? (
+                        <Link
+                          href="/groups"
+                          className="btn-secondary flex-1 rounded-full py-2.5 text-center text-sm font-semibold"
+                        >
+                          Manage in Groups
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => handleJoinGroup(group.id)}
+                          disabled={joined}
+                          className={`flex-1 rounded-full py-2.5 text-sm font-semibold transition-all ${
+                            joined
+                              ? 'border border-[#D19A58]/30 bg-[#D19A58]/15 text-[#D19A58]'
+                              : 'btn-primary'
+                          }`}
+                        >
+                          {joined ? 'Already joined' : 'Join group'}
+                        </button>
+                      )}
                     </div>
                   </article>
                 )

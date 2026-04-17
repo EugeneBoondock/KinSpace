@@ -304,6 +304,19 @@ export default function CommunityPage() {
     }
   }
 
+  async function handleDeletePost(postId: string) {
+    if (!user) return
+    if (typeof window !== 'undefined' && !window.confirm('Delete this post? This cannot be undone.')) return
+    try {
+      await DatabaseService.deletePost(postId, user.userId)
+      setPosts((current) => current.filter((post) => post.id !== postId))
+      toast('Post deleted', 'success')
+    } catch (error) {
+      console.error('Failed to delete post:', error)
+      toast('Could not delete post', 'error')
+    }
+  }
+
   async function handleRekindle(postId: string) {
     if (!user) return
     setRekindling(true)
@@ -652,13 +665,22 @@ export default function CommunityPage() {
                             <p className="text-xs text-[#eedfc8]/40">{formatRelativeTime(post.created_at)}</p>
                           </div>
                           {isOwner && !isEditing && (
-                            <button
-                              onClick={() => { setEditingPostId(post.id); setEditContent(post.content as string || '') }}
-                              className="flex h-8 w-8 items-center justify-center rounded-xl text-[#eedfc8]/30 hover:text-[#eedfc8]/60 hover:bg-[#eedfc8]/8 transition-colors"
-                              title="Edit post"
-                            >
-                              <i className="ri-pencil-line text-sm" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => { setEditingPostId(post.id); setEditContent(post.content as string || '') }}
+                                className="flex h-8 w-8 items-center justify-center rounded-xl text-[#eedfc8]/30 hover:text-[#eedfc8]/60 hover:bg-[#eedfc8]/8 transition-colors"
+                                title="Edit post"
+                              >
+                                <i className="ri-pencil-line text-sm" />
+                              </button>
+                              <button
+                                onClick={() => handleDeletePost(post.id)}
+                                className="flex h-8 w-8 items-center justify-center rounded-xl text-[#eedfc8]/30 hover:text-[#B85C3A] hover:bg-[#B85C3A]/10 transition-colors"
+                                title="Delete post"
+                              >
+                                <i className="ri-delete-bin-line text-sm" />
+                              </button>
+                            </div>
                           )}
                         </div>
 
@@ -962,6 +984,12 @@ export default function CommunityPage() {
                       </article>
                     )
                   })
+                ) : loading ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <div key={index} className="h-28 skeleton rounded-3xl" />
+                    ))}
+                  </div>
                 ) : (
                   <div className="card-light text-center">
                     <i className="ri-chat-smile-3-line text-3xl text-[#eedfc8]/30" />
@@ -985,7 +1013,9 @@ export default function CommunityPage() {
                   <div className="card-light !p-4">
                     <p className="text-xs text-[#eedfc8]/45">Support available now</p>
                     <p className="mt-1 text-sm font-semibold text-[#eedfc8]">
-                      {formatCompactNumber(angels.length + mentors.length)} people ready to help
+                      {(angels.length + mentors.length) > 0
+                        ? `${formatCompactNumber(angels.length + mentors.length)} ${angels.length + mentors.length === 1 ? 'peer' : 'peers'} ready to help`
+                        : 'Share here — replies come from the whole community.'}
                     </p>
                   </div>
                 </div>

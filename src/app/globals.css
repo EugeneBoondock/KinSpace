@@ -210,9 +210,14 @@ input::placeholder, textarea::placeholder {
 }
 
 /* Shared page framing */
+html, body {
+  overflow-x: hidden;
+}
+
 .page-shell {
   min-height: 100vh;
   padding-bottom: 5.5rem;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top, rgba(209, 154, 88, 0.09), transparent 35%),
     linear-gradient(180deg, rgba(26, 48, 41, 0.25) 0%, rgba(42, 74, 66, 0) 22%),
@@ -223,6 +228,11 @@ input::placeholder, textarea::placeholder {
   width: min(100%, 78rem);
   margin: 0 auto;
   padding: 1.5rem 1rem 0;
+  max-width: 100%;
+}
+
+.page-container > * {
+  min-width: 0;
 }
 
 .page-grid {
@@ -401,4 +411,24 @@ input::placeholder, textarea::placeholder {
   .bottom-nav-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
+
+/* Gentle chat-message fade-in, used by the therapy room */
+@keyframes messageFade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.message-fade {
+  animation: messageFade 360ms ease-out both;
+}
+
+/* Slow 4-4-8 breathing animation for the "Take a breath" overlay */
+@keyframes breathInOutHold {
+  0%, 100% { transform: scale(0.55); opacity: 0.55; }
+  25%      { transform: scale(1); opacity: 0.9; }
+  50%      { transform: scale(1); opacity: 0.9; }
+  90%      { transform: scale(0.55); opacity: 0.55; }
+}
+.breath-orb {
+  animation: breathInOutHold 16s ease-in-out infinite;
 }

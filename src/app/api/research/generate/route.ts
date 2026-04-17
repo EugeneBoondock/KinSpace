@@ -7,7 +7,7 @@ import { getAdminDb, isAdminConfigured } from '@/lib/server/firebase-admin'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 300
+export const maxDuration = 60
 
 // Default evergreen topics — used when no `research_requests` are pending
 // and no explicit topics are passed. Mix of chronic, mental-health, pain,
