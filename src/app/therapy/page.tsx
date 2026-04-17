@@ -648,13 +648,13 @@ export default function TherapyPage() {
 
         {/* Chat card */}
         <section
-          className="flex min-h-[calc(100dvh-16rem)] flex-col overflow-hidden rounded-[1.75rem] border"
+          className="flex flex-col rounded-[1.75rem] border md:min-h-[calc(100dvh-16rem)] md:overflow-hidden"
           style={{
             borderColor: 'rgba(238,223,200,0.08)',
             background: theme.cardBackground,
           }}
         >
-          <div className="flex-1 space-y-5 overflow-y-auto px-4 py-6 md:px-6">
+          <div className="space-y-5 px-4 py-6 md:flex-1 md:overflow-y-auto md:px-6">
             {messages.map((message, index) => {
               const prev = messages[index - 1]
               const showAvatar = message.role === 'assistant' && (!prev || prev.role !== 'assistant')
