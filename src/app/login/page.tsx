@@ -198,21 +198,23 @@ function LoginContent() {
                 const result = await AuthService.signInWithGoogle();
                 router.push(result.isNewUser ? '/onboarding' : '/dashboard');
               } catch (err) {
-                console.error('Google sign-in error:', err);
-                if (err instanceof Error) {
-                  if (err.message.includes('popup-closed') || err.message.includes('cancelled-popup-request')) {
-                    // User closed the popup, no error needed
-                  } else if (err.message.includes('unauthorized-domain') || err.message.includes('auth-domain')) {
-                    setError('This domain is not authorized for Google sign-in. The site admin needs to add this domain in Firebase Console > Authentication > Settings > Authorized domains.');
-                  } else if (err.message.includes('popup-blocked')) {
-                    setError('Popup was blocked by your browser. Please allow popups for this site and try again.');
-                  } else if (err.message.includes('network-request-failed')) {
-                    setError('Network error. Please check your connection and try again.');
-                  } else {
-                    setError(`Google sign-in failed: ${err.message}`);
-                  }
+                const message = err instanceof Error ? err.message : '';
+                if (
+                  message.includes('popup-closed') ||
+                  message.includes('cancelled-popup-request') ||
+                  message.includes('user-cancelled')
+                ) {
+                  // User closed or superseded the popup — not a real error.
+                } else if (message.includes('unauthorized-domain') || message.includes('auth-domain')) {
+                  console.error('Google sign-in error:', err);
+                  setError('This domain is not authorized for Google sign-in. The site admin needs to add this domain in Firebase Console > Authentication > Settings > Authorized domains.');
+                } else if (message.includes('popup-blocked')) {
+                  setError('Popup was blocked by your browser. Please allow popups for this site and try again.');
+                } else if (message.includes('network-request-failed')) {
+                  setError('Network error. Please check your connection and try again.');
                 } else {
-                  setError('Google sign-in failed. Please try again.');
+                  console.error('Google sign-in error:', err);
+                  setError(message ? `Google sign-in failed: ${message}` : 'Google sign-in failed. Please try again.');
                 }
               } finally {
                 setLoading(false);
