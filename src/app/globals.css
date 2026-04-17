@@ -217,7 +217,6 @@ html, body {
 .page-shell {
   min-height: 100vh;
   padding-bottom: 5.5rem;
-  overflow-x: hidden;
   background:
     radial-gradient(circle at top, rgba(209, 154, 88, 0.09), transparent 35%),
     linear-gradient(180deg, rgba(26, 48, 41, 0.25) 0%, rgba(42, 74, 66, 0) 22%),

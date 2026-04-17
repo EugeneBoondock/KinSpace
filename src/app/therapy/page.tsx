@@ -329,9 +329,6 @@ export default function TherapyPage() {
   const pageStyle: React.CSSProperties = {
     background: theme.pageBackground,
     minHeight: '100dvh',
-    overflowX: 'hidden',
-    width: '100%',
-    maxWidth: '100vw',
   }
 
   if (view === 'loading' || authLoading) {
