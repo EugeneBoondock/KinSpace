@@ -27,7 +27,6 @@ body {
   color: #eedfc8;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overscroll-behavior-y: contain;
 }
 
 /* Consistent input styling */
@@ -210,8 +209,16 @@ input::placeholder, textarea::placeholder {
 }
 
 /* Shared page framing */
+/*
+ * Use `overflow-x: clip` instead of `hidden` so html/body do not become
+ * scroll containers. With `hidden` the browser computes overflow-y to
+ * `auto`, which on iOS Safari hijacks the document scroll (touch drags
+ * land on a body that fits its content and has nothing to scroll), so the
+ * page appears stuck. `clip` clips horizontally without creating a scroll
+ * container, leaving the viewport as the single scroll root.
+ */
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .page-shell {

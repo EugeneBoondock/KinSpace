@@ -149,7 +149,7 @@ export default function ResourcesPage() {
 
   return (
     <PageFrame>
-      <div className="page-grid overflow-x-hidden">
+      <div className="page-grid overflow-x-clip">
         <section className="card overflow-hidden">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>

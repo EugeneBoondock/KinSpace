@@ -457,7 +457,7 @@ export default function CommunityPage() {
 
   return (
     <PageFrame>
-      <div className="page-grid overflow-x-hidden">
+      <div className="page-grid overflow-x-clip">
         <section className="card overflow-hidden">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -516,7 +516,7 @@ export default function CommunityPage() {
         </section>
 
         {activeTab === 'discussions' && (
-          <div className="page-grid lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-start overflow-hidden">
+          <div className="page-grid lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-start overflow-x-clip">
             <div className="space-y-4">
               <section className="card">
                 <div className="flex items-start gap-3">
