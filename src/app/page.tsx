@@ -257,7 +257,7 @@ export default function LandingPage() {
   if (user) return null
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
+    <div className="relative min-h-screen overflow-x-clip">
       <AnimatedDnaStrand mobile />
       <AnimatedDnaStrand side="left" />
       <AnimatedDnaStrand side="right" />
