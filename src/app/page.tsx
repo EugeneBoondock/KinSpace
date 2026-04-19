@@ -227,7 +227,7 @@ const trustCards = [
   },
   {
     title: 'One connected care surface',
-    description: 'Community, support rooms, resources, and maps now reinforce each other instead of behaving like isolated demos.',
+    description: 'Community, support rooms, resources, and maps now reinforce each other.',
     icon: 'ri-links-line',
   },
 ]
@@ -270,7 +270,7 @@ export default function LandingPage() {
             <div className="text-center lg:text-left">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#eedfc8]/15 bg-[#eedfc8]/8 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/65">
                 <i className="ri-heart-pulse-line text-[#D19A58]" />
-                Built for real support, not staged demos
+                Built for those who need support.
               </div>
 
               <h1 className="mt-6 text-4xl font-black leading-tight tracking-tight text-[#eedfc8] sm:text-5xl lg:text-6xl">
