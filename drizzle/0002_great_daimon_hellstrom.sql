@@ -1,0 +1,1 @@
+ALTER TABLE `profiles` ADD `share_health_with_guide` integer DEFAULT true NOT NULL;

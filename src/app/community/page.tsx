@@ -6,18 +6,56 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
 import ProfileAvatar from '@/components/ProfileAvatar'
+import ReportDialog from '@/components/ReportDialog'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { StorageService, detectMediaType } from '@/lib/storage'
 import { formatCompactNumber, formatRelativeTime } from '@/lib/platform'
 import { getTopReactions, isEmoji, applyReactionMutation } from '@/lib/social'
+import { Card, Button, LinkButton, Textarea, Input, Badge, Skeleton, EmptyState } from '@/components/ui'
+import { cn } from '@/lib/cn'
 
 type Tab = 'discussions' | 'angels' | 'mentors' | 'activities'
 
 type Post = Record<string, unknown> & {
   id: string
   profile?: Record<string, unknown> | null
+}
+
+type PollDto = {
+  id: string
+  question: string
+  allow_multiple: boolean
+  total_votes: number
+  closed: boolean
+  options: Array<{ id: string; label: string; votes_count: number }>
+  my_option_ids: string[]
+}
+
+type ReplyQueueItem = {
+  id: string
+  content: string
+  type?: string
+  created_at?: string
+  createdAt?: string
+  comments_count?: number
+  commentsCount?: number
+  urgency?: string
+  reasons?: string[]
+  author?: {
+    id?: string
+    user_id?: string
+    userId?: string
+    username?: string | null
+    full_name?: string | null
+    fullName?: string | null
+    is_anonymous?: boolean
+    isAnonymous?: boolean
+    avatar_url?: string | null
+    avatarUrl?: string | null
+  } | null
+  group?: { id: string; name: string } | null
 }
 
 const tabs: Array<{ id: Tab; label: string; icon: string }> = [
@@ -37,7 +75,16 @@ export default function CommunityPage() {
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('discussions')
   const [posts, setPosts] = useState<Post[]>([])
+  const [replyQueue, setReplyQueue] = useState<ReplyQueueItem[]>([])
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set())
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set())
+  // Per-user pins: these post ids float to the top of THIS viewer's feed only.
+  const [pinnedPostIds, setPinnedPostIds] = useState<Set<string>>(new Set())
+  const [pinningPostId, setPinningPostId] = useState<string | null>(null)
+  const [pollsByPost, setPollsByPost] = useState<Record<string, PollDto>>({})
+  const [pollMode, setPollMode] = useState(false)
+  const [pollDraftOptions, setPollDraftOptions] = useState<string[]>(['', ''])
+  const [pollMultiple, setPollMultiple] = useState(false)
   const [angels, setAngels] = useState<Record<string, unknown>[]>([])
   const [mentors, setMentors] = useState<Record<string, unknown>[]>([])
   const [activities, setActivities] = useState<Record<string, unknown>[]>([])
@@ -48,6 +95,89 @@ export default function CommunityPage() {
   const [userReactions, setUserReactions] = useState<Set<string>>(new Set())
   const [emojiInputPostId, setEmojiInputPostId] = useState<string | null>(null)
   const emojiInputRef = useRef<HTMLInputElement>(null)
+
+  // Become an angel / mentor / host an activity
+  const [creator, setCreator] = useState<null | 'angel' | 'mentor' | 'activity'>(null)
+  const [creatorSubmitting, setCreatorSubmitting] = useState(false)
+  const [creatorForm, setCreatorForm] = useState<Record<string, string>>({})
+  const setField = (key: string, value: string) => setCreatorForm((prev) => ({ ...prev, [key]: value }))
+  const closeCreator = () => {
+    setCreator(null)
+    setCreatorForm({})
+  }
+
+  async function handleBecomeAngel() {
+    if (!user) return
+    setCreatorSubmitting(true)
+    try {
+      await DatabaseService.becomeAngel(user.userId, {
+        specialty: String(creatorForm.specialty ?? ''),
+        supportStyle: String(creatorForm.supportStyle ?? ''),
+        bio: String(creatorForm.bio ?? ''),
+        maxSouls: Number(creatorForm.maxSouls) || 3,
+      })
+      setAngels((await DatabaseService.getAvailableAngels(user.userId)) as Record<string, unknown>[])
+      closeCreator()
+      toast("You’re now listed as an angel - thank you 💚", 'success')
+    } catch (error) {
+      console.error('becomeAngel failed:', error)
+      toast('Could not save - please try again', 'error')
+    } finally {
+      setCreatorSubmitting(false)
+    }
+  }
+
+  async function handleBecomeMentor() {
+    if (!user) return
+    setCreatorSubmitting(true)
+    try {
+      await DatabaseService.becomeMentor(user.userId, {
+        expertise: String(creatorForm.expertise ?? '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+        bio: String(creatorForm.bio ?? ''),
+        experienceYears: Number(creatorForm.experienceYears) || 0,
+      })
+      setMentors((await DatabaseService.getMentors()) as Record<string, unknown>[])
+      closeCreator()
+      toast("You’re now listed as a mentor", 'success')
+    } catch (error) {
+      console.error('becomeMentor failed:', error)
+      toast('Could not save - please try again', 'error')
+    } finally {
+      setCreatorSubmitting(false)
+    }
+  }
+
+  async function handleCreateActivity() {
+    if (!user) return
+    const title = String(creatorForm.title ?? '').trim()
+    if (!title) {
+      toast('Give your activity a title', 'error')
+      return
+    }
+    setCreatorSubmitting(true)
+    try {
+      await DatabaseService.createActivity(user.userId, {
+        title,
+        description: String(creatorForm.description ?? ''),
+        activityType: String(creatorForm.activityType ?? ''),
+        isVirtual: creatorForm.isVirtual === 'virtual',
+        location: String(creatorForm.location ?? ''),
+        scheduledAt: creatorForm.scheduledAt ? String(creatorForm.scheduledAt) : null,
+        maxParticipants: creatorForm.maxParticipants ? Number(creatorForm.maxParticipants) : null,
+      })
+      setActivities((await DatabaseService.getCommunityActivities(10)) as Record<string, unknown>[])
+      closeCreator()
+      toast('Activity scheduled', 'success')
+    } catch (error) {
+      console.error('createActivity failed:', error)
+      toast('Could not create activity - please try again', 'error')
+    } finally {
+      setCreatorSubmitting(false)
+    }
+  }
 
   // Media attachments for new post
   const [pendingMedia, setPendingMedia] = useState<Array<{ file: File; preview: string; type: 'image' | 'video' | 'audio' }>>([])
@@ -92,23 +222,41 @@ export default function CommunityPage() {
       if (!user) return
 
       try {
-        const [profileData, communityPosts, likedIds, reactionKeys, availableAngels, availableMentors, upcomingActivities] = await Promise.all([
+        const [
+          profileData,
+          communityPosts,
+          likedIds,
+          reactionKeys,
+          savedIds,
+          pinnedIds,
+          availableAngels,
+          availableMentors,
+          upcomingActivities,
+          replyQueueItems,
+        ] = await Promise.all([
           DatabaseService.getProfile(user.userId),
           DatabaseService.getCommunityPosts(24),
           DatabaseService.getUserLikedPostIds(user.userId),
           DatabaseService.getUserPostReactions(user.userId),
+          DatabaseService.getBookmarkedPostIds(),
+          DatabaseService.getMyPinnedPostIds(),
           DatabaseService.getAvailableAngels(user.userId),
           DatabaseService.getMentors(),
           DatabaseService.getCommunityActivities(10),
+          DatabaseService.getCommunityReplyQueue(user.userId, { limit: 4 }),
         ])
 
         setProfile(profileData as Record<string, unknown> | null)
         setPosts(communityPosts as Post[])
-        setLikedPostIds(likedIds)
-        setUserReactions(reactionKeys)
+        setLikedPostIds(new Set(likedIds as string[]))
+        setSavedPostIds(new Set(savedIds as string[]))
+        setPinnedPostIds(new Set(pinnedIds as string[]))
+        void loadPollsFor(communityPosts as Post[])
+        setUserReactions(new Set(reactionKeys as string[]))
         setAngels(availableAngels as Record<string, unknown>[])
         setMentors(availableMentors as Record<string, unknown>[])
         setActivities(upcomingActivities as Record<string, unknown>[])
+        setReplyQueue(replyQueueItems as ReplyQueueItem[])
       } catch (error) {
         console.error('Failed to load community:', error)
       } finally {
@@ -134,10 +282,138 @@ export default function CommunityPage() {
       return content.includes(needle) || tags.includes(needle) || profileName.includes(needle)
     })
   }, [posts, postSearch])
-  const featuredPosts = useMemo(() => filteredPosts.slice(0, 24), [filteredPosts])
+  const featuredPosts = useMemo(() => {
+    // Personally-pinned posts float to the very top of the viewer's feed; the
+    // rest keep their existing order (sort is stable).
+    const ordered = filteredPosts
+      .slice()
+      .sort((a, b) => (pinnedPostIds.has(b.id) ? 1 : 0) - (pinnedPostIds.has(a.id) ? 1 : 0))
+    return ordered.slice(0, 36)
+  }, [filteredPosts, pinnedPostIds])
+
+  async function refreshReplyQueue() {
+    if (!user) return
+    try {
+      const items = await DatabaseService.getCommunityReplyQueue(user.userId, { limit: 4 })
+      setReplyQueue(items as ReplyQueueItem[])
+    } catch (error) {
+      console.error('Failed to load reply queue:', error)
+    }
+  }
+
+  async function openReplyTarget(postId: string) {
+    if (!user) return
+    setActiveTab('discussions')
+    setPostSearch('')
+
+    if (!posts.some((post) => post.id === postId)) {
+      try {
+        const refreshedPosts = await DatabaseService.getCommunityPosts(48)
+        setPosts(refreshedPosts as Post[])
+        void loadPollsFor(refreshedPosts as Post[])
+      } catch (error) {
+        console.error('Failed to refresh posts:', error)
+      }
+    }
+
+    setOpenCommentsFor((current) => new Set(current).add(postId))
+    if (!commentsByPost[postId]) {
+      setLoadingCommentsFor((current) => new Set(current).add(postId))
+      try {
+        const grouped = await DatabaseService.getCommentsForPosts([postId], 50)
+        setCommentsByPost((current) => ({
+          ...current,
+          [postId]: ((grouped as Record<string, CommentEntry[]>)[postId]) ?? [],
+        }))
+      } catch (error) {
+        console.error('Failed to load comments:', error)
+      } finally {
+        setLoadingCommentsFor((current) => {
+          const next = new Set(current)
+          next.delete(postId)
+          return next
+        })
+      }
+    }
+
+    window.setTimeout(() => {
+      document.getElementById(`community-post-${postId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 80)
+  }
+
+  async function loadPollsFor(list: Post[]) {
+    const ids = list.filter((post) => (post.type as string | undefined) === 'poll').map((post) => post.id)
+    if (ids.length === 0) {
+      setPollsByPost({})
+      return
+    }
+    try {
+      const map = await DatabaseService.getPollsForPosts(ids)
+      setPollsByPost((map ?? {}) as Record<string, PollDto>)
+    } catch (error) {
+      console.error('Failed to load polls:', error)
+    }
+  }
+
+  async function handleVote(pollId: string, optionId: string, postId: string) {
+    if (!user) return
+    const current = pollsByPost[postId]
+    if (current?.closed) return
+    try {
+      const updated = (await DatabaseService.votePoll(pollId, optionId)) as PollDto | null
+      if (updated) setPollsByPost((map) => ({ ...map, [postId]: updated }))
+    } catch (error) {
+      console.error('Failed to vote:', error)
+      toast('Could not record your vote', 'error')
+    }
+  }
+
+  function handleCreatePoll() {
+    setPollMode(true)
+  }
 
   async function handleCreatePost() {
-    if (!user || (!newPostContent.trim() && pendingMedia.length === 0)) return
+    if (!user) return
+
+    // Poll mode: question (the text box) + at least two options.
+    if (pollMode) {
+      const question = newPostContent.trim()
+      const options = pollDraftOptions.map((option) => option.trim()).filter(Boolean)
+      if (!question) {
+        toast('Add a question for your poll', 'error')
+        return
+      }
+      if (options.length < 2) {
+        toast('A poll needs at least two options', 'error')
+        return
+      }
+      setPosting(true)
+      try {
+        await DatabaseService.createPollPost({
+          question,
+          options,
+          allowMultiple: pollMultiple,
+          isAnonymous: Boolean(profile?.is_anonymous),
+        })
+        const refreshedPosts = await DatabaseService.getCommunityPosts(24)
+        setPosts(refreshedPosts as Post[])
+        await loadPollsFor(refreshedPosts as Post[])
+        await refreshReplyQueue()
+        setNewPostContent('')
+        setPollDraftOptions(['', ''])
+        setPollMultiple(false)
+        setPollMode(false)
+        toast('Poll posted', 'success')
+      } catch (error) {
+        console.error('Failed to create poll:', error)
+        toast('Could not post your poll', 'error')
+      } finally {
+        setPosting(false)
+      }
+      return
+    }
+
+    if (!newPostContent.trim() && pendingMedia.length === 0) return
 
     setPosting(true)
     try {
@@ -158,6 +434,7 @@ export default function CommunityPage() {
       )
       const refreshedPosts = await DatabaseService.getCommunityPosts(24)
       setPosts(refreshedPosts as Post[])
+      await refreshReplyQueue()
       setNewPostContent('')
       // Clean up previews
       pendingMedia.forEach((item) => URL.revokeObjectURL(item.preview))
@@ -259,7 +536,7 @@ export default function CommunityPage() {
         const grouped = await DatabaseService.getCommentsForPosts([postId], 50)
         setCommentsByPost((current) => ({
           ...current,
-          [postId]: (grouped.get(postId) as CommentEntry[] | undefined) ?? [],
+          [postId]: ((grouped as Record<string, CommentEntry[]>)[postId]) ?? [],
         }))
       } catch (error) {
         console.error('Failed to load comments:', error)
@@ -284,7 +561,7 @@ export default function CommunityPage() {
       const grouped = await DatabaseService.getCommentsForPosts([postId], 50)
       setCommentsByPost((current) => ({
         ...current,
-        [postId]: (grouped.get(postId) as CommentEntry[] | undefined) ?? [],
+        [postId]: (grouped as Record<string, CommentEntry[]>)[postId] ?? [],
       }))
       setPosts((current) =>
         current.map((post) =>
@@ -295,6 +572,7 @@ export default function CommunityPage() {
       )
       setCommentDrafts((current) => ({ ...current, [postId]: '' }))
       setOpenCommentsFor((current) => new Set(current).add(postId))
+      void refreshReplyQueue()
       toast('Comment added', 'success')
     } catch (error) {
       console.error('Failed to comment:', error)
@@ -310,6 +588,7 @@ export default function CommunityPage() {
     try {
       await DatabaseService.deletePost(postId, user.userId)
       setPosts((current) => current.filter((post) => post.id !== postId))
+      void refreshReplyQueue()
       toast('Post deleted', 'success')
     } catch (error) {
       console.error('Failed to delete post:', error)
@@ -324,6 +603,7 @@ export default function CommunityPage() {
       await DatabaseService.rekindlePost(postId, user.userId, rekindleComment.trim() || undefined)
       const refreshedPosts = await DatabaseService.getCommunityPosts(24)
       setPosts(refreshedPosts as Post[])
+      await refreshReplyQueue()
       setRekindlingPostId(null)
       setRekindleComment('')
       toast('Rekindled to your circle', 'success')
@@ -364,6 +644,73 @@ export default function CommunityPage() {
       await DatabaseService.togglePostLike(postId, user.userId)
     } catch (error) {
       console.error('Failed to toggle like:', error)
+    }
+  }
+
+  async function handleToggleSave(postId: string) {
+    if (!user) return
+
+    const wasSaved = savedPostIds.has(postId)
+    setSavedPostIds((current) => {
+      const next = new Set(current)
+      if (wasSaved) next.delete(postId)
+      else next.add(postId)
+      return next
+    })
+
+    try {
+      const result = (await DatabaseService.toggleBookmark(postId)) as { saved: boolean }
+      // Reconcile with the server’s truth in case of a race.
+      setSavedPostIds((current) => {
+        const next = new Set(current)
+        if (result.saved) next.add(postId)
+        else next.delete(postId)
+        return next
+      })
+      toast(result.saved ? 'Saved to your collection' : 'Removed from saved', 'success')
+    } catch (error) {
+      console.error('Failed to toggle bookmark:', error)
+      // Roll back the optimistic change.
+      setSavedPostIds((current) => {
+        const next = new Set(current)
+        if (wasSaved) next.add(postId)
+        else next.delete(postId)
+        return next
+      })
+      toast('Could not update saved', 'error')
+    }
+  }
+
+  async function handleTogglePinForMe(postId: string) {
+    if (!user) return
+    const wasPinned = pinnedPostIds.has(postId)
+    setPinningPostId(postId)
+    // Optimistic toggle; reconcile/rollback on the server's response.
+    setPinnedPostIds((current) => {
+      const next = new Set(current)
+      if (wasPinned) next.delete(postId)
+      else next.add(postId)
+      return next
+    })
+    try {
+      if (wasPinned) {
+        await DatabaseService.unpinPostForMe(postId)
+        toast('Unpinned from your feed', 'success')
+      } else {
+        await DatabaseService.pinPostForMe(postId)
+        toast('Pinned to the top of your feed', 'success')
+      }
+    } catch (error) {
+      console.error('Failed to toggle personal pin:', error)
+      setPinnedPostIds((current) => {
+        const next = new Set(current)
+        if (wasPinned) next.add(postId)
+        else next.delete(postId)
+        return next
+      })
+      toast('Could not update pin', 'error')
+    } finally {
+      setPinningPostId(null)
     }
   }
 
@@ -441,12 +788,16 @@ export default function CommunityPage() {
   if (authLoading || loading || (!user && !authLoading)) {
     return (
       <PageFrame>
-        <div className="space-y-4">
-          <div className="h-24 skeleton rounded-3xl" />
-          <div className="h-12 skeleton rounded-full" />
+        <div className="space-y-5">
           <div className="space-y-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-8 w-2/3" />
+            <Skeleton className="h-4 w-full max-w-xl" />
+          </div>
+          <Skeleton className="h-12 w-full rounded-full" />
+          <div className="space-y-4">
             {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-40 skeleton rounded-3xl" />
+              <Skeleton key={index} className="h-40 rounded-2xl" />
             ))}
           </div>
         </div>
@@ -457,68 +808,86 @@ export default function CommunityPage() {
 
   return (
     <PageFrame>
-      <div className="page-grid overflow-x-hidden">
-        <section className="card overflow-hidden">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
+      <div className="page-grid space-y-6 overflow-x-hidden">
+        <header className="space-y-5">
+          <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-accent2">
                 Community
               </p>
-              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Show up with people who get it</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#eedfc8]/60">
-                Real conversations, peer support, professional guidance, and shared activities all live here now.
+              <h1 className="text-2xl font-bold text-brand-background sm:text-3xl">
+                People who get it
+              </h1>
+              <p className="max-w-2xl text-sm leading-relaxed text-brand-background/60">
+                Real conversations, peer support, professional guidance, and shared activities - all in one place.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3 text-xs text-[#eedfc8]/50">
-              <span className="badge">Posts {formatCompactNumber(posts.length)}</span>
-              <span className="badge">Angels {formatCompactNumber(angels.length)}</span>
-              <span className="badge">Mentors {formatCompactNumber(mentors.length)}</span>
-              <span className="badge">Activities {formatCompactNumber(activities.length)}</span>
+            <div className="flex flex-wrap gap-2">
+              <Badge>Posts {formatCompactNumber(posts.length)}</Badge>
+              <Badge>Angels {formatCompactNumber(angels.length)}</Badge>
+              <Badge>Mentors {formatCompactNumber(mentors.length)}</Badge>
+              <Badge>Activities {formatCompactNumber(activities.length)}</Badge>
             </div>
           </div>
 
-          <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
-            <div className="flex gap-2 overflow-x-auto rounded-2xl bg-[#eedfc8]/5 p-1.5">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex min-w-fit items-center gap-2 rounded-2xl px-4 py-2.5 text-sm transition-all ${
-                    activeTab === tab.id ? 'tab-active' : 'tab-inactive'
-                  }`}
-                >
-                  <i className={tab.icon} />
-                  {tab.label}
-                </button>
-              ))}
+          <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center">
+            <div
+              role="tablist"
+              aria-label="Community sections"
+              className="flex min-w-0 gap-1 overflow-x-auto rounded-full bg-brand-background/5 p-1.5"
+            >
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'flex min-w-fit items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40',
+                      isActive
+                        ? 'bg-brand-background/20 text-brand-background shadow-sm'
+                        : 'text-brand-background/60 hover:text-brand-background/90',
+                    )}
+                  >
+                    <i className={tab.icon} aria-hidden="true" />
+                    {tab.label}
+                  </button>
+                )
+              })}
             </div>
             {activeTab === 'discussions' && (
               <div className="relative flex-1 md:max-w-sm">
-                <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[#eedfc8]/40" />
-                <input
+                <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-brand-background/40" aria-hidden="true" />
+                <Input
+                  type="search"
                   value={postSearch}
                   onChange={(event) => setPostSearch(event.target.value)}
                   placeholder="Search posts, tags, authors"
-                  className="input-field !pl-10"
+                  aria-label="Search posts"
+                  className="h-11 pl-10"
                 />
                 {postSearch && (
                   <button
+                    type="button"
                     onClick={() => setPostSearch('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#eedfc8]/45 hover:text-[#eedfc8]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-background/45 transition-colors hover:text-brand-background"
                     aria-label="Clear search"
                   >
-                    <i className="ri-close-line" />
+                    <i className="ri-close-line" aria-hidden="true" />
                   </button>
                 )}
               </div>
             )}
           </div>
-        </section>
+        </header>
 
         {activeTab === 'discussions' && (
-          <div className="page-grid lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-start overflow-hidden">
+          <div className="page-grid gap-6 overflow-hidden lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-start">
             <div className="space-y-4">
-              <section className="card">
+              <Card>
                 <div className="flex items-start gap-3">
                   <ProfileAvatar
                     alt="Your profile"
@@ -529,44 +898,112 @@ export default function CommunityPage() {
                     username={profile?.username as string | undefined}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-[#eedfc8]">Start a discussion</p>
-                    <p className="text-xs text-[#eedfc8]/45">
-                      Share an update, ask for support, or celebrate progress.
+                    <p className="text-sm font-semibold text-brand-background">Start a discussion</p>
+                    <p className="text-xs text-brand-background/50">
+                      Share an update, ask for support, or celebrate a win.
                     </p>
                   </div>
                 </div>
 
-                <textarea
+                <Textarea
                   value={newPostContent}
                   onChange={(event) => setNewPostContent(event.target.value)}
-                  rows={3}
-                  placeholder="What is on your mind today?"
-                  className="input-field mt-4 resize-none"
+                  rows={pollMode ? 2 : 3}
+                  placeholder={pollMode ? 'Ask the community a question…' : "What’s on your mind today?"}
+                  aria-label={pollMode ? 'Poll question' : 'Write a post'}
+                  className="mt-4 resize-none"
                 />
+
+                {pollMode && (
+                  <div className="mt-3 space-y-2 rounded-2xl border border-brand-accent2/25 bg-brand-accent2/[0.05] p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-accent2">Poll options</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPollMode(false)
+                          setPollDraftOptions(['', ''])
+                          setPollMultiple(false)
+                        }}
+                        className="text-xs text-brand-background/50 transition-colors hover:text-brand-background"
+                      >
+                        Remove poll
+                      </button>
+                    </div>
+                    {pollDraftOptions.map((option, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          value={option}
+                          onChange={(event) =>
+                            setPollDraftOptions((prev) => prev.map((value, idx) => (idx === index ? event.target.value : value)))
+                          }
+                          placeholder={`Option ${index + 1}`}
+                          aria-label={`Poll option ${index + 1}`}
+                          maxLength={80}
+                        />
+                        {pollDraftOptions.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => setPollDraftOptions((prev) => prev.filter((_, idx) => idx !== index))}
+                            aria-label={`Remove option ${index + 1}`}
+                            className="shrink-0 rounded-lg p-2 text-brand-background/40 transition-colors hover:text-brand-accent1"
+                          >
+                            <i className="ri-close-line" aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      {pollDraftOptions.length < 6 ? (
+                        <button
+                          type="button"
+                          onClick={() => setPollDraftOptions((prev) => [...prev, ''])}
+                          className="text-xs font-medium text-brand-accent2 transition-colors hover:text-brand-accent2/80"
+                        >
+                          <i className="ri-add-line mr-1" aria-hidden="true" />
+                          Add option
+                        </button>
+                      ) : (
+                        <span />
+                      )}
+                      <label className="flex items-center gap-2 text-xs text-brand-background/60">
+                        <input
+                          type="checkbox"
+                          checked={pollMultiple}
+                          onChange={(event) => setPollMultiple(event.target.checked)}
+                          className="accent-brand-accent2"
+                        />
+                        Allow multiple choices
+                      </label>
+                    </div>
+                  </div>
+                )}
 
                 {/* Pending media previews */}
                 {pendingMedia.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {pendingMedia.map((item, idx) => (
-                      <div key={idx} className="relative group">
+                      <div key={idx} className="group relative">
                         {item.type === 'image' && (
-                          <img src={item.preview} alt="" className="h-20 w-20 rounded-xl object-cover border border-[#eedfc8]/10" />
+                          <img src={item.preview} alt="Attachment preview" className="h-20 w-20 rounded-xl border border-brand-background/10 object-cover" />
                         )}
                         {item.type === 'video' && (
-                          <div className="h-20 w-20 rounded-xl border border-[#eedfc8]/10 bg-[#eedfc8]/5 flex items-center justify-center">
-                            <i className="ri-video-line text-xl text-[#D19A58]" />
+                          <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-brand-background/10 bg-brand-background/5">
+                            <i className="ri-video-line text-xl text-brand-accent2" aria-hidden="true" />
                           </div>
                         )}
                         {item.type === 'audio' && (
-                          <div className="h-20 w-20 rounded-xl border border-[#eedfc8]/10 bg-[#eedfc8]/5 flex items-center justify-center">
-                            <i className="ri-mic-line text-xl text-[#6B8A83]" />
+                          <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-brand-background/10 bg-brand-background/5">
+                            <i className="ri-mic-line text-xl text-brand-accent3" aria-hidden="true" />
                           </div>
                         )}
                         <button
+                          type="button"
                           onClick={() => removePendingMedia(idx)}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#B85C3A] text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          aria-label="Remove attachment"
+                          className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand-accent1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
                         >
-                          <i className="ri-close-line" />
+                          <i className="ri-close-line" aria-hidden="true" />
                         </button>
                       </div>
                     ))}
@@ -584,36 +1021,62 @@ export default function CommunityPage() {
                       onChange={handleMediaSelect}
                     />
                     <button
+                      type="button"
                       onClick={() => mediaInputRef.current?.click()}
-                      className="flex items-center gap-1 rounded-xl bg-[#eedfc8]/8 px-2.5 py-1.5 text-xs text-[#eedfc8]/60 hover:text-[#D19A58] hover:bg-[#D19A58]/10 transition-colors"
+                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-background/8 text-brand-background/60 transition-colors hover:bg-brand-accent2/10 hover:text-brand-accent2"
+                      aria-label="Attach image or video"
                       title="Attach image or video"
                     >
-                      <i className="ri-image-line text-sm" />
+                      <i className="ri-image-line text-base" aria-hidden="true" />
                     </button>
                     <button
+                      type="button"
                       onClick={toggleVoiceRecording}
-                      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs transition-colors ${
+                      className={cn(
+                        'flex h-9 w-9 items-center justify-center rounded-xl text-base transition-colors',
                         recording
-                          ? 'bg-[#B85C3A]/20 text-[#B85C3A] animate-pulse'
-                          : 'bg-[#eedfc8]/8 text-[#eedfc8]/60 hover:text-[#6B8A83] hover:bg-[#6B8A83]/10'
-                      }`}
+                          ? 'animate-pulse bg-brand-accent1/20 text-brand-accent1'
+                          : 'bg-brand-background/8 text-brand-background/60 hover:bg-brand-accent3/10 hover:text-brand-accent3',
+                      )}
+                      aria-label={recording ? 'Stop recording' : 'Record voice'}
                       title={recording ? 'Stop recording' : 'Record voice'}
                     >
-                      <i className={recording ? 'ri-stop-circle-line text-sm' : 'ri-mic-line text-sm'} />
+                      <i className={recording ? 'ri-stop-circle-line' : 'ri-mic-line'} aria-hidden="true" />
                     </button>
-                    <span className="text-[10px] text-[#eedfc8]/30 hidden sm:inline">
-                      {profile?.is_anonymous ? 'anonymous' : 'as you'}
+                    <button
+                      type="button"
+                      onClick={() => (pollMode ? setPollMode(false) : handleCreatePoll())}
+                      className={cn(
+                        'flex h-9 w-9 items-center justify-center rounded-xl text-base transition-colors',
+                        pollMode
+                          ? 'bg-brand-accent2/20 text-brand-accent2'
+                          : 'bg-brand-background/8 text-brand-background/60 hover:bg-brand-accent2/10 hover:text-brand-accent2',
+                      )}
+                      aria-label="Create a poll"
+                      aria-pressed={pollMode}
+                      title="Create a poll"
+                    >
+                      <i className="ri-bar-chart-2-line" aria-hidden="true" />
+                    </button>
+                    <span className="hidden text-[11px] text-brand-background/35 sm:inline">
+                      {profile?.is_anonymous ? 'Posting anonymously' : 'Posting as you'}
                     </span>
                   </div>
-                  <button
+                  <Button
+                    size="sm"
                     onClick={handleCreatePost}
-                    disabled={posting || (!newPostContent.trim() && pendingMedia.length === 0)}
-                    className="btn-primary !py-2.5 !px-4 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={
+                      posting ||
+                      (pollMode
+                        ? !newPostContent.trim() || pollDraftOptions.filter((option) => option.trim()).length < 2
+                        : !newPostContent.trim() && pendingMedia.length === 0)
+                    }
+                    isLoading={posting}
                   >
-                    {posting ? 'Posting...' : 'Post'}
-                  </button>
+                    {posting ? 'Posting…' : pollMode ? 'Post poll' : 'Post'}
+                  </Button>
                 </div>
-              </section>
+              </Card>
 
               <section className="space-y-4">
                 {featuredPosts.length > 0 ? (
@@ -625,17 +1088,19 @@ export default function CommunityPage() {
                         'Community member')
 
                     const liked = likedPostIds.has(post.id)
+                    const saved = savedPostIds.has(post.id)
+                    const pinnedForMe = pinnedPostIds.has(post.id)
                     const isOwner = user && (post.user_id as string) === user.userId
                     const postMedia = (post.media as Array<{ url: string; type: string }> | undefined) || []
                     const rekindleOriginal = post.rekindle_original as Record<string, unknown> | undefined
                     const isEditing = editingPostId === post.id
 
                     return (
-                      <article key={post.id} className="card">
+                      <Card key={post.id} id={`community-post-${post.id}`}>
                         <div className="flex items-start gap-3">
-                          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#eedfc8]/10 text-sm font-bold text-[#D19A58]">
+                          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-brand-background/10 text-sm font-bold text-brand-accent2">
                             {post.is_anonymous ? (
-                              <i className="ri-spy-line text-base" />
+                              <i className="ri-spy-line text-base" aria-hidden="true" />
                             ) : (
                               <ProfileAvatar
                                 alt={author}
@@ -649,37 +1114,84 @@ export default function CommunityPage() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate font-semibold text-[#eedfc8]">{author}</p>
+                              <p className="min-w-0 max-w-full truncate font-semibold text-brand-background">{author}</p>
+                              {pinnedForMe && (
+                                <Badge tone="accent" className="text-[10px]">
+                                  <i className="ri-pushpin-fill" aria-hidden="true" /> Pinned
+                                </Badge>
+                              )}
                               {post.type === 'rekindle' && (
-                                <span className="badge text-[10px] bg-[#D19A58]/15 text-[#D19A58]">
-                                  <i className="ri-loop-left-line mr-0.5" /> rekindled
-                                </span>
+                                <Badge tone="accent" className="text-[10px]">
+                                  <i className="ri-loop-left-line" aria-hidden="true" /> rekindled
+                                </Badge>
                               )}
                               {typeof post.type === 'string' && post.type !== 'rekindle' && (
-                                <span className="badge text-[10px]">{post.type}</span>
+                                <Badge className="text-[10px] capitalize">{post.type}</Badge>
+                              )}
+                              {(post.group as { id: string; name: string } | null) && (
+                                <Link
+                                  href={`/groups/${(post.group as { id: string; name: string }).id}`}
+                                  className="inline-flex items-center gap-1 rounded-full bg-brand-accent3/15 px-2 py-0.5 text-[10px] font-medium text-brand-accent3 transition-colors hover:bg-brand-accent3/25"
+                                >
+                                  <i className="ri-group-line" aria-hidden="true" />
+                                  {(post.group as { id: string; name: string }).name}
+                                </Link>
                               )}
                               {!!post.edited && (
-                                <span className="text-[10px] text-[#eedfc8]/30 italic">edited</span>
+                                <span className="text-[10px] italic text-brand-background/35">edited</span>
                               )}
                             </div>
-                            <p className="text-xs text-[#eedfc8]/40">{formatRelativeTime(post.created_at)}</p>
+                            <p className="text-xs text-brand-background/40">{formatRelativeTime(post.created_at)}</p>
                           </div>
-                          {isOwner && !isEditing && (
+                          {!isEditing && (
                             <div className="flex items-center gap-1">
                               <button
-                                onClick={() => { setEditingPostId(post.id); setEditContent(post.content as string || '') }}
-                                className="flex h-8 w-8 items-center justify-center rounded-xl text-[#eedfc8]/30 hover:text-[#eedfc8]/60 hover:bg-[#eedfc8]/8 transition-colors"
-                                title="Edit post"
+                                type="button"
+                                onClick={() => handleTogglePinForMe(post.id)}
+                                disabled={pinningPostId === post.id}
+                                className={cn(
+                                  'flex h-9 w-9 items-center justify-center rounded-xl transition-colors disabled:opacity-50',
+                                  pinnedForMe
+                                    ? 'text-brand-accent2 hover:bg-brand-accent2/10'
+                                    : 'text-brand-background/35 hover:bg-brand-background/8 hover:text-brand-accent2',
+                                )}
+                                aria-label={pinnedForMe ? 'Unpin from your feed' : 'Pin to top of your feed'}
+                                aria-pressed={pinnedForMe}
+                                title={pinnedForMe ? 'Unpin from your feed' : 'Pin to top of your feed'}
                               >
-                                <i className="ri-pencil-line text-sm" />
+                                <i className={pinnedForMe ? 'ri-pushpin-fill text-sm' : 'ri-pushpin-line text-sm'} aria-hidden="true" />
                               </button>
-                              <button
-                                onClick={() => handleDeletePost(post.id)}
-                                className="flex h-8 w-8 items-center justify-center rounded-xl text-[#eedfc8]/30 hover:text-[#B85C3A] hover:bg-[#B85C3A]/10 transition-colors"
-                                title="Delete post"
-                              >
-                                <i className="ri-delete-bin-line text-sm" />
-                              </button>
+                              {isOwner && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setEditingPostId(post.id); setEditContent(post.content as string || '') }}
+                                    className="flex h-9 w-9 items-center justify-center rounded-xl text-brand-background/35 transition-colors hover:bg-brand-background/8 hover:text-brand-background/60"
+                                    aria-label="Edit post"
+                                    title="Edit post"
+                                  >
+                                    <i className="ri-pencil-line text-sm" aria-hidden="true" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePost(post.id)}
+                                    className="flex h-9 w-9 items-center justify-center rounded-xl text-brand-background/35 transition-colors hover:bg-brand-accent1/10 hover:text-brand-accent1"
+                                    aria-label="Delete post"
+                                    title="Delete post"
+                                  >
+                                    <i className="ri-delete-bin-line text-sm" aria-hidden="true" />
+                                  </button>
+                                </>
+                              )}
+                              {user && !isOwner && (
+                                <ReportDialog
+                                  targetType="post"
+                                  targetId={post.id}
+                                  targetOwnerId={post.user_id as string | undefined}
+                                  compact
+                                  className="flex h-9 w-9 items-center justify-center rounded-xl text-brand-background/35 transition-colors hover:bg-brand-accent1/10 hover:text-brand-accent1"
+                                />
+                              )}
                             </div>
                           )}
                         </div>
@@ -687,46 +1199,99 @@ export default function CommunityPage() {
                         {/* Post content or edit mode */}
                         {isEditing ? (
                           <div className="mt-3">
-                            <textarea
+                            <Textarea
                               value={editContent}
                               onChange={(e) => setEditContent(e.target.value)}
                               rows={3}
-                              className="input-field resize-none w-full"
+                              aria-label="Edit post content"
+                              className="resize-none"
                             />
-                            <div className="mt-2 flex items-center gap-2 justify-end">
-                              <button onClick={() => { setEditingPostId(null); setEditContent('') }} className="text-xs text-[#eedfc8]/50 px-3 py-1.5 rounded-xl hover:bg-[#eedfc8]/8">
+                            <div className="mt-2 flex items-center justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => { setEditingPostId(null); setEditContent('') }}>
                                 Cancel
-                              </button>
-                              <button
+                              </Button>
+                              <Button
+                                size="sm"
                                 onClick={() => handleEditPost(post.id)}
                                 disabled={saving || !editContent.trim()}
-                                className="btn-primary !py-1.5 !px-3 text-xs disabled:opacity-50"
+                                isLoading={saving}
                               >
-                                {saving ? 'Saving...' : 'Save'}
-                              </button>
+                                {saving ? 'Saving…' : 'Save'}
+                              </Button>
                             </div>
                           </div>
                         ) : (
                           <>
                             {(post.content as string)?.trim() && (
-                              <p className="mt-4 text-sm leading-relaxed text-[#eedfc8]/75">
+                              <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-brand-background/75">
                                 {post.content as string}
                               </p>
                             )}
                           </>
                         )}
 
+                        {/* Poll */}
+                        {(() => {
+                          const poll = pollsByPost[post.id]
+                          if (!poll) return null
+                          const total = poll.total_votes
+                          const hasVoted = poll.my_option_ids.length > 0
+                          return (
+                            <div className="mt-4 space-y-2">
+                              {poll.question && (
+                                <p className="text-sm font-semibold text-brand-background">{poll.question}</p>
+                              )}
+                              {poll.options.map((option) => {
+                                const pct = total > 0 ? Math.round((option.votes_count / total) * 100) : 0
+                                const mine = poll.my_option_ids.includes(option.id)
+                                return (
+                                  <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => handleVote(poll.id, option.id, post.id)}
+                                    disabled={poll.closed}
+                                    aria-pressed={mine}
+                                    className={cn(
+                                      'relative w-full overflow-hidden rounded-xl border px-3 py-2.5 text-left transition-colors',
+                                      mine ? 'border-brand-accent2/50' : 'border-brand-background/12 hover:border-brand-accent2/30',
+                                      poll.closed && 'cursor-default',
+                                    )}
+                                  >
+                                    <span
+                                      className="absolute inset-y-0 left-0 bg-brand-accent2/15 transition-all"
+                                      style={{ width: `${pct}%` }}
+                                      aria-hidden="true"
+                                    />
+                                    <span className="relative flex items-center justify-between gap-2 text-sm">
+                                      <span className="flex items-center gap-1.5 font-medium text-brand-background">
+                                        {mine && <i className="ri-checkbox-circle-fill text-brand-accent2" aria-hidden="true" />}
+                                        {option.label}
+                                      </span>
+                                      <span className="shrink-0 text-xs text-brand-background/55">{pct}%</span>
+                                    </span>
+                                  </button>
+                                )
+                              })}
+                              <p className="text-xs text-brand-background/45">
+                                {total} {total === 1 ? 'vote' : 'votes'}
+                                {poll.allow_multiple ? ' · pick as many as you like' : ''}
+                                {poll.closed ? ' · closed' : hasVoted ? ' · tap to change' : ''}
+                              </p>
+                            </div>
+                          )
+                        })()}
+
                         {/* Rekindle embed (original post) */}
                         {rekindleOriginal && (
-                          <div className="mt-3 rounded-2xl border border-[#eedfc8]/10 bg-[#eedfc8]/4 p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <i className="ri-loop-left-line text-xs text-[#D19A58]" />
-                              <span className="text-xs font-medium text-[#eedfc8]/60">
+                          <div className="mt-3 rounded-2xl border border-brand-background/10 bg-brand-background/[0.04] p-4">
+                            <div className="mb-2 flex items-center gap-2">
+                              <i className="ri-loop-left-line shrink-0 text-xs text-brand-accent2" aria-hidden="true" />
+                              <span className="min-w-0 truncate text-xs font-medium text-brand-background/60">
                                 {rekindleOriginal.author_name as string || 'Someone'}
                               </span>
                             </div>
                             {(rekindleOriginal.content as string)?.trim() && (
-                              <p className="text-sm leading-relaxed text-[#eedfc8]/60">
+                              <p className="break-words text-sm leading-relaxed text-brand-background/60">
                                 {rekindleOriginal.content as string}
                               </p>
                             )}
@@ -736,7 +1301,7 @@ export default function CommunityPage() {
                                 {(rekindleOriginal.media as Array<{ url: string; type: string }>).map((m, i) => (
                                   <div key={i}>
                                     {m.type === 'image' && (
-                                      <img src={m.url} alt="" className="max-h-32 rounded-xl object-cover" />
+                                      <img src={m.url} alt="" className="max-h-32 max-w-full rounded-xl object-cover" />
                                     )}
                                   </div>
                                 ))}
@@ -754,22 +1319,22 @@ export default function CommunityPage() {
                                   <img
                                     src={media.url}
                                     alt=""
-                                    className="w-full max-h-80 rounded-2xl object-cover border border-[#eedfc8]/10"
+                                    className="mx-auto max-h-[34rem] w-auto max-w-full rounded-2xl border border-brand-background/10 bg-black/20 object-contain"
                                   />
                                 )}
                                 {media.type === 'video' && (
                                   <video
                                     src={media.url}
                                     controls
-                                    className="w-full max-h-80 rounded-2xl border border-[#eedfc8]/10 bg-black"
+                                    className="max-h-80 w-full rounded-2xl border border-brand-background/10 bg-black"
                                   />
                                 )}
                                 {media.type === 'audio' && (
-                                  <div className="flex items-center gap-3 rounded-2xl border border-[#eedfc8]/10 bg-[#eedfc8]/4 p-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#6B8A83]/16">
-                                      <i className="ri-mic-line text-lg text-[#6B8A83]" />
+                                  <div className="flex items-center gap-3 rounded-2xl border border-brand-background/10 bg-brand-background/[0.04] p-3">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent3/16">
+                                      <i className="ri-mic-line text-lg text-brand-accent3" aria-hidden="true" />
                                     </div>
-                                    <audio src={media.url} controls className="flex-1 h-8" style={{ minWidth: 0 }} />
+                                    <audio src={media.url} controls className="h-8 flex-1" style={{ minWidth: 0 }} />
                                   </div>
                                 )}
                               </div>
@@ -784,16 +1349,18 @@ export default function CommunityPage() {
                               const reacted = userReactions.has(`${post.id}:${emoji}`)
                               return (
                                 <button
+                                  type="button"
                                   key={emoji}
                                   onClick={() => handleEmojiReaction(post.id, emoji)}
-                                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-all ${
+                                  className={cn(
+                                    'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-all',
                                     reacted
-                                      ? 'bg-[#D19A58]/20 border border-[#D19A58]/40'
-                                      : 'bg-[#eedfc8]/8 border border-[#eedfc8]/10 hover:bg-[#eedfc8]/14'
-                                  }`}
+                                      ? 'border border-brand-accent2/40 bg-brand-accent2/20'
+                                      : 'border border-brand-background/10 bg-brand-background/8 hover:bg-brand-background/14',
+                                  )}
                                 >
                                   <span className="text-sm">{emoji}</span>
-                                  <span className={reacted ? 'text-[#D19A58] font-semibold' : 'text-[#eedfc8]/60'}>
+                                  <span className={reacted ? 'font-semibold text-brand-accent2' : 'text-brand-background/60'}>
                                     {count}
                                   </span>
                                 </button>
@@ -802,65 +1369,90 @@ export default function CommunityPage() {
                           </div>
                         )}
 
-                        {/* Rekindle modal inline */}
+                        {/* Rekindle composer inline */}
                         {rekindlingPostId === post.id && (
-                          <div className="mt-3 rounded-2xl border border-[#D19A58]/20 bg-[#D19A58]/5 p-3">
-                            <p className="text-xs font-semibold text-[#D19A58] mb-2">
-                              <i className="ri-loop-left-line mr-1" /> Rekindle this post
+                          <div className="mt-3 rounded-2xl border border-brand-accent2/20 bg-brand-accent2/5 p-3">
+                            <p className="mb-2 text-xs font-semibold text-brand-accent2">
+                              <i className="ri-loop-left-line mr-1" aria-hidden="true" /> Rekindle this post
                             </p>
-                            <textarea
+                            <Textarea
                               value={rekindleComment}
                               onChange={(e) => setRekindleComment(e.target.value)}
                               rows={2}
-                              placeholder="Add a thought (optional)..."
-                              className="input-field resize-none w-full text-xs"
+                              placeholder="Add a thought (optional)…"
+                              aria-label="Rekindle comment"
+                              className="resize-none text-xs"
                             />
-                            <div className="mt-2 flex items-center gap-2 justify-end">
-                              <button onClick={() => { setRekindlingPostId(null); setRekindleComment('') }} className="text-xs text-[#eedfc8]/50 px-3 py-1.5 rounded-xl hover:bg-[#eedfc8]/8">
+                            <div className="mt-2 flex items-center justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => { setRekindlingPostId(null); setRekindleComment('') }}>
                                 Cancel
-                              </button>
-                              <button
+                              </Button>
+                              <Button
+                                size="sm"
                                 onClick={() => handleRekindle(post.id)}
                                 disabled={rekindling}
-                                className="btn-primary !py-1.5 !px-3 text-xs disabled:opacity-50"
+                                isLoading={rekindling}
                               >
-                                {rekindling ? 'Rekindling...' : 'Rekindle'}
-                              </button>
+                                {rekindling ? 'Rekindling…' : 'Rekindle'}
+                              </Button>
                             </div>
                           </div>
                         )}
 
-                        <div className="mt-3 flex items-center gap-3 border-t border-[#eedfc8]/8 pt-3 text-sm">
+                        <div className="mt-3 flex items-center gap-1 border-t border-brand-background/8 pt-3 text-sm">
                           <button
+                            type="button"
                             onClick={() => handleToggleLike(post.id)}
-                            className={`flex items-center gap-1.5 transition-colors ${
-                              liked ? 'text-[#B85C3A]' : 'text-[#eedfc8]/45'
-                            }`}
+                            className={cn(
+                              'flex items-center gap-1.5 rounded-full px-2.5 py-1.5 transition-colors hover:bg-brand-background/8',
+                              liked ? 'text-brand-accent1' : 'text-brand-background/45',
+                            )}
+                            aria-label={liked ? 'Unlike post' : 'Like post'}
+                            aria-pressed={liked}
                           >
-                            <i className={liked ? 'ri-heart-fill' : 'ri-heart-line'} />
+                            <i className={liked ? 'ri-heart-fill' : 'ri-heart-line'} aria-hidden="true" />
                             {formatCompactNumber(post.likes_count as number | undefined)}
                           </button>
                           <button
+                            type="button"
                             onClick={() => toggleComments(post.id)}
-                            className={`flex items-center gap-1.5 transition-colors ${
-                              openCommentsFor.has(post.id) ? 'text-[#D19A58]' : 'text-[#eedfc8]/45 hover:text-[#D19A58]'
-                            }`}
-                            title="Comments"
+                            className={cn(
+                              'flex items-center gap-1.5 rounded-full px-2.5 py-1.5 transition-colors hover:bg-brand-background/8',
+                              openCommentsFor.has(post.id) ? 'text-brand-accent2' : 'text-brand-background/45 hover:text-brand-accent2',
+                            )}
+                            aria-label="Comments"
+                            aria-expanded={openCommentsFor.has(post.id)}
                           >
-                            <i className="ri-chat-1-line" />
+                            <i className="ri-chat-1-line" aria-hidden="true" />
                             {formatCompactNumber(post.comments_count as number | undefined)}
                           </button>
 
                           {/* Rekindle button */}
                           <button
+                            type="button"
                             onClick={() => setRekindlingPostId(rekindlingPostId === post.id ? null : post.id)}
-                            className={`flex items-center gap-1.5 transition-colors ${
-                              rekindlingPostId === post.id ? 'text-[#D19A58]' : 'text-[#eedfc8]/45 hover:text-[#D19A58]'
-                            }`}
-                            title="Rekindle"
+                            className={cn(
+                              'flex items-center gap-1.5 rounded-full px-2.5 py-1.5 transition-colors hover:bg-brand-background/8',
+                              rekindlingPostId === post.id ? 'text-brand-accent2' : 'text-brand-background/45 hover:text-brand-accent2',
+                            )}
+                            aria-label="Rekindle"
                           >
-                            <i className="ri-loop-left-line" />
+                            <i className="ri-loop-left-line" aria-hidden="true" />
                             {formatCompactNumber(post.rekindle_count as number | undefined)}
+                          </button>
+
+                          {/* Save / bookmark button */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSave(post.id)}
+                            className={cn(
+                              'flex items-center gap-1.5 rounded-full px-2.5 py-1.5 transition-colors hover:bg-brand-background/8',
+                              saved ? 'text-brand-accent3' : 'text-brand-background/45 hover:text-brand-accent3',
+                            )}
+                            aria-label={saved ? 'Remove from saved' : 'Save post'}
+                            aria-pressed={saved}
+                          >
+                            <i className={saved ? 'ri-bookmark-fill' : 'ri-bookmark-line'} aria-hidden="true" />
                           </button>
 
                           {/* Emoji react button */}
@@ -872,7 +1464,8 @@ export default function CommunityPage() {
                                   type="text"
                                   inputMode="text"
                                   autoFocus
-                                  className="w-12 rounded-full bg-[#eedfc8]/10 border border-[#eedfc8]/20 px-2 py-1 text-center text-base text-[#eedfc8] outline-none focus:border-[#D19A58]/50"
+                                  aria-label="Type an emoji to react"
+                                  className="w-12 rounded-full border border-brand-background/20 bg-brand-background/10 px-2 py-1 text-center text-base text-brand-background outline-none focus:border-brand-accent2/50"
                                   placeholder="?"
                                   onInput={(e) => {
                                     const val = (e.target as HTMLInputElement).value
@@ -884,33 +1477,37 @@ export default function CommunityPage() {
                                   }}
                                 />
                                 <button
+                                  type="button"
                                   onClick={() => setEmojiInputPostId(null)}
-                                  className="text-[#eedfc8]/40 text-xs"
+                                  className="text-xs text-brand-background/40"
+                                  aria-label="Close emoji input"
                                 >
-                                  <i className="ri-close-line" />
+                                  <i className="ri-close-line" aria-hidden="true" />
                                 </button>
                               </div>
                             ) : (
                               <button
+                                type="button"
                                 onClick={() => {
                                   setEmojiInputPostId(post.id)
                                   setTimeout(() => emojiInputRef.current?.focus(), 50)
                                 }}
-                                className="flex items-center gap-1.5 text-[#eedfc8]/45 hover:text-[#D19A58] transition-colors"
+                                className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-brand-background/45 transition-colors hover:bg-brand-background/8 hover:text-brand-accent2"
+                                aria-label="React with emoji"
                                 title="React with emoji"
                               >
-                                <i className="ri-emotion-happy-line" />
+                                <i className="ri-emotion-happy-line" aria-hidden="true" />
                               </button>
                             )}
                           </div>
                         </div>
 
                         {openCommentsFor.has(post.id) && (
-                          <div className="mt-3 space-y-3 border-t border-[#eedfc8]/8 pt-3">
+                          <div className="mt-3 space-y-3 border-t border-brand-background/8 pt-3">
                             {loadingCommentsFor.has(post.id) ? (
-                              <p className="text-xs text-[#eedfc8]/45">Loading comments…</p>
+                              <p className="text-xs text-brand-background/45">Loading comments…</p>
                             ) : (commentsByPost[post.id] ?? []).length === 0 ? (
-                              <p className="text-xs text-[#eedfc8]/45">Be the first to reply.</p>
+                              <p className="text-xs text-brand-background/45">Be the first to reply.</p>
                             ) : (
                               <ul className="space-y-3">
                                 {(commentsByPost[post.id] ?? []).map((comment) => {
@@ -922,9 +1519,9 @@ export default function CommunityPage() {
                                         'Community member')
                                   return (
                                     <li key={comment.id} className="flex gap-3">
-                                      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6B8A83]/25 text-xs font-bold text-[#6B8A83]">
+                                      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-accent3/25 text-xs font-bold text-brand-accent3">
                                         {comment.is_anonymous ? (
-                                          <i className="ri-spy-line text-sm" />
+                                          <i className="ri-spy-line text-sm" aria-hidden="true" />
                                         ) : (
                                           <ProfileAvatar
                                             alt={commentAuthorName}
@@ -936,13 +1533,13 @@ export default function CommunityPage() {
                                           />
                                         )}
                                       </div>
-                                      <div className="min-w-0 flex-1 rounded-2xl bg-[#eedfc8]/6 px-3 py-2">
-                                        <div className="flex items-center gap-2 text-xs text-[#eedfc8]/50">
-                                          <span className="font-semibold text-[#eedfc8]/80">{commentAuthorName}</span>
-                                          <span>·</span>
-                                          <span>{formatRelativeTime(comment.created_at)}</span>
+                                      <div className="min-w-0 flex-1 rounded-2xl bg-brand-background/6 px-3 py-2">
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-brand-background/50">
+                                          <span className="min-w-0 max-w-full truncate font-semibold text-brand-background/80">{commentAuthorName}</span>
+                                          <span aria-hidden="true">·</span>
+                                          <span className="shrink-0">{formatRelativeTime(comment.created_at)}</span>
                                         </div>
-                                        <p className="mt-1 whitespace-pre-wrap text-sm text-[#eedfc8]/80">
+                                        <p className="mt-1 whitespace-pre-wrap break-words text-sm text-brand-background/80">
                                           {comment.content as string}
                                         </p>
                                       </div>
@@ -953,7 +1550,7 @@ export default function CommunityPage() {
                             )}
 
                             <div className="flex items-start gap-2">
-                              <textarea
+                              <Textarea
                                 value={commentDrafts[post.id] ?? ''}
                                 onChange={(event) =>
                                   setCommentDrafts((current) => ({
@@ -968,64 +1565,204 @@ export default function CommunityPage() {
                                   }
                                 }}
                                 placeholder="Write a supportive reply…"
+                                aria-label="Write a reply"
                                 rows={1}
-                                className="input-field flex-1 !py-2 text-sm"
+                                className="flex-1 resize-none !py-2.5"
                               />
-                              <button
+                              <Button
                                 onClick={() => void submitComment(post.id)}
                                 disabled={commentingPostId === post.id || !(commentDrafts[post.id] ?? '').trim()}
-                                className="btn-primary !rounded-2xl !px-4 !py-2 text-sm disabled:opacity-50"
+                                isLoading={commentingPostId === post.id}
                               >
                                 {commentingPostId === post.id ? 'Sending…' : 'Reply'}
-                              </button>
+                              </Button>
                             </div>
                           </div>
                         )}
-                      </article>
+                      </Card>
                     )
                   })
                 ) : loading ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {Array.from({ length: 3 }).map((_, index) => (
-                      <div key={index} className="h-28 skeleton rounded-3xl" />
+                      <Skeleton key={index} className="h-28 rounded-2xl" />
                     ))}
                   </div>
+                ) : postSearch ? (
+                  <EmptyState
+                    icon={<i className="ri-search-line text-3xl" aria-hidden="true" />}
+                    title="No posts match that search"
+                    description="Try a different word, or clear the search to see every discussion."
+                    action={
+                      <Button variant="secondary" onClick={() => setPostSearch('')}>
+                        Clear search
+                      </Button>
+                    }
+                  />
                 ) : (
-                  <div className="card-light text-center">
-                    <i className="ri-chat-smile-3-line text-3xl text-[#eedfc8]/30" />
-                    <p className="mt-3 text-sm text-[#eedfc8]/60">No one has posted here yet.</p>
-                    <p className="mt-1 text-xs text-[#eedfc8]/40">Your post can be the one that starts the conversation.</p>
-                  </div>
+                  <EmptyState
+                    icon={<i className="ri-chat-smile-3-line text-3xl" aria-hidden="true" />}
+                    title="No posts here yet"
+                    description="It’s quiet for now. Your post could be the one that starts the conversation."
+                  />
                 )}
               </section>
             </div>
 
             <aside className="space-y-4">
-              <section className="card">
-                <h2 className="section-title">Community rhythm</h2>
+              <Card className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-bold text-brand-background">Needs a reply</h2>
+                    <p className="mt-1 text-sm leading-relaxed text-brand-background/60">
+                      Recent posts where your lived experience may help.
+                    </p>
+                  </div>
+                  {replyQueue.length > 0 && <Badge tone="sage">{replyQueue.length}</Badge>}
+                </div>
+
+                {replyQueue.length > 0 ? (
+                  <div className="space-y-2">
+                    {replyQueue.map((item) => {
+                      const author = item.author
+                      const authorName =
+                        author?.full_name ||
+                        author?.fullName ||
+                        author?.username ||
+                        (author ? 'Community member' : 'Anonymous')
+                      const avatarUrl = author?.avatar_url || author?.avatarUrl || undefined
+                      const authorUserId = author?.user_id || author?.userId || author?.id
+                      const commentsCount = item.comments_count ?? item.commentsCount ?? 0
+                      const reasons = (item.reasons ?? []).slice(0, 3)
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => void openReplyTarget(item.id)}
+                          className="group w-full rounded-2xl border border-brand-background/10 bg-brand-background/[0.035] p-3 text-left transition-colors hover:border-brand-accent2/35 hover:bg-brand-accent2/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent2/40"
+                          aria-label={`Open replies for ${authorName}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-brand-background/10 text-brand-accent2">
+                              {author ? (
+                                <ProfileAvatar
+                                  alt={authorName}
+                                  avatarUrl={avatarUrl}
+                                  className="h-9 w-9 rounded-xl object-cover"
+                                  fullName={authorName}
+                                  userId={authorUserId}
+                                  username={author?.username ?? undefined}
+                                />
+                              ) : (
+                                <i className="ri-spy-line text-sm" aria-hidden="true" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="min-w-0 truncate text-sm font-semibold text-brand-background">
+                                  {authorName}
+                                </p>
+                                <span className="shrink-0 text-[11px] text-brand-background/45">
+                                  {formatRelativeTime(item.created_at ?? item.createdAt)}
+                                </span>
+                              </div>
+                              {item.group && (
+                                <p className="mt-0.5 truncate text-[11px] text-brand-accent3">
+                                  {item.group.name}
+                                </p>
+                              )}
+                              <p className="mt-2 text-sm leading-relaxed text-brand-background/70">
+                                {item.content || 'Open discussion'}
+                              </p>
+                              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                                {reasons.map((reason) => (
+                                  <span
+                                    key={reason}
+                                    className="rounded-full bg-brand-surface px-2 py-0.5 text-[11px] font-medium text-brand-background/65"
+                                  >
+                                    {reason}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="mt-3 flex items-center justify-between gap-2 text-xs">
+                                <span className="text-brand-background/45">
+                                  {commentsCount === 0
+                                    ? 'No replies'
+                                    : `${formatCompactNumber(commentsCount)} ${commentsCount === 1 ? 'reply' : 'replies'}`}
+                                </span>
+                                <span className="inline-flex items-center gap-1 font-semibold text-brand-accent2 transition-colors group-hover:text-brand-accent2/80">
+                                  Reply
+                                  <i className="ri-arrow-right-s-line" aria-hidden="true" />
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-brand-background/10 bg-brand-background/[0.035] p-4">
+                    <p className="text-sm font-semibold text-brand-background">Replies look healthy right now.</p>
+                    <p className="mt-1 text-sm leading-relaxed text-brand-background/60">
+                      Check the feed for new posts or start a discussion.
+                    </p>
+                  </div>
+                )}
+              </Card>
+
+              <Card>
+                <h2 className="mb-3 text-base font-bold text-brand-background">Community rhythm</h2>
                 <div className="space-y-3">
-                  <div className="card-light !p-4">
-                    <p className="text-xs text-[#eedfc8]/45">Latest activity</p>
-                    <p className="mt-1 text-sm font-semibold text-[#eedfc8]">
+                  <Card variant="light" className="p-4">
+                    <p className="text-xs text-brand-background/45">Latest activity</p>
+                    <p className="mt-1 text-sm font-semibold text-brand-background">
                       {featuredPosts[0] ? formatRelativeTime(featuredPosts[0].created_at) : 'Waiting for the first update'}
                     </p>
-                  </div>
-                  <div className="card-light !p-4">
-                    <p className="text-xs text-[#eedfc8]/45">Support available now</p>
-                    <p className="mt-1 text-sm font-semibold text-[#eedfc8]">
+                  </Card>
+                  <Card variant="light" className="p-4">
+                    <p className="text-xs text-brand-background/45">Support available now</p>
+                    <p className="mt-1 text-sm font-semibold text-brand-background">
                       {(angels.length + mentors.length) > 0
                         ? `${formatCompactNumber(angels.length + mentors.length)} ${angels.length + mentors.length === 1 ? 'peer' : 'peers'} ready to help`
-                        : 'Share here — replies come from the whole community.'}
+                        : 'Share here - replies come from the whole community.'}
                     </p>
-                  </div>
+                  </Card>
                 </div>
-              </section>
+              </Card>
             </aside>
           </div>
         )}
 
         {activeTab === 'angels' && (
-          <section className="page-card-grid">
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="sm:col-span-2 lg:col-span-3">
+              {creator === 'angel' ? (
+                <Card className="space-y-3">
+                  <h3 className="font-semibold text-brand-background">Become an angel</h3>
+                  <p className="text-sm text-brand-background/60">
+                    Volunteer as a peer supporter. People navigating something similar can choose you to walk alongside them.
+                  </p>
+                  <Input placeholder="Your focus (e.g. anxiety, grief, chronic pain)" value={String(creatorForm.specialty ?? '')} onChange={(e) => setField('specialty', e.target.value)} />
+                  <Input placeholder="Your support style (e.g. warm listener, practical)" value={String(creatorForm.supportStyle ?? '')} onChange={(e) => setField('supportStyle', e.target.value)} />
+                  <Textarea rows={3} placeholder="A short note about how you can help…" value={String(creatorForm.bio ?? '')} onChange={(e) => setField('bio', e.target.value)} />
+                  <Input type="number" min={1} max={20} placeholder="People you can support at once (default 3)" value={String(creatorForm.maxSouls ?? '')} onChange={(e) => setField('maxSouls', e.target.value)} />
+                  <div className="flex gap-2">
+                    <Button onClick={handleBecomeAngel} isLoading={creatorSubmitting} disabled={creatorSubmitting}>List me as an angel</Button>
+                    <Button variant="ghost" onClick={closeCreator}>Cancel</Button>
+                  </div>
+                </Card>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-background/10 bg-brand-background/[0.04] p-4">
+                  <p className="text-sm text-brand-background/70">
+                    <i className="ri-hand-heart-line mr-1.5 text-brand-accent2" aria-hidden="true" />
+                    Want to support others? Volunteer as a peer angel.
+                  </p>
+                  <Button variant="secondary" onClick={() => { setCreator('angel'); setCreatorForm({}) }}>Become an angel</Button>
+                </div>
+              )}
+            </div>
             {angels.length > 0 ? (
               angels.map((angel) => {
                 const profileData = (angel.profile as Record<string, unknown> | undefined) ?? {}
@@ -1036,7 +1773,7 @@ export default function CommunityPage() {
 
                 const isChoosing = choosingAngelIds.has(angel.id as string)
                 return (
-                  <article key={angel.id as string} className="card">
+                  <Card key={angel.id as string} className="flex flex-col">
                     <div className="flex items-start gap-3">
                       <ProfileAvatar
                         alt={name}
@@ -1048,46 +1785,84 @@ export default function CommunityPage() {
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <h2 className="truncate font-semibold text-[#eedfc8]">{name}</h2>
-                          <span className="h-2 w-2 rounded-full bg-green-400" />
+                          <h2 className="min-w-0 truncate font-semibold text-brand-background">{name}</h2>
+                          <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-medium text-emerald-300">
+                            <span className="h-2 w-2 rounded-full bg-emerald-400" aria-hidden="true" />
+                            Available
+                          </span>
                         </div>
-                        <p className="text-xs text-[#D19A58]">{angel.specialty as string}</p>
-                        <p className="mt-1 text-xs text-[#eedfc8]/45">
+                        <p className="break-words text-xs text-brand-accent2">{angel.specialty as string}</p>
+                        <p className="mt-1 text-xs text-brand-background/45">
                           Rating {angel.rating as number} • {(angel.response_time as string | undefined) || 'Responds soon'}
                         </p>
                       </div>
                     </div>
 
-                    <p className="mt-4 text-sm leading-relaxed text-[#eedfc8]/70">
-                      {(angel.bio as string | undefined) || 'A real peer supporter available to walk alongside you.'}
+                    <p className="mt-4 break-words text-sm leading-relaxed text-brand-background/70">
+                      {(angel.bio as string | undefined) || 'A real peer supporter, here to walk alongside you.'}
                     </p>
 
-                    <div className="mt-4 flex items-center justify-between text-xs text-[#eedfc8]/45">
+                    <div className="mt-4 flex items-center justify-between text-xs text-brand-background/45">
                       <span>{angel.current_souls as number}/{angel.max_souls as number} members supported</span>
                       <span>{formatCompactNumber(angel.total_reviews as number | undefined)} reviews</span>
                     </div>
 
-                    <button
-                      onClick={() => handleChooseAngel(angel.id as string)}
-                      disabled={isChoosing}
-                      className="btn-primary mt-4 w-full !py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isChoosing ? 'Connecting...' : 'Choose this angel'}
-                    </button>
-                  </article>
+                    <div className="mt-5 pt-1">
+                      <Button
+                        onClick={() => handleChooseAngel(angel.id as string)}
+                        disabled={isChoosing}
+                        isLoading={isChoosing}
+                        fullWidth
+                      >
+                        {isChoosing ? 'Connecting…' : 'Choose this angel'}
+                      </Button>
+                    </div>
+                  </Card>
                 )
               })
             ) : (
-              <div className="card-light text-center">
-                <i className="ri-heart-pulse-line text-3xl text-[#eedfc8]/30" />
-                <p className="mt-3 text-sm text-[#eedfc8]/60">No angels are marked available right now.</p>
-              </div>
+              <EmptyState
+                className="sm:col-span-2 lg:col-span-3"
+                icon={<i className="ri-heart-pulse-line text-3xl" aria-hidden="true" />}
+                title="No angels available right now"
+                description="Peer supporters step in when they can. Check back soon, or share in Discussions - the whole community is here for you."
+                action={
+                  <Button variant="secondary" onClick={() => setActiveTab('discussions')}>
+                    Go to Discussions
+                  </Button>
+                }
+              />
             )}
           </section>
         )}
 
         {activeTab === 'mentors' && (
-          <section className="page-card-grid">
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="sm:col-span-2 lg:col-span-3">
+              {creator === 'mentor' ? (
+                <Card className="space-y-3">
+                  <h3 className="font-semibold text-brand-background">Become a mentor</h3>
+                  <p className="text-sm text-brand-background/60">
+                    Offer guided, structured support in areas you know well. Members can find you here.
+                  </p>
+                  <Input placeholder="Areas of expertise, comma separated (e.g. ADHD, recovery, caregiving)" value={String(creatorForm.expertise ?? '')} onChange={(e) => setField('expertise', e.target.value)} />
+                  <Input type="number" min={0} max={60} placeholder="Years of experience" value={String(creatorForm.experienceYears ?? '')} onChange={(e) => setField('experienceYears', e.target.value)} />
+                  <Textarea rows={3} placeholder="A short note about your approach…" value={String(creatorForm.bio ?? '')} onChange={(e) => setField('bio', e.target.value)} />
+                  <div className="flex gap-2">
+                    <Button onClick={handleBecomeMentor} isLoading={creatorSubmitting} disabled={creatorSubmitting}>List me as a mentor</Button>
+                    <Button variant="ghost" onClick={closeCreator}>Cancel</Button>
+                  </div>
+                </Card>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-background/10 bg-brand-background/[0.04] p-4">
+                  <p className="text-sm text-brand-background/70">
+                    <i className="ri-user-star-line mr-1.5 text-brand-accent2" aria-hidden="true" />
+                    Have experience to share? Offer guided support as a mentor.
+                  </p>
+                  <Button variant="secondary" onClick={() => { setCreator('mentor'); setCreatorForm({}) }}>Become a mentor</Button>
+                </div>
+              )}
+            </div>
             {mentors.length > 0 ? (
               mentors.map((mentor) => {
                 const profileData = (mentor.profile as Record<string, unknown> | undefined) ?? {}
@@ -1097,7 +1872,7 @@ export default function CommunityPage() {
                   'Mentor'
 
                 return (
-                  <article key={mentor.id as string} className="card">
+                  <Card key={mentor.id as string} className="flex flex-col">
                     <div className="flex items-start gap-3">
                       <ProfileAvatar
                         alt={name}
@@ -1108,11 +1883,11 @@ export default function CommunityPage() {
                         username={profileData.username as string | undefined}
                       />
                       <div className="min-w-0 flex-1">
-                        <h2 className="truncate font-semibold text-[#eedfc8]">{name}</h2>
-                        <p className="text-xs text-[#eedfc8]/45">
+                        <h2 className="min-w-0 truncate font-semibold text-brand-background">{name}</h2>
+                        <p className="break-words text-xs text-brand-background/45">
                           {(mentor.credentials as string | undefined) || 'Guided support'}
                         </p>
-                        <p className="mt-1 text-xs text-[#D19A58]">
+                        <p className="mt-1 text-xs text-brand-accent2">
                           Rating {mentor.rating as number} • {formatCompactNumber(mentor.sessions_completed as number | undefined)} sessions
                         </p>
                       </div>
@@ -1120,33 +1895,80 @@ export default function CommunityPage() {
 
                     <div className="mt-4 flex flex-wrap gap-2">
                       {((mentor.expertise as string[] | undefined) || []).slice(0, 4).map((topic) => (
-                        <span key={topic} className="badge text-[10px]">
+                        <Badge key={topic} className="text-[10px]">
                           {topic}
-                        </span>
+                        </Badge>
                       ))}
                     </div>
 
-                    <p className="mt-4 text-sm leading-relaxed text-[#eedfc8]/70">
+                    <p className="mt-4 break-words text-sm leading-relaxed text-brand-background/70">
                       {(mentor.bio as string | undefined) || 'Available for guided, structured support.'}
                     </p>
 
-                    <Link href="/therapy" className="btn-accent mt-4 block w-full !py-2.5 text-center text-sm">
-                      View in support space
-                    </Link>
-                  </article>
+                    <div className="mt-5 pt-1">
+                      <LinkButton href="/therapy" variant="accent" fullWidth>
+                        View in support space
+                      </LinkButton>
+                    </div>
+                  </Card>
                 )
               })
             ) : (
-              <div className="card-light text-center">
-                <i className="ri-user-star-line text-3xl text-[#eedfc8]/30" />
-                <p className="mt-3 text-sm text-[#eedfc8]/60">No mentors have been published yet.</p>
-              </div>
+              <EmptyState
+                className="sm:col-span-2 lg:col-span-3"
+                icon={<i className="ri-user-star-line text-3xl" aria-hidden="true" />}
+                title="No mentors published yet"
+                description="Guided support from mentors will appear here as they join. In the meantime, peer support is just a tab away."
+                action={
+                  <Button variant="secondary" onClick={() => setActiveTab('angels')}>
+                    See peer supporters
+                  </Button>
+                }
+              />
             )}
           </section>
         )}
 
         {activeTab === 'activities' && (
-          <section className="page-card-grid">
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="sm:col-span-2 lg:col-span-3">
+              {creator === 'activity' ? (
+                <Card className="space-y-3">
+                  <h3 className="font-semibold text-brand-background">Host an activity</h3>
+                  <p className="text-sm text-brand-background/60">
+                    Schedule a meetup, support circle, or live session. Members can join from here.
+                  </p>
+                  <Input placeholder="Title (e.g. Sunday evening check-in)" value={String(creatorForm.title ?? '')} onChange={(e) => setField('title', e.target.value)} />
+                  <Textarea rows={3} placeholder="What is it about? What can people expect?" value={String(creatorForm.description ?? '')} onChange={(e) => setField('description', e.target.value)} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Input placeholder="Type (e.g. group chat, walk, workshop)" value={String(creatorForm.activityType ?? '')} onChange={(e) => setField('activityType', e.target.value)} />
+                    <select className="input-field" value={String(creatorForm.isVirtual ?? 'virtual')} onChange={(e) => setField('isVirtual', e.target.value)} aria-label="Format">
+                      <option value="virtual">Virtual</option>
+                      <option value="inperson">In person</option>
+                    </select>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Input type="datetime-local" value={String(creatorForm.scheduledAt ?? '')} onChange={(e) => setField('scheduledAt', e.target.value)} aria-label="When" />
+                    <Input type="number" min={2} placeholder="Max participants (optional)" value={String(creatorForm.maxParticipants ?? '')} onChange={(e) => setField('maxParticipants', e.target.value)} />
+                  </div>
+                  {creatorForm.isVirtual === 'inperson' && (
+                    <Input placeholder="Location" value={String(creatorForm.location ?? '')} onChange={(e) => setField('location', e.target.value)} />
+                  )}
+                  <div className="flex gap-2">
+                    <Button onClick={handleCreateActivity} isLoading={creatorSubmitting} disabled={creatorSubmitting}>Schedule activity</Button>
+                    <Button variant="ghost" onClick={closeCreator}>Cancel</Button>
+                  </div>
+                </Card>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-background/10 bg-brand-background/[0.04] p-4">
+                  <p className="text-sm text-brand-background/70">
+                    <i className="ri-calendar-event-line mr-1.5 text-brand-accent2" aria-hidden="true" />
+                    Bring people together - host a meetup or live session.
+                  </p>
+                  <Button variant="secondary" onClick={() => { setCreator('activity'); setCreatorForm({}) }}>Host an activity</Button>
+                </div>
+              )}
+            </div>
             {activities.length > 0 ? (
               activities.map((activity) => {
                 const organizer = (activity.organizer as Record<string, unknown> | undefined) ?? {}
@@ -1157,52 +1979,62 @@ export default function CommunityPage() {
                 const joining = joiningActivityIds.has(activity.id as string)
 
                 return (
-                  <article key={activity.id as string} className="card">
+                  <Card key={activity.id as string} className="flex flex-col">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="badge">
+                      <Badge className="min-w-0 max-w-full truncate">
                         {(activity.activity_type as string | undefined) || 'Group activity'}
-                      </span>
-                      <span className="text-xs text-[#eedfc8]/45">
+                      </Badge>
+                      <span className="shrink-0 text-xs text-brand-background/45">
                         {formatRelativeTime(activity.scheduled_at)}
                       </span>
                     </div>
-                    <h2 className="mt-4 text-xl font-semibold text-[#eedfc8]">
+                    <h2 className="mt-4 break-words text-xl font-semibold text-brand-background">
                       {activity.title as string}
                     </h2>
-                    <p className="mt-2 text-sm leading-relaxed text-[#eedfc8]/65">
+                    <p className="mt-2 break-words text-sm leading-relaxed text-brand-background/65">
                       {(activity.description as string | undefined) || 'A live community activity.'}
                     </p>
-                    <div className="mt-4 space-y-2 text-xs text-[#eedfc8]/45">
-                      <p>
-                        <i className="ri-user-heart-line mr-1.5" />
-                        Hosted by {organizerName}
+                    <div className="mt-4 space-y-2 text-xs text-brand-background/45">
+                      <p className="flex items-start gap-1.5">
+                        <i className="ri-user-heart-line mt-0.5 shrink-0" aria-hidden="true" />
+                        <span className="min-w-0 break-words">Hosted by {organizerName}</span>
                       </p>
                       {(activity.location as string | undefined) && (
-                        <p>
-                          <i className="ri-map-pin-2-line mr-1.5" />
-                          {activity.location as string}
+                        <p className="flex items-start gap-1.5">
+                          <i className="ri-map-pin-2-line mt-0.5 shrink-0" aria-hidden="true" />
+                          <span className="min-w-0 break-words">{activity.location as string}</span>
                         </p>
                       )}
-                      <p>
-                        <i className="ri-group-line mr-1.5" />
+                      <p className="flex items-center gap-1.5">
+                        <i className="ri-group-line" aria-hidden="true" />
                         {formatCompactNumber(activity.participants_count as number | undefined)} joined
                       </p>
                     </div>
-                    <button
-                      onClick={() => handleJoinActivity(activity.id as string)}
-                      disabled={joining}
-                      className="btn-primary mt-5 w-full !py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {joining ? 'Joining...' : 'Join activity'}
-                    </button>
-                  </article>
+                    <div className="mt-5 pt-1">
+                      <Button
+                        onClick={() => handleJoinActivity(activity.id as string)}
+                        disabled={joining}
+                        isLoading={joining}
+                        fullWidth
+                      >
+                        {joining ? 'Joining…' : 'Join activity'}
+                      </Button>
+                    </div>
+                  </Card>
                 )
               })
             ) : (
-              <div className="card-light text-center">
-                <i className="ri-compass-3-line text-3xl text-[#eedfc8]/30" />
-                <p className="mt-3 text-sm text-[#eedfc8]/60">No activities have been scheduled yet.</p>
-              </div>
+              <EmptyState
+                className="sm:col-span-2 lg:col-span-3"
+                icon={<i className="ri-compass-3-line text-3xl" aria-hidden="true" />}
+                title="No activities scheduled yet"
+                description="Live activities and meetups will show up here. Check back soon for something to join."
+                action={
+                  <Button variant="secondary" onClick={() => setActiveTab('discussions')}>
+                    Back to Discussions
+                  </Button>
+                }
+              />
             )}
           </section>
         )}

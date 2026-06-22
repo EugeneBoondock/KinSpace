@@ -7,6 +7,7 @@ import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
+import { Button, Card, Field, Label, Input, Textarea, Alert } from '@/components/ui'
 
 type Condition = Record<string, unknown> & { id: string }
 type Treatment = Record<string, unknown> & { id: string }
@@ -18,6 +19,9 @@ const TREATMENT_KINDS = [
   { id: 'supplement', label: 'Supplement' },
   { id: 'device', label: 'Device' },
 ]
+
+const selectClasses =
+  'h-11 w-full rounded-xl border border-brand-background/15 bg-brand-background/[0.08] px-4 text-sm text-brand-background transition-colors focus:border-brand-background/40 focus:outline-none focus:ring-2 focus:ring-brand-background/10 disabled:opacity-50'
 
 export default function ShareExperiencePage() {
   const router = useRouter()
@@ -114,169 +118,166 @@ export default function ShareExperiencePage() {
 
   return (
     <PageFrame>
-      <div className="page-grid">
-        <section className="card">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
+      <div className="mx-auto max-w-3xl space-y-6">
+        <header className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-accent2">
             Share experience
           </p>
-          <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">What helped you?</h1>
-          <p className="mt-2 max-w-2xl text-sm text-[#eedfc8]/60">
+          <h1 className="text-2xl font-bold text-brand-background sm:text-3xl">What helped you?</h1>
+          <p className="max-w-2xl text-sm leading-relaxed text-brand-background/65">
             Your rating helps someone else trying to figure out what to try next. You can share
             anonymously. Be honest &mdash; both the wins and the side effects matter.
           </p>
-        </section>
+        </header>
 
-        <form onSubmit={handleSubmit} className="card space-y-5">
-          <div>
-            <label className="text-sm font-semibold text-[#eedfc8]">Condition</label>
-            <select
-              value={selectedCondition}
-              onChange={(event) => setSelectedCondition(event.target.value)}
-              className="input-field mt-2"
-            >
-              <option value="">Pick a condition</option>
-              {conditionOptions.map((condition) => (
-                <option key={condition.id} value={condition.id}>
-                  {condition.name as string}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-[#eedfc8]/45">
-              Don&apos;t see yours?{' '}
-              <Link href="/conditions" className="text-[#D19A58]">
-                Browse the directory
-              </Link>{' '}
-              &mdash; we&apos;re growing it weekly.
-            </p>
-          </div>
-
-          <div>
-            <label className="text-sm font-semibold text-[#eedfc8]">Treatment</label>
-            <select
-              value={selectedTreatment}
-              onChange={(event) => setSelectedTreatment(event.target.value)}
-              className="input-field mt-2"
-            >
-              <option value="">Pick a treatment (or add new below)</option>
-              {treatmentOptions.map((treatment) => (
-                <option key={treatment.id} value={treatment.id}>
-                  {treatment.name as string} ({(treatment.kind as string) ?? 'treatment'})
-                </option>
-              ))}
-            </select>
-
-            <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_9rem]">
-              <input
-                value={newTreatmentName}
-                onChange={(event) => setNewTreatmentName(event.target.value)}
-                placeholder="Or add a new treatment name"
-                className="input-field"
-                disabled={Boolean(selectedTreatment)}
-              />
+        <Card>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <Label htmlFor="condition">Condition</Label>
               <select
-                value={newTreatmentKind}
-                onChange={(event) => setNewTreatmentKind(event.target.value)}
-                className="input-field"
-                disabled={Boolean(selectedTreatment)}
+                id="condition"
+                value={selectedCondition}
+                onChange={(event) => setSelectedCondition(event.target.value)}
+                className={selectClasses}
               >
-                {TREATMENT_KINDS.map((kind) => (
-                  <option key={kind.id} value={kind.id}>
-                    {kind.label}
+                <option value="" className="bg-brand-primary">
+                  Pick a condition
+                </option>
+                {conditionOptions.map((condition) => (
+                  <option key={condition.id} value={condition.id} className="bg-brand-primary">
+                    {condition.name as string}
                   </option>
                 ))}
               </select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-semibold text-[#eedfc8]">
-                Effectiveness ({effectiveness}/5)
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                value={effectiveness}
-                onChange={(event) => setEffectiveness(Number(event.target.value))}
-                className="mt-2 w-full"
-              />
-              <p className="text-xs text-[#eedfc8]/45">
-                1 = didn&apos;t help, 5 = life-changing
+              <p className="mt-1.5 text-xs text-brand-background/50">
+                Don&apos;t see yours?{' '}
+                <Link href="/conditions" className="font-medium text-brand-accent2">
+                  Browse the directory
+                </Link>{' '}
+                &mdash; we&apos;re growing it weekly.
               </p>
             </div>
-            <div>
-              <label className="text-sm font-semibold text-[#eedfc8]">
-                Side effects ({sideEffects}/5)
-              </label>
-              <input
-                type="range"
+
+            <div className="space-y-3">
+              <Field label="Treatment" htmlFor="treatment">
+                <select
+                  id="treatment"
+                  value={selectedTreatment}
+                  onChange={(event) => setSelectedTreatment(event.target.value)}
+                  className={selectClasses}
+                >
+                  <option value="" className="bg-brand-primary">
+                    Pick a treatment (or add new below)
+                  </option>
+                  {treatmentOptions.map((treatment) => (
+                    <option key={treatment.id} value={treatment.id} className="bg-brand-primary">
+                      {treatment.name as string} ({(treatment.kind as string) ?? 'treatment'})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <div className="grid gap-2 sm:grid-cols-[1fr_9rem]">
+                <Input
+                  value={newTreatmentName}
+                  onChange={(event) => setNewTreatmentName(event.target.value)}
+                  placeholder="Or add a new treatment name"
+                  aria-label="New treatment name"
+                  disabled={Boolean(selectedTreatment)}
+                />
+                <select
+                  value={newTreatmentKind}
+                  onChange={(event) => setNewTreatmentKind(event.target.value)}
+                  className={selectClasses}
+                  aria-label="New treatment type"
+                  disabled={Boolean(selectedTreatment)}
+                >
+                  {TREATMENT_KINDS.map((kind) => (
+                    <option key={kind.id} value={kind.id} className="bg-brand-primary">
+                      {kind.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <div>
+                <Label htmlFor="effectiveness">Effectiveness ({effectiveness}/5)</Label>
+                <input
+                  id="effectiveness"
+                  type="range"
+                  min={1}
+                  max={5}
+                  value={effectiveness}
+                  onChange={(event) => setEffectiveness(Number(event.target.value))}
+                  className="mt-1 w-full accent-brand-accent2"
+                />
+                <p className="mt-1 text-xs text-brand-background/50">
+                  1 = didn&apos;t help, 5 = life-changing
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="side-effects">Side effects ({sideEffects}/5)</Label>
+                <input
+                  id="side-effects"
+                  type="range"
+                  min={0}
+                  max={5}
+                  value={sideEffects}
+                  onChange={(event) => setSideEffects(Number(event.target.value))}
+                  className="mt-1 w-full accent-brand-accent1"
+                />
+                <p className="mt-1 text-xs text-brand-background/50">0 = none, 5 = severe</p>
+              </div>
+            </div>
+
+            <Field label="How long did you try it?" htmlFor="duration" hint="In weeks">
+              <Input
+                id="duration"
+                type="number"
                 min={0}
-                max={5}
-                value={sideEffects}
-                onChange={(event) => setSideEffects(Number(event.target.value))}
-                className="mt-2 w-full"
+                value={durationWeeks}
+                onChange={(event) =>
+                  setDurationWeeks(event.target.value === '' ? '' : Number(event.target.value))
+                }
+                placeholder="Weeks"
+                className="max-w-40"
               />
-              <p className="text-xs text-[#eedfc8]/45">
-                0 = none, 5 = severe
-              </p>
+            </Field>
+
+            <Field label="Your story (optional)" htmlFor="story">
+              <Textarea
+                id="story"
+                value={story}
+                onChange={(event) => setStory(event.target.value)}
+                placeholder="What worked, what didn't, what you'd want someone else to know..."
+                className="h-32 resize-none"
+              />
+            </Field>
+
+            <label className="flex items-center gap-2 text-sm text-brand-background/70">
+              <input
+                type="checkbox"
+                checked={isAnonymous}
+                onChange={(event) => setIsAnonymous(event.target.checked)}
+                className="h-4 w-4 rounded border-brand-background/30 accent-brand-accent2"
+              />
+              Share anonymously
+            </label>
+
+            {error && <Alert tone="error">{error}</Alert>}
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button type="button" variant="secondary" fullWidth onClick={() => router.back()}>
+                Cancel
+              </Button>
+              <Button type="submit" fullWidth isLoading={submitting} disabled={submitting}>
+                {submitting ? 'Sharing...' : 'Share experience'}
+              </Button>
             </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-semibold text-[#eedfc8]">How long did you try it?</label>
-            <input
-              type="number"
-              min={0}
-              value={durationWeeks}
-              onChange={(event) =>
-                setDurationWeeks(event.target.value === '' ? '' : Number(event.target.value))
-              }
-              placeholder="Weeks"
-              className="input-field mt-2 max-w-40"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-semibold text-[#eedfc8]">Your story (optional)</label>
-            <textarea
-              value={story}
-              onChange={(event) => setStory(event.target.value)}
-              placeholder="What worked, what didn't, what you'd want someone else to know..."
-              className="input-field mt-2 h-32 resize-none"
-            />
-          </div>
-
-          <label className="flex items-center gap-2 text-sm text-[#eedfc8]/70">
-            <input
-              type="checkbox"
-              checked={isAnonymous}
-              onChange={(event) => setIsAnonymous(event.target.checked)}
-            />
-            Share anonymously
-          </label>
-
-          {error && (
-            <div className="rounded-2xl bg-[#B85C3A]/20 px-4 py-2 text-sm text-[#B85C3A]">{error}</div>
-          )}
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="btn-secondary flex-1 !py-3 text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="btn-primary flex-1 !py-3 text-sm disabled:opacity-50"
-            >
-              {submitting ? 'Sharing...' : 'Share experience'}
-            </button>
-          </div>
-        </form>
+          </form>
+        </Card>
       </div>
 
       <BottomNav />

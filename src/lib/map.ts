@@ -47,10 +47,25 @@ export type MapSearchResult = {
   longitude: number
 }
 
+export type RouteStep = {
+  instruction: string
+  distanceMeters: number
+  latitude: number
+  longitude: number
+}
+
 export type MapDirectionsResult = {
   distanceKm: number
   durationMinutes: number
   geometry: Coordinates[]
+  steps?: RouteStep[]
+}
+
+/** Human-friendly distance for a single navigation step. */
+export function formatStepDistance(meters: number): string {
+  if (!Number.isFinite(meters) || meters <= 0) return ''
+  if (meters < 1000) return `${Math.max(10, Math.round(meters / 10) * 10)} m`
+  return `${(meters / 1000).toFixed(1)} km`
 }
 
 export function getMarkerAccent(kind: MapMarkerKind) {

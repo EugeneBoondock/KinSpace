@@ -95,7 +95,7 @@ export default function DrawingPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/45">
                 Draw & Guess
               </p>
-              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Sketch the prompt</h1>
+              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Draw & Guess</h1>
               <p className="mt-2 max-w-xl text-sm text-[#eedfc8]/60">
                 A prompt-word warm-up. Great as a solo focus break or shared in a group room.
               </p>

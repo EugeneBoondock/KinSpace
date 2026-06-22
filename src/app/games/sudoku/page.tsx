@@ -160,6 +160,7 @@ export default function SudokuPage() {
                   <button
                     key={index}
                     onClick={() => setSelected(index)}
+                    aria-label={`Sudoku cell ${row + 1}, ${col + 1}${cell.value ? ` value ${cell.value}` : ' empty'}`}
                     className={`flex h-10 w-10 items-center justify-center bg-[#1c3531] text-lg font-semibold transition-colors ${borderClasses.join(' ')} ${
                       isSelected ? 'bg-[#D19A58]/40 text-[#eedfc8]' : isSame ? 'bg-[#D19A58]/15' : isHighlighted ? 'bg-[#eedfc8]/6' : ''
                     } ${cell.fixed ? 'text-[#eedfc8]' : 'text-[#D19A58]'} ${showError ? 'text-[#B85C3A]' : ''}`}
@@ -202,7 +203,7 @@ export default function SudokuPage() {
 
           {status === 'won' && (
             <div className="rounded-2xl bg-[#D19A58]/15 px-4 py-2 text-sm font-semibold text-[#D19A58]">
-              Puzzle solved — well done.
+              Puzzle solved - well done.
             </div>
           )}
 

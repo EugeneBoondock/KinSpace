@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
+import { playSfx } from '@/lib/audio/sfx'
 
 type MemoryDifficulty = 'easy' | 'medium' | 'hard'
 
@@ -60,6 +61,10 @@ export default function MemoryPage() {
   const totalPairs = (rows * cols) / 2
   const won = matches === totalPairs
 
+  useEffect(() => {
+    if (won) playSfx('win')
+  }, [won])
+
   function handleCard(index: number) {
     const card = deck[index]
     if (card.flipped || card.matched || flipped.length === 2) return
@@ -68,11 +73,13 @@ export default function MemoryPage() {
     const current = [...flipped, index]
     setDeck(next)
     setFlipped(current)
+    playSfx('move')
 
     if (current.length === 2) {
       setMoves((value) => value + 1)
       const [a, b] = current
       if (next[a].emoji === next[b].emoji) {
+        playSfx('success')
         setTimeout(() => {
           setDeck((cards) => {
             const updated = [...cards]
@@ -139,7 +146,7 @@ export default function MemoryPage() {
                       : 'bg-[#D19A58]/40'
                     : 'bg-[#eedfc8]/10 hover:bg-[#eedfc8]/18'
                 }`}
-                aria-label={`card-${card.id}`}
+                aria-label={`card-${index + 1}-${card.id}`}
               >
                 {card.flipped || card.matched ? card.emoji : ''}
               </button>

@@ -1,126 +1,66 @@
 'use client'
 
-import {
-  doc,
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  type Unsubscribe,
-  type DocumentData,
-} from 'firebase/firestore'
-import { db } from './firebase'
+import { rpc } from './rpc-client'
 
+type Listener = (data: unknown) => void
+const POLL_MS = 3000
+
+/**
+ * Polling-based realtime (replaces Firestore onSnapshot). Each subscribe()
+ * fetches immediately, then polls on an interval, and returns an unsubscribe.
+ * Same API surface as the old RealtimeService so callers are unchanged.
+ */
 export class RealtimeService {
-  private static subscriptions: Map<string, Unsubscribe> = new Map()
+  private static timers = new Map<string, ReturnType<typeof setInterval>>()
 
-  static subscribeToGame(
-    gameId: string,
-    onGameUpdate: (data: DocumentData) => void
-  ) {
-    const key = `game:${gameId}`
+  private static poll(key: string, fetcher: () => Promise<unknown>, cb: Listener) {
     this.unsubscribe(key)
-
-    const unsub = onSnapshot(doc(db, 'games', gameId), (snap) => {
-      if (snap.exists()) onGameUpdate({ id: snap.id, ...snap.data() })
-    })
-
-    this.subscriptions.set(key, unsub)
-    return unsub
+    let cancelled = false
+    const run = () =>
+      fetcher()
+        .then((data) => {
+          if (!cancelled) cb(data)
+        })
+        .catch(() => undefined)
+    run()
+    const timer = setInterval(run, POLL_MS)
+    this.timers.set(key, timer)
+    return () => {
+      cancelled = true
+      this.unsubscribe(key)
+    }
   }
 
-  static subscribeToChat(
-    roomId: string,
-    onNewMessage: (messages: DocumentData[]) => void
-  ) {
-    const key = `chat:${roomId}`
-    this.unsubscribe(key)
-
-    const q = query(
-      collection(db, 'chat_messages'),
-      where('room_id', '==', roomId),
-      orderBy('created_at', 'asc')
-    )
-
-    const unsub = onSnapshot(q, (snap) => {
-      const messages = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      onNewMessage(messages)
-    })
-
-    this.subscriptions.set(key, unsub)
-    return unsub
+  static subscribeToGame(gameId: string, onGameUpdate: (data: unknown) => void) {
+    return this.poll(`game:${gameId}`, () => rpc('getGame', [gameId]), onGameUpdate)
   }
 
-  static subscribeToGameLobby(
-    onGameUpdate: (games: DocumentData[]) => void
-  ) {
-    const key = 'game-lobby'
-    this.unsubscribe(key)
-
-    const q = query(
-      collection(db, 'games'),
-      where('status', '==', 'waiting'),
-      where('is_private', '==', false)
-    )
-
-    const unsub = onSnapshot(q, (snap) => {
-      const games = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      onGameUpdate(games)
-    })
-
-    this.subscriptions.set(key, unsub)
-    return unsub
+  static subscribeToChat(roomId: string, onNewMessage: (messages: unknown) => void) {
+    return this.poll(`chat:${roomId}`, () => rpc('getMessages', [roomId]), onNewMessage)
   }
 
-  static subscribeToGamePlayers(
-    gameId: string,
-    onPlayersUpdate: (players: DocumentData[]) => void,
-  ) {
-    const key = `game-players:${gameId}`
-    this.unsubscribe(key)
-
-    const q = query(collection(db, 'game_players'), where('game_id', '==', gameId))
-
-    const unsub = onSnapshot(q, (snap) => {
-      const players = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      onPlayersUpdate(players)
-    })
-
-    this.subscriptions.set(key, unsub)
-    return unsub
+  static subscribeToGameLobby(onGameUpdate: (games: unknown) => void) {
+    return this.poll('game-lobby', () => rpc('getActiveGames', []), onGameUpdate)
   }
 
-  static subscribeToPosts(
-    onUpdate: (posts: DocumentData[]) => void
-  ) {
-    const key = 'community-posts'
-    this.unsubscribe(key)
+  static subscribeToGamePlayers(gameId: string, onPlayersUpdate: (players: unknown) => void) {
+    return this.poll(`game-players:${gameId}`, () => rpc('getGamePlayers', [gameId]), onPlayersUpdate)
+  }
 
-    const q = query(
-      collection(db, 'community_posts'),
-      orderBy('created_at', 'desc')
-    )
-
-    const unsub = onSnapshot(q, (snap) => {
-      const posts = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      onUpdate(posts)
-    })
-
-    this.subscriptions.set(key, unsub)
-    return unsub
+  static subscribeToPosts(onUpdate: (posts: unknown) => void) {
+    return this.poll('community-posts', () => rpc('getCommunityPosts', [50]), onUpdate)
   }
 
   static unsubscribe(key: string) {
-    const unsub = this.subscriptions.get(key)
-    if (unsub) {
-      unsub()
-      this.subscriptions.delete(key)
+    const timer = this.timers.get(key)
+    if (timer) {
+      clearInterval(timer)
+      this.timers.delete(key)
     }
   }
 
   static unsubscribeAll() {
-    this.subscriptions.forEach((unsub) => unsub())
-    this.subscriptions.clear()
+    this.timers.forEach((timer) => clearInterval(timer))
+    this.timers.clear()
   }
 }

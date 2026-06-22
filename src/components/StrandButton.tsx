@@ -10,22 +10,20 @@ type Status = 'idle' | 'sent' | 'received' | 'accepted' | 'declined' | 'self'
 
 type StrandButtonProps = {
   targetUserId: string | null | undefined
-  /** Optional: skip the initial status lookup if you've already resolved it. */
   initialStatus?: Status
   initialRequestId?: string | null
   className?: string
   size?: 'sm' | 'md'
-  /** Called after an action completes so a parent list can refresh counts. */
   onChanged?: (status: Status) => void
 }
 
 function labelForStatus(status: Status, direction: Direction | null): string {
   if (status === 'self') return 'This is you'
-  if (status === 'accepted') return '🧬 Stranded'
+  if (status === 'accepted') return 'Stranded'
   if (status === 'sent' || (status === 'idle' && direction === 'sent')) return 'Strand pending'
   if (status === 'received') return 'Accept strand'
   if (status === 'declined') return 'Strand declined'
-  return '🧬 Send strand'
+  return 'Send strand'
 }
 
 export default function StrandButton({
@@ -51,17 +49,20 @@ export default function StrandButton({
       setLoading(false)
       return
     }
+
     setLoading(true)
     try {
       const strand = (await DatabaseService.getStrandWithUser(user.userId, targetUserId)) as
         | (Record<string, unknown> & { id: string; direction: 'sent' | 'received' })
         | null
+
       if (!strand) {
         setStatus('idle')
         setDirection(null)
         setRequestId(null)
         return
       }
+
       setRequestId(strand.id)
       setDirection(strand.direction)
       const rawStatus = strand.status as string | undefined
@@ -96,7 +97,7 @@ export default function StrandButton({
         setRequestId(id)
         setDirection('sent')
         setStatus('sent')
-        toast('Connect Strand sent 🧬', 'success')
+        toast('Connect strand sent', 'success')
         onChanged?.('sent')
         return
       }
@@ -114,7 +115,7 @@ export default function StrandButton({
       if (status === 'received' && requestId) {
         await DatabaseService.updateConnectionRequest(requestId, 'accepted')
         setStatus('accepted')
-        toast('Stranded 🧬', 'success')
+        toast('Stranded', 'success')
         onChanged?.('accepted')
         return
       }
@@ -129,14 +130,14 @@ export default function StrandButton({
   const sizeClass = size === 'sm' ? '!py-1.5 !px-3 text-xs' : '!py-2.5 !px-4 text-sm'
   const variant =
     status === 'accepted'
-      ? 'bg-[#6B8A83]/25 text-[#6B8A83] hover:bg-[#6B8A83]/35'
+      ? 'bg-brand-accent3/20 text-brand-background hover:bg-brand-accent3/30'
       : status === 'received'
-        ? 'bg-[#D19A58] text-[#2A4A42] hover:bg-[#D19A58]/90'
+        ? 'bg-brand-accent2 text-brand-surface hover:brightness-105'
         : status === 'sent'
-          ? 'bg-[#eedfc8]/8 text-[#eedfc8]/65 hover:bg-[#eedfc8]/14'
+          ? 'bg-brand-background/8 text-brand-background/65 hover:bg-brand-background/14'
           : status === 'declined' || status === 'self'
-            ? 'bg-[#eedfc8]/5 text-[#eedfc8]/40'
-            : 'bg-[#D19A58]/15 text-[#D19A58] hover:bg-[#D19A58]/25'
+            ? 'bg-brand-background/5 text-brand-background/40'
+            : 'bg-brand-accent2/18 text-brand-background hover:bg-brand-accent2/28'
 
   return (
     <button
@@ -144,7 +145,7 @@ export default function StrandButton({
       disabled={busy || loading || status === 'self' || status === 'declined' || status === 'accepted'}
       className={`inline-flex items-center justify-center gap-1.5 rounded-2xl font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${sizeClass} ${variant} ${className}`}
     >
-      {busy ? 'Working…' : loading ? '…' : labelForStatus(status, direction)}
+      {busy ? 'Working...' : loading ? '...' : labelForStatus(status, direction)}
     </button>
   )
 }

@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { formatRelativeTime, getInitials, normalizeKeywords } from '@/lib/platform'
+import { Badge, Button, Card, EmptyState, Input, LinkButton, Skeleton } from '@/components/ui'
 
 type SearchResult = {
   id: string
@@ -198,18 +198,20 @@ export default function SearchPage() {
   return (
     <PageFrame>
       <div className="page-grid">
-        <section className="card">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
+        <Card>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-background/40">
             Search
           </p>
-          <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Search the live platform</h1>
-          <p className="mt-2 max-w-2xl text-sm text-[#eedfc8]/60">
-            Search now understands groups, posts, resources, care locations, and the topics members are actually talking about.
+          <h1 className="mt-2 text-2xl font-bold text-brand-background sm:text-3xl">Find your people and support</h1>
+          <p className="mt-2 max-w-2xl text-sm text-brand-background/60">
+            One search across groups, posts, resources, care locations, and the topics members are talking about.
           </p>
 
           <div className="relative mt-6">
-            <i className="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-[#eedfc8]/35" />
-            <input
+            <i className="ri-search-line pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-brand-background/35" aria-hidden="true" />
+            <Input
+              type="search"
+              aria-label="Search groups, posts, resources, and nearby care"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onFocus={() => setPlaceholderIndex((current) => (current + 1) % placeholders.length)}
@@ -218,69 +220,76 @@ export default function SearchPage() {
                   rememberSearch(query.trim())
                 }
               }}
-              className="input-field !pl-11"
+              className="h-12 !pl-11"
               placeholder={placeholders[placeholderIndex]}
             />
           </div>
-        </section>
+        </Card>
 
         {query.trim() ? (
           <section className="page-grid">
-            <div className="flex items-center justify-between text-sm text-[#eedfc8]/45">
-              <p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-brand-background/50">
                 {results.length} result{results.length === 1 ? '' : 's'} for &ldquo;{query}&rdquo;
               </p>
-              <button onClick={() => setQuery('')} className="text-[#D19A58]">
+              <Button variant="ghost" size="sm" onClick={() => setQuery('')} leadingIcon={<i className="ri-close-line" aria-hidden="true" />}>
                 Clear
-              </button>
+              </Button>
             </div>
 
             {loading ? (
               <div className="page-card-grid">
                 {Array.from({ length: 6 }).map((_, index) => (
-                  <div key={index} className="h-40 skeleton rounded-3xl" />
+                  <Skeleton key={index} className="h-40 rounded-2xl" />
                 ))}
               </div>
             ) : results.length > 0 ? (
               <div className="page-card-grid">
                 {results.map((result) => (
-                  <article key={result.id} className="card">
+                  <Card key={result.id} className="flex flex-col">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="badge">{result.badge}</span>
-                      <span className="text-xs text-[#eedfc8]/45">{result.subtitle}</span>
+                      <Badge>{result.badge}</Badge>
+                      <span className="text-xs text-brand-background/45">{result.subtitle}</span>
                     </div>
-                    <h2 className="mt-4 text-lg font-semibold text-[#eedfc8]">{result.title}</h2>
-                    <p className="mt-3 text-sm leading-relaxed text-[#eedfc8]/70">{result.snippet}</p>
+                    <h2 className="mt-4 text-lg font-semibold text-brand-background">{result.title}</h2>
+                    <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-brand-background/70">{result.snippet}</p>
                     {result.href && (
-                      <Link href={result.href} className="btn-primary mt-5 block w-full !py-2.5 text-center text-sm">
+                      <LinkButton href={result.href} fullWidth className="mt-5">
                         Open {result.badge?.toLowerCase()}
-                      </Link>
+                      </LinkButton>
                     )}
-                  </article>
+                  </Card>
                 ))}
               </div>
             ) : (
-              <div className="card-light text-center">
-                <i className="ri-search-line text-4xl text-[#eedfc8]/25" />
-                <p className="mt-3 text-sm text-[#eedfc8]/60">Nothing matched that search yet.</p>
-              </div>
+              <EmptyState
+                icon={<i className="ri-search-line text-4xl" aria-hidden="true" />}
+                title="No matches yet"
+                description="Try a different word, a shorter term, or browse a trending topic below. New content shows up as the community grows."
+                action={
+                  <Button variant="secondary" size="sm" onClick={() => setQuery('')}>
+                    Clear search
+                  </Button>
+                }
+              />
             )}
           </section>
         ) : (
           <section className="page-grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:items-start">
-            <div className="card">
+            <Card>
               <div className="flex items-center justify-between gap-3">
-                <h2 className="section-title !mb-0">Recent searches</h2>
+                <h2 className="text-lg font-bold text-brand-background">Recent searches</h2>
                 {recentSearches.length > 0 && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       setRecentSearches([])
                       localStorage.removeItem('kinspace-recent-searches')
                     }}
-                    className="text-sm text-[#D19A58]"
                   >
                     Clear all
-                  </button>
+                  </Button>
                 )}
               </div>
               <div className="mt-4 space-y-2">
@@ -288,37 +297,41 @@ export default function SearchPage() {
                   recentSearches.map((term) => (
                     <button
                       key={term}
+                      type="button"
                       onClick={() => handleSearch(term)}
-                      className="flex w-full items-center gap-3 rounded-2xl bg-[#eedfc8]/4 px-4 py-3 text-left transition-colors hover:bg-[#eedfc8]/8"
+                      className="flex min-h-[3rem] w-full items-center gap-3 rounded-2xl bg-brand-background/[0.04] px-4 py-3 text-left transition-colors hover:bg-brand-background/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                     >
-                      <i className="ri-history-line text-[#eedfc8]/30" />
-                      <span className="flex-1 text-sm text-[#eedfc8]/70">{term}</span>
+                      <i className="ri-history-line text-brand-background/30" aria-hidden="true" />
+                      <span className="flex-1 text-sm text-brand-background/70">{term}</span>
+                      <i className="ri-arrow-right-up-line text-brand-background/30" aria-hidden="true" />
                     </button>
                   ))
                 ) : (
-                  <p className="text-sm text-[#eedfc8]/55">Your recent searches will show up here.</p>
+                  <p className="text-sm text-brand-background/55">Your recent searches will show up here.</p>
                 )}
               </div>
-            </div>
+            </Card>
 
-            <div className="card">
-              <h2 className="section-title">Trending topics</h2>
-              <div className="mt-4 flex flex-wrap gap-2">
+            <Card>
+              <h2 className="mb-4 text-lg font-bold text-brand-background">Trending topics</h2>
+              <div className="flex flex-wrap gap-2">
                 {trendingTopics.length > 0 ? (
                   trendingTopics.map((topic) => (
                     <button
                       key={topic}
+                      type="button"
                       onClick={() => handleSearch(topic)}
-                      className="badge transition-colors hover:bg-[#eedfc8]/18"
+                      className="inline-flex items-center gap-1 rounded-full bg-brand-background/10 px-2.5 py-1 text-xs font-medium text-brand-background/90 transition-colors hover:bg-brand-background/[0.18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                     >
+                      <i className="ri-fire-line text-brand-accent2" aria-hidden="true" />
                       {topic}
                     </button>
                   ))
                 ) : (
-                  <p className="text-sm text-[#eedfc8]/55">Topics will appear as content is added.</p>
+                  <p className="text-sm text-brand-background/55">Topics will appear as content is added.</p>
                 )}
               </div>
-            </div>
+            </Card>
           </section>
         )}
       </div>

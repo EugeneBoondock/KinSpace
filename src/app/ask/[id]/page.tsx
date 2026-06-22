@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { renderMarkdown } from '@/lib/markdown'
 import { formatRelativeTime } from '@/lib/platform'
+import { Badge, Button, Card, EmptyState, LinkButton, Skeleton, Textarea } from '@/components/ui'
 
 type AskQuestion = Record<string, unknown> & {
   id: string
@@ -82,8 +83,6 @@ export default function AskQuestionPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           questionId: question.id,
-          userId: user?.userId ?? null,
-          question: question.question,
         }),
       })
       const data = await response.json().catch(() => null)
@@ -130,9 +129,18 @@ export default function AskQuestionPage() {
   if (loading) {
     return (
       <PageFrame>
-        <div className="space-y-4">
-          <div className="h-32 skeleton rounded-3xl" />
-          <div className="h-64 skeleton rounded-3xl" />
+        <div className="space-y-4" aria-busy="true">
+          <Card className="space-y-3">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </Card>
+          <Card className="space-y-3">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+          </Card>
         </div>
         <BottomNav />
       </PageFrame>
@@ -142,13 +150,12 @@ export default function AskQuestionPage() {
   if (notFound || !question) {
     return (
       <PageFrame>
-        <div className="card-light text-center">
-          <i className="ri-question-line text-4xl text-[#eedfc8]/25" />
-          <p className="mt-3 text-sm text-[#eedfc8]/60">This question was not found.</p>
-          <Link href="/ask" className="btn-primary mt-4 inline-block !py-2.5 !px-4 text-sm">
-            Back to Ask
-          </Link>
-        </div>
+        <EmptyState
+          icon={<i className="ri-question-line text-4xl" aria-hidden="true" />}
+          title="We couldn't find that question"
+          description="It may have been removed, or the link might be off. Head back to browse what others are asking."
+          action={<LinkButton href="/ask">Back to Ask</LinkButton>}
+        />
         <BottomNav />
       </PageFrame>
     )
@@ -167,19 +174,24 @@ export default function AskQuestionPage() {
   const redditThreads =
     (question.ai_reddit_threads as Array<{ title: string; url: string; subreddit: string; snippet: string }> | undefined) ?? []
   const sources =
-    (question.ai_sources as Array<{ index: number; title: string; url: string; domain: string }> | undefined) ?? []
+    (question.ai_sources as
+      | Array<{ index: number; title: string; url: string; domain: string; kind?: string }>
+      | undefined) ?? []
 
   return (
     <PageFrame>
       <div className="page-grid">
-        <section className="card">
-          <Link href="/ask" className="text-sm text-[#D19A58]">
-            ← All questions
+        <Card>
+          <Link
+            href="/ask"
+            className="inline-flex items-center gap-1 text-sm font-medium text-brand-accent2 transition-colors hover:text-brand-accent2/80"
+          >
+            <i className="ri-arrow-left-line" aria-hidden="true" /> All questions
           </Link>
           <div className="mt-3 flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#D19A58]/15 text-sm font-bold text-[#D19A58]">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-brand-accent2/15 text-sm font-bold text-brand-accent2">
               {question.is_anonymous ? (
-                <i className="ri-spy-line text-base" />
+                <i className="ri-spy-line text-base" aria-hidden="true" />
               ) : (
                 <ProfileAvatar
                   alt={author}
@@ -192,19 +204,19 @@ export default function AskQuestionPage() {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2 text-xs text-[#eedfc8]/50">
-                <span className="font-semibold text-[#eedfc8]/75">{author}</span>
-                <span>·</span>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-brand-background/50">
+                <span className="font-semibold text-brand-background/75">{author}</span>
+                <span aria-hidden="true">·</span>
                 <span>{formatRelativeTime(question.created_at)}</span>
-                <span className="badge bg-[#eedfc8]/8 text-[10px]">
+                <Badge className="text-[10px]">
                   {(question.scope as string) === 'group' ? 'Group question' : 'Public question'}
-                </span>
+                </Badge>
               </div>
-              <h1 className="mt-2 text-2xl font-bold text-[#eedfc8]">
+              <h1 className="mt-2 text-2xl font-bold text-brand-background">
                 {question.question as string}
               </h1>
               {(question.body as string | undefined) && (
-                <p className="mt-2 whitespace-pre-wrap text-sm text-[#eedfc8]/70">
+                <p className="mt-2 whitespace-pre-wrap text-sm text-brand-background/70">
                   {question.body as string}
                 </p>
               )}
@@ -214,7 +226,7 @@ export default function AskQuestionPage() {
                     <Link
                       key={item}
                       href={`/ask?tag=${encodeURIComponent(item)}`}
-                      className="rounded-full bg-[#eedfc8]/8 px-2.5 py-1 text-xs text-[#eedfc8]/65 hover:bg-[#eedfc8]/14"
+                      className="rounded-full bg-brand-background/[0.08] px-2.5 py-1 text-xs text-brand-background/65 transition-colors hover:bg-brand-background/[0.14]"
                     >
                       #{item}
                     </Link>
@@ -223,19 +235,21 @@ export default function AskQuestionPage() {
               )}
             </div>
           </div>
-        </section>
+        </Card>
 
         <div className="page-grid lg:grid-cols-[minmax(0,1.2fr)_22rem] lg:items-start">
           <div className="space-y-4">
-            <section className="card">
+            <Card>
               <div className="flex items-center justify-between gap-3">
                 <h2 className="section-title !mb-0">✨ AI synthesis</h2>
                 {(isOwner || !question.ai_answer) && (
                   <button
+                    type="button"
                     onClick={triggerAiAnswer}
                     disabled={aiBusy}
-                    className="text-sm font-medium text-[#D19A58] disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-accent2 transition-colors hover:text-brand-accent2/80 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 rounded-md px-1"
                   >
+                    {aiBusy && <i className="ri-loader-4-line animate-spin" aria-hidden="true" />}
                     {aiBusy
                       ? 'Thinking…'
                       : question.ai_answer
@@ -246,18 +260,18 @@ export default function AskQuestionPage() {
               </div>
 
               {(question.ai_plain_summary as string | undefined) && (
-                <p className="mt-3 rounded-2xl bg-[#6B8A83]/10 px-4 py-3 text-sm leading-relaxed text-[#eedfc8]/85">
+                <p className="mt-3 rounded-2xl bg-brand-accent3/10 px-4 py-3 text-sm leading-relaxed text-brand-background/85">
                   {question.ai_plain_summary as string}
                 </p>
               )}
 
               {Array.isArray(question.ai_red_flags) && (question.ai_red_flags as string[]).length > 0 && (
-                <div className="mt-4 rounded-2xl border border-[#B85C3A]/30 bg-[#B85C3A]/10 p-4 text-sm">
-                  <p className="font-semibold text-[#B85C3A]">Red flags — seek care if any apply</p>
-                  <ul className="mt-2 space-y-1 text-[#eedfc8]/75">
+                <div className="mt-4 rounded-2xl border border-brand-accent1/30 bg-brand-accent1/10 p-4 text-sm">
+                  <p className="font-semibold text-brand-accent1">Red flags - seek care if any apply</p>
+                  <ul className="mt-2 space-y-1 text-brand-background/75">
                     {(question.ai_red_flags as string[]).map((flag) => (
                       <li key={flag} className="flex items-start gap-2">
-                        <i className="ri-alarm-warning-line mt-0.5 text-[#B85C3A]" />
+                        <i className="ri-alarm-warning-line mt-0.5 text-brand-accent1" aria-hidden="true" />
                         <span>{flag}</span>
                       </li>
                     ))}
@@ -268,18 +282,18 @@ export default function AskQuestionPage() {
               {aiAnswerHtml ? (
                 <div className="mt-4" dangerouslySetInnerHTML={{ __html: aiAnswerHtml }} />
               ) : (
-                <p className="mt-4 text-sm text-[#eedfc8]/55">
-                  The AI is still reading sources — refresh in a moment, or tap &quot;Ask AI now&quot; to try again.
+                <p className="mt-4 text-sm text-brand-background/55">
+                  The AI is still reading sources - refresh in a moment, or tap &quot;Ask AI now&quot; to try again.
                 </p>
               )}
 
               {Array.isArray(question.ai_self_care) && (question.ai_self_care as string[]).length > 0 && (
-                <div className="mt-4 rounded-2xl bg-[#6B8A83]/12 p-4">
-                  <p className="text-sm font-semibold text-[#6B8A83]">Reasonable self-care</p>
-                  <ul className="mt-2 space-y-1 text-sm text-[#eedfc8]/75">
+                <div className="mt-4 rounded-2xl bg-brand-accent3/12 p-4">
+                  <p className="text-sm font-semibold text-brand-accent3">Reasonable self-care</p>
+                  <ul className="mt-2 space-y-1 text-sm text-brand-background/75">
                     {(question.ai_self_care as string[]).map((item) => (
                       <li key={item} className="flex items-start gap-2">
-                        <i className="ri-leaf-line mt-0.5 text-[#6B8A83]" />
+                        <i className="ri-leaf-line mt-0.5 text-brand-accent3" aria-hidden="true" />
                         <span>{item}</span>
                       </li>
                     ))}
@@ -288,12 +302,12 @@ export default function AskQuestionPage() {
               )}
 
               {Array.isArray(question.ai_see_professional) && (question.ai_see_professional as string[]).length > 0 && (
-                <div className="mt-4 rounded-2xl bg-[#D19A58]/12 p-4">
-                  <p className="text-sm font-semibold text-[#D19A58]">When to see a professional</p>
-                  <ul className="mt-2 space-y-1 text-sm text-[#eedfc8]/75">
+                <div className="mt-4 rounded-2xl bg-brand-accent2/12 p-4">
+                  <p className="text-sm font-semibold text-brand-accent2">When to see a professional</p>
+                  <ul className="mt-2 space-y-1 text-sm text-brand-background/75">
                     {(question.ai_see_professional as string[]).map((item) => (
                       <li key={item} className="flex items-start gap-2">
-                        <i className="ri-stethoscope-line mt-0.5 text-[#D19A58]" />
+                        <i className="ri-stethoscope-line mt-0.5 text-brand-accent2" aria-hidden="true" />
                         <span>{item}</span>
                       </li>
                     ))}
@@ -301,20 +315,20 @@ export default function AskQuestionPage() {
                 </div>
               )}
 
-              <p className="mt-5 text-[10px] text-[#eedfc8]/40">
+              <p className="mt-5 text-[10px] text-brand-background/40">
                 This is peer-support AI, not medical advice. Always talk with your care team.
               </p>
-            </section>
+            </Card>
 
-            <section className="card">
+            <Card>
               <div className="flex items-center justify-between gap-3">
                 <h2 className="section-title !mb-0">Community replies</h2>
-                <span className="text-xs text-[#eedfc8]/45">{answers.length}</span>
+                <span className="text-xs text-brand-background/45">{answers.length}</span>
               </div>
 
               <div className="mt-4 space-y-3">
                 {answers.length === 0 ? (
-                  <p className="text-sm text-[#eedfc8]/55">
+                  <p className="text-sm text-brand-background/55">
                     No one has replied yet. Be the first voice.
                   </p>
                 ) : (
@@ -325,11 +339,11 @@ export default function AskQuestionPage() {
                           (answer.profile?.username as string | undefined) ||
                           'KinSpace member')
                     return (
-                      <article key={answer.id} className="rounded-2xl bg-[#eedfc8]/5 p-4">
+                      <article key={answer.id} className="rounded-2xl bg-brand-background/5 p-4">
                         <div className="flex items-start gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6B8A83]/25 text-xs font-bold text-[#6B8A83]">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-accent3/25 text-xs font-bold text-brand-accent3">
                             {answer.is_anonymous ? (
-                              <i className="ri-spy-line text-sm" />
+                              <i className="ri-spy-line text-sm" aria-hidden="true" />
                             ) : (
                               <ProfileAvatar
                                 alt={replyAuthor}
@@ -342,19 +356,20 @@ export default function AskQuestionPage() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-[#eedfc8]/50">
-                              <span className="font-semibold text-[#eedfc8]/75">{replyAuthor}</span>
-                              <span>·</span>
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-brand-background/50">
+                              <span className="font-semibold text-brand-background/75">{replyAuthor}</span>
+                              <span aria-hidden="true">·</span>
                               <span>{formatRelativeTime(answer.created_at)}</span>
                             </div>
-                            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[#eedfc8]/80">
+                            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-brand-background/80">
                               {answer.content as string}
                             </p>
                             <button
+                              type="button"
                               onClick={() => handleUpvote(answer.id)}
-                              className="mt-2 flex items-center gap-1 text-xs text-[#eedfc8]/55 transition-colors hover:text-[#D19A58]"
+                              className="mt-2 inline-flex items-center gap-1 rounded-md px-1 text-xs text-brand-background/55 transition-colors hover:text-brand-accent2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                             >
-                              <i className="ri-thumb-up-line" />
+                              <i className="ri-thumb-up-line" aria-hidden="true" />
                               {((answer.upvotes as number | undefined) ?? 0)} helpful
                             </button>
                           </div>
@@ -367,91 +382,97 @@ export default function AskQuestionPage() {
 
               {user && (
                 <form onSubmit={submitReply} className="mt-5 space-y-2">
-                  <textarea
+                  <label htmlFor="ask-reply" className="sr-only">
+                    Your reply
+                  </label>
+                  <Textarea
+                    id="ask-reply"
                     value={reply}
                     onChange={(event) => setReply(event.target.value)}
                     placeholder="Share what helped you, or offer an honest perspective…"
                     rows={3}
-                    className="input-field resize-none"
+                    className="resize-none"
                     maxLength={2000}
                   />
                   <div className="flex items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 text-xs text-[#eedfc8]/60">
+                    <label className="flex items-center gap-2 text-xs text-brand-background/60">
                       <input
                         type="checkbox"
                         checked={replyAnonymously}
                         onChange={(event) => setReplyAnonymously(event.target.checked)}
+                        className="h-4 w-4 accent-brand-accent2"
                       />
                       Reply anonymously
                     </label>
-                    <button
+                    <Button
                       type="submit"
+                      size="sm"
+                      isLoading={postingReply}
                       disabled={!reply.trim() || postingReply}
-                      className="btn-primary !py-2 !px-4 text-sm disabled:opacity-50"
                     >
                       {postingReply ? 'Posting…' : 'Post reply'}
-                    </button>
+                    </Button>
                   </div>
                 </form>
               )}
               {!user && (
-                <p className="mt-4 text-sm text-[#eedfc8]/55">
-                  <Link href="/login" className="text-[#D19A58] underline">
+                <p className="mt-4 text-sm text-brand-background/55">
+                  <Link href="/login" className="font-medium text-brand-accent2 underline">
                     Sign in
                   </Link>{' '}
                   to reply.
                 </p>
               )}
-            </section>
+            </Card>
           </div>
 
           <aside className="space-y-4">
             {relatedQuestions.length > 0 && (
-              <section className="card">
+              <Card>
                 <h2 className="section-title">Similar questions</h2>
                 <ul className="space-y-2 text-sm">
                   {relatedQuestions.map((item) => (
                     <li key={item.id}>
                       <Link
                         href={`/ask/${item.id}`}
-                        className="block rounded-2xl bg-[#eedfc8]/5 p-3 text-[#eedfc8]/75 hover:bg-[#eedfc8]/10"
+                        className="block rounded-2xl bg-brand-background/5 p-3 text-brand-background/75 transition-colors hover:bg-brand-background/10"
                       >
                         {item.question}
                       </Link>
                     </li>
                   ))}
                 </ul>
-              </section>
+              </Card>
             )}
 
             {redditThreads.length > 0 && (
-              <section className="card">
+              <Card>
                 <h2 className="section-title">From Reddit threads</h2>
                 <ul className="space-y-3 text-sm">
                   {redditThreads.map((thread) => (
-                    <li key={thread.url} className="rounded-2xl bg-[#eedfc8]/5 p-3">
-                      <p className="text-xs font-semibold text-[#D19A58]">r/{thread.subreddit}</p>
+                    <li key={thread.url} className="rounded-2xl bg-brand-background/5 p-3">
+                      <p className="text-xs font-semibold text-brand-accent2">r/{thread.subreddit}</p>
                       <a
                         href={thread.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-1 block font-medium text-[#eedfc8] hover:text-[#D19A58]"
+                        className="mt-1 block font-medium text-brand-background transition-colors hover:text-brand-accent2"
                       >
                         {thread.title}
                       </a>
                       {thread.snippet && (
-                        <p className="mt-1 line-clamp-3 text-xs text-[#eedfc8]/55">
+                        <p className="mt-1 line-clamp-3 text-xs text-brand-background/55">
                           {thread.snippet}
                         </p>
                       )}
                     </li>
                   ))}
                 </ul>
-              </section>
+              </Card>
             )}
 
             {sources.length > 0 && (
-              <section className="card">
+              <Card>
                 <h2 className="section-title">Sources the AI used</h2>
                 <ol className="space-y-2 text-sm">
                   {sources.map((source) => (
@@ -460,36 +481,61 @@ export default function AskQuestionPage() {
                         href={source.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-start gap-2 text-[#eedfc8]/75 hover:text-[#D19A58]"
+                        className="flex items-start gap-2 text-brand-background/75 transition-colors hover:text-brand-accent2"
                       >
-                        <span className="text-xs font-bold text-[#D19A58]">[{source.index}]</span>
+                        <span className="text-xs font-bold text-brand-accent2">[{source.index}]</span>
                         <span className="flex-1">
                           <span className="block">{source.title}</span>
-                          <span className="text-xs text-[#eedfc8]/45">{source.domain}</span>
+                          <span className="text-xs text-brand-background/45">
+                            {source.domain}
+                            {source.kind && source.kind !== 'web' && (
+                              <span
+                                className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                                  source.kind === 'journal'
+                                    ? 'bg-brand-accent3/20 text-brand-accent3'
+                                    : source.kind === 'trial'
+                                      ? 'bg-brand-accent2/20 text-brand-accent2'
+                                      : 'bg-brand-accent1/20 text-brand-accent1'
+                                }`}
+                              >
+                                {source.kind === 'journal'
+                                  ? 'Peer-reviewed'
+                                  : source.kind === 'trial'
+                                    ? 'Clinical trial'
+                                    : 'Preprint'}
+                              </span>
+                            )}
+                          </span>
                         </span>
                       </a>
                     </li>
                   ))}
                 </ol>
-              </section>
+              </Card>
             )}
 
-            <section className="card-light">
-              <p className="text-sm font-semibold text-[#eedfc8]">If this is urgent…</p>
-              <p className="mt-2 text-xs text-[#eedfc8]/60">
-                Ask is peer support. For emergencies, call your local emergency number or a crisis
-                line. In the US: 911 or 988. UK: 999 or 111. Global:{' '}
+            <Card variant="light">
+              <p className="flex items-center gap-2 text-sm font-semibold text-brand-background">
+                <i className="ri-lifebuoy-line text-brand-accent2" aria-hidden="true" /> If this is urgent…
+              </p>
+              <p className="mt-2 text-xs text-brand-background/60">
+                Ask is peer support. If you&apos;re in danger, call emergency services right now. In South
+                Africa: <span className="font-semibold text-brand-background">10111</span> (police) or{' '}
+                <span className="font-semibold text-brand-background">112</span> (from a cell). For emotional
+                crisis: SADAG <span className="font-semibold text-brand-background">0800 567 567</span> (24h) or
+                SMS <span className="font-semibold text-brand-background">31393</span>; Suicide line{' '}
+                <span className="font-semibold text-brand-background">0800 12 13 14</span>. Outside SA:{' '}
                 <a
                   href="https://findahelpline.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#D19A58] underline"
+                  className="font-medium text-brand-accent2 underline"
                 >
                   findahelpline.com
                 </a>
                 .
               </p>
-            </section>
+            </Card>
           </aside>
         </div>
       </div>

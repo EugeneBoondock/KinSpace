@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
@@ -11,6 +10,14 @@ import { RealtimeService } from '@/lib/realtime'
 import { getGameDefinition, getGameHref } from '@/lib/games'
 import { formatCompactNumber, formatRelativeTime, getInitials } from '@/lib/platform'
 import { useToast } from '@/components/Toast'
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  LinkButton,
+  Skeleton,
+} from '@/components/ui'
 
 type GameRoom = Record<string, unknown> & {
   id: string
@@ -80,9 +87,10 @@ export default function GameRoomPage() {
     })
 
     const unsubPlayers = RealtimeService.subscribeToGamePlayers(params.gameId, async (rawPlayers) => {
-      // rawPlayers lack profile joins — hydrate in a single pass
+      // rawPlayers lack profile joins - hydrate in a single pass
+      const list = Array.isArray(rawPlayers) ? (rawPlayers as Array<Record<string, unknown>>) : []
       const hydrated = await Promise.all(
-        rawPlayers.map(async (player) => {
+        list.map(async (player) => {
           const userId = (player as { user_id?: string }).user_id
           if (!userId) return player as GamePlayer
           const profile = await DatabaseService.getProfile(userId).catch(() => null)
@@ -149,12 +157,12 @@ export default function GameRoomPage() {
   if (authLoading || loading || (!user && !authLoading)) {
     return (
       <PageFrame>
-        <div className="space-y-5">
-          <div className="h-28 skeleton rounded-3xl" />
-          <div className="page-card-grid">
-            <div className="h-44 skeleton rounded-3xl" />
-            <div className="h-44 skeleton rounded-3xl" />
-            <div className="h-44 skeleton rounded-3xl" />
+        <div className="space-y-6">
+          <Skeleton className="h-28 rounded-3xl" />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <Skeleton className="h-44 rounded-3xl" />
+            <Skeleton className="h-44 rounded-3xl" />
+            <Skeleton className="h-44 rounded-3xl" />
           </div>
         </div>
         <BottomNav />
@@ -165,93 +173,97 @@ export default function GameRoomPage() {
   if (!room) {
     return (
       <PageFrame>
-        <div className="page-grid">
-          <section className="card text-center">
-            <i className="ri-error-warning-line text-3xl text-[#eedfc8]/30" />
-            <h1 className="mt-3 text-2xl font-bold text-[#eedfc8]">Room not found</h1>
-            <p className="mt-2 text-sm text-[#eedfc8]/60">
-              This room may have been removed or the link is no longer valid.
-            </p>
-            <Link
-              href="/games"
-              className="btn-primary mt-5 inline-flex !rounded-2xl !px-5 !py-3 text-sm"
-            >
-              Back to games
-            </Link>
-          </section>
-        </div>
+        <EmptyState
+          icon={<i className="ri-error-warning-line text-4xl" aria-hidden="true" />}
+          title="Room not found"
+          description="This room may have been closed, or the link is no longer valid. Let's get you back to the games."
+          action={<LinkButton href="/games">Back to games</LinkButton>}
+        />
         <BottomNav />
       </PageFrame>
     )
   }
 
+  const seatsOpen = Math.max(
+    0,
+    ((room.max_players as number | undefined) ?? 0) -
+      ((room.current_players as number | undefined) ?? 0),
+  )
+
   return (
     <PageFrame>
-      <div className="page-grid">
-        <section className="card overflow-hidden !p-0">
+      <div className="space-y-6">
+        <div>
+          <LinkButton
+            href="/games"
+            variant="ghost"
+            size="sm"
+            leadingIcon={<i className="ri-arrow-left-line" aria-hidden="true" />}
+            className="!px-3"
+          >
+            Back to games
+          </LinkButton>
+        </div>
+
+        <Card className="!p-0 overflow-hidden">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_20rem]">
             <div className="p-6 md:p-8">
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/games"
-                  className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eedfc8]/8 text-[#eedfc8]/70"
+              <div className="flex items-center gap-4">
+                <div
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-background/10 text-3xl"
+                  aria-hidden="true"
                 >
-                  <i className="ri-arrow-left-line text-xl" />
-                </Link>
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eedfc8]/10 text-3xl">
                   {game?.icon ?? '🎮'}
                 </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/35">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-background/40">
                     Live room
                   </p>
-                  <h1 className="mt-1 text-3xl font-bold text-[#eedfc8]">
+                  <h1 className="mt-1 text-2xl font-bold text-brand-background sm:text-3xl">
                     {game?.name ?? 'Game room'}
                   </h1>
                 </div>
               </div>
 
-              <p className="mt-5 max-w-2xl text-sm leading-relaxed text-[#eedfc8]/60">
-                Hosted by {getDisplayName(room.host, 'Community host')} and created{' '}
-                {formatRelativeTime(room.created_at)}. Use this lobby to gather players,
-                share the room link, and open the game board once everyone is ready.
+              <p className="mt-5 max-w-2xl text-sm leading-relaxed text-brand-background/65">
+                Hosted by {getDisplayName(room.host, 'Community host')}, opened{' '}
+                {formatRelativeTime(room.created_at)}. Gather a few people here, share the
+                link, then open the board when everyone&apos;s ready. No rush.
               </p>
 
-              <div className="mt-6 flex flex-wrap gap-3 text-xs text-[#eedfc8]/50">
-                <span className="badge">
+              <div className="mt-6 flex flex-wrap gap-2">
+                <Badge>
                   Players {formatCompactNumber(room.current_players as number | undefined)}/
                   {formatCompactNumber(room.max_players as number | undefined)}
-                </span>
-                <span className="badge">
-                  Status {(room.status as string | undefined) ?? 'waiting'}
-                </span>
-                <span className="badge">
+                </Badge>
+                <Badge className="capitalize">
+                  {(room.status as string | undefined) ?? 'waiting'}
+                </Badge>
+                <Badge>
                   {room.room_code ? `Code ${room.room_code as string}` : 'Public room'}
-                </span>
+                </Badge>
               </div>
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 {canJoin && (
-                  <button
-                    onClick={handleJoinRoom}
-                    disabled={joining}
-                    className="btn-primary !rounded-2xl !py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {joining ? 'Joining...' : 'Join this room'}
-                  </button>
+                  <Button onClick={handleJoinRoom} isLoading={joining} className="!rounded-xl">
+                    {joining ? 'Joining…' : 'Join this room'}
+                  </Button>
                 )}
                 {isMember && (
-                  <Link
+                  <LinkButton
                     href={getGameHref(room.game_type as string | undefined, {
                       mode: 'room',
                       gameId: room.id,
                     })}
-                    className="btn-primary !rounded-2xl !py-3 text-center text-sm"
+                    className="!rounded-xl"
                   >
-                    Open local board
-                  </Link>
+                    Open board
+                  </LinkButton>
                 )}
-                <button
+                <Button
+                  variant="secondary"
+                  leadingIcon={<i className="ri-link" aria-hidden="true" />}
                   onClick={async () => {
                     if (typeof window === 'undefined') return
                     const link = `${window.location.origin}/games/rooms/${room.id}`
@@ -259,45 +271,40 @@ export default function GameRoomPage() {
                       await navigator.clipboard.writeText(link)
                       toast('Room link copied', 'success')
                     } catch {
-                      toast('Copy failed — long-press the URL to copy', 'error')
+                      toast('Copy failed - long-press the URL to copy', 'error')
                     }
                   }}
-                  className="btn-secondary !rounded-2xl !py-3 text-sm"
+                  className="!rounded-xl"
                 >
                   Copy invite link
-                </button>
+                </Button>
                 {isMember && (
-                  <button
+                  <Button
+                    variant="danger"
                     onClick={handleLeaveRoom}
-                    disabled={leaving}
-                    className="rounded-2xl border border-[#B85C3A]/30 bg-[#B85C3A]/10 px-4 py-3 text-sm font-medium text-[#B85C3A] transition-colors hover:bg-[#B85C3A]/20 disabled:opacity-50"
+                    isLoading={leaving}
+                    className="!rounded-xl !bg-brand-accent1/10 !text-brand-accent1 hover:!bg-brand-accent1/20 border border-brand-accent1/30"
                   >
                     {leaving ? 'Leaving…' : isHost ? 'Close room' : 'Leave room'}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
 
-            <div className="border-t border-[#eedfc8]/10 bg-[#eedfc8]/4 p-6 lg:border-l lg:border-t-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
+            <div className="border-t border-brand-background/10 bg-brand-background/[0.04] p-6 lg:border-l lg:border-t-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-background/40">
                 Room status
               </p>
               <div className="mt-4 space-y-3">
-                <div className="card-light !p-4">
-                  <p className="text-xs text-[#eedfc8]/45">Seats still open</p>
-                  <p className="mt-2 text-3xl font-bold text-[#D19A58]">
-                    {formatCompactNumber(
-                      Math.max(
-                        0,
-                        ((room.max_players as number | undefined) ?? 0) -
-                          ((room.current_players as number | undefined) ?? 0),
-                      ),
-                    )}
+                <div className="rounded-2xl border border-brand-background/10 bg-brand-background/[0.06] p-4">
+                  <p className="text-xs text-brand-background/50">Seats still open</p>
+                  <p className="mt-2 text-3xl font-bold text-brand-accent2">
+                    {formatCompactNumber(seatsOpen)}
                   </p>
                 </div>
-                <div className="card-light !p-4">
-                  <p className="text-xs text-[#eedfc8]/45">Host controls</p>
-                  <p className="mt-2 text-sm font-semibold text-[#eedfc8]">
+                <div className="rounded-2xl border border-brand-background/10 bg-brand-background/[0.06] p-4">
+                  <p className="text-xs text-brand-background/50">Host controls</p>
+                  <p className="mt-2 text-sm font-semibold text-brand-background">
                     {isHost
                       ? 'You are hosting this room.'
                       : `${getDisplayName(room.host, 'Community host')} is hosting.`}
@@ -306,58 +313,68 @@ export default function GameRoomPage() {
               </div>
             </div>
           </div>
-        </section>
+        </Card>
 
-        <div className="page-grid lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-start">
-          <section className="card">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-start">
+          <Card>
             <div className="flex items-center justify-between gap-3">
-              <h2 className="section-title !mb-0">Players in the room</h2>
-              <span className="text-sm text-[#eedfc8]/45">
+              <h2 className="text-sm font-bold text-brand-background">Players in the room</h2>
+              <span className="text-sm text-brand-background/50">
                 {formatCompactNumber(players.length)} joined
               </span>
             </div>
 
-            <div className="mt-5 page-card-grid">
-              {players.map((player) => {
-                const name = getDisplayName(player.profile, 'Player')
-                const isCurrentUser = player.user_id === user?.userId
+            {players.length > 0 ? (
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                {players.map((player) => {
+                  const name = getDisplayName(player.profile, 'Player')
+                  const isCurrentUser = player.user_id === user?.userId
 
-                return (
-                  <article key={player.id} className="card-light !p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#D19A58]/18 text-sm font-bold text-[#D19A58]">
-                        {getInitials(name)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate font-semibold text-[#eedfc8]">
-                            {isCurrentUser ? `${name} (you)` : name}
-                          </p>
-                          {player.user_id === room.host_id && (
-                            <span className="badge bg-[#D19A58]/12 text-[10px] text-[#D19A58]">
-                              Host
-                            </span>
-                          )}
+                  return (
+                    <div
+                      key={player.id}
+                      className="rounded-2xl border border-brand-background/10 bg-brand-background/[0.06] p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-accent2/18 text-sm font-bold text-brand-accent2"
+                          aria-hidden="true"
+                        >
+                          {getInitials(name)}
                         </div>
-                        <p className="mt-1 text-xs text-[#eedfc8]/40">
-                          Joined {formatRelativeTime(player.joined_at)}
-                        </p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate font-semibold text-brand-background">
+                              {isCurrentUser ? `${name} (you)` : name}
+                            </p>
+                            {player.user_id === room.host_id && (
+                              <Badge tone="accent">Host</Badge>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs text-brand-background/40">
+                            Joined {formatRelativeTime(player.joined_at)}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </article>
-                )
-              })}
-            </div>
-          </section>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="mt-5 text-sm text-brand-background/55">
+                No one has joined yet. Share the invite link to get things started.
+              </p>
+            )}
+          </Card>
 
           <aside className="space-y-4">
-            <section className="card">
-              <h2 className="section-title">What happens next</h2>
-              <div className="space-y-3 text-sm leading-relaxed text-[#eedfc8]/60">
-                <p>Share the room link or code with others so they can join from the lobby.</p>
+            <Card>
+              <h2 className="mb-3 text-sm font-bold text-brand-background">What happens next</h2>
+              <div className="space-y-3 text-sm leading-relaxed text-brand-background/60">
+                <p>Share the room link or code so others can join from the lobby.</p>
                 <p>
-                  Once you are in the room, use the board button to jump into the current
-                  game interface for your session.
+                  Once you&apos;re in, use the board button to jump into the game interface for
+                  your session.
                 </p>
                 {!isMember && !canJoin && (
                   <p>
@@ -366,7 +383,7 @@ export default function GameRoomPage() {
                   </p>
                 )}
               </div>
-            </section>
+            </Card>
           </aside>
         </div>
       </div>

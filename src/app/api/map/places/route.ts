@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { postOverpass } from '@/lib/server/overpass'
+import { getSessionUserId } from '@/server/http/auth'
+import { rateLimit } from '@/server/http/rate-limit'
+
+export const runtime = 'nodejs'
 
 function toNumber(value: string | null) {
   const number = Number(value)
@@ -32,6 +36,11 @@ function getKindQuery(kind: string) {
 }
 
 export async function GET(request: NextRequest) {
+  const userId = await getSessionUserId(request)
+  if (!userId) return NextResponse.json({ results: [] }, { status: 401 })
+  const limited = await rateLimit(`map:${userId}`, 40, 60)
+  if (!limited.allowed) return NextResponse.json({ results: [] }, { status: 429 })
+
   const latitude = toNumber(request.nextUrl.searchParams.get('lat'))
   const longitude = toNumber(request.nextUrl.searchParams.get('lng'))
   const radius = Math.min(12000, Math.max(1500, toNumber(request.nextUrl.searchParams.get('radius')) || 6000))
@@ -95,8 +104,7 @@ export async function GET(request: NextRequest) {
       .slice(0, 18)
 
     return NextResponse.json({ results })
-  } catch (error) {
-    console.error('Failed to load nearby places:', error)
-    return NextResponse.json({ results: [] }, { status: 500 })
+  } catch {
+    return NextResponse.json({ results: [], degraded: true })
   }
 }

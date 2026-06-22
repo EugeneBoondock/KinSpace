@@ -1,0 +1,1 @@
+ALTER TABLE `profiles` ADD `hide_conditions_on_home` integer DEFAULT false NOT NULL;

@@ -11,6 +11,16 @@
 
 import OpenAI from 'openai'
 import { fetchPage, searchWeb, type WebPage } from './web-research'
+import { searchLiterature } from './literature'
+
+type ResearchSource = { title: string; url: string; domain: string; excerpt: string; kind: string }
+
+function sourceLabel(kind: string): string {
+  if (kind === 'journal') return 'PEER-REVIEWED'
+  if (kind === 'preprint') return 'PREPRINT (not yet peer-reviewed)'
+  if (kind === 'trial') return 'CLINICAL TRIAL'
+  return 'WEB'
+}
 
 export type ResearchPlan = {
   queries: string[]
@@ -32,6 +42,7 @@ export type ResearchArticle = {
     title: string
     url: string
     domain: string
+    kind?: string
   }>
 }
 
@@ -71,10 +82,58 @@ Rules:
 4. Respectful of the lived experience of the condition.
 5. Every claim that comes from a source must include a citation marker like [1], [2].
 6. Body must include markdown sections: "## Summary", "## What the research shows", "## What this might mean for you", "## Caveats".
-7. Never invent facts that are not in the provided sources. If sources are weak, say so.
+7. Never invent facts that are not in the provided sources. If sources are weak, say so. Sources are tagged PEER-REVIEWED / PREPRINT / CLINICAL TRIAL / WEB — weight peer-reviewed and clinical-trial sources highest, and explicitly note when something rests on a preprint (not yet peer-reviewed) or a single small study.
 8. Tags: 3–6 lowercase short phrases for search (e.g. "depression", "sleep", "vagus-nerve", "rct").
 9. topic: one short label like "Depression Research" or "Long COVID".
 10. Return STRICT JSON only — no prose outside JSON.`
+
+/**
+ * Self-directed topic discovery: searches the web for current notable health
+ * breakthroughs / approvals / major trial results, then has the model curate the
+ * most genuinely-significant, distinct ones worth a plain-language article. Each
+ * returned topic is then run through the full deep-research pipeline (which cites
+ * Europe PMC + clinical trials + web), so articles ship with real sources.
+ */
+export async function discoverBreakthroughTopics(count = 2): Promise<string[]> {
+  try {
+    const queries = [
+      'major medical breakthrough new treatment recent',
+      'new drug approval or prevention breakthrough health news',
+    ]
+    const results = (await Promise.all(queries.map((query) => searchWeb(query, 6)))).flat()
+    if (results.length === 0) return []
+    const context = results
+      .slice(0, 16)
+      .map((result, index) => `${index + 1}. ${result.title} — ${result.snippet}`)
+      .join('\n')
+
+    const openai = getClient()
+    const completion = await openai.chat.completions.create({
+      model: modelFor('mini'),
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You spot genuinely notable, recent health/medical breakthroughs worth a plain-language article for a chronic-illness and mental-health community. Avoid hype, ads, supplements, and listicles. Prefer concrete advances: new treatments, regulatory approvals, major trial results, prevention milestones.',
+        },
+        {
+          role: 'user',
+          content: `From these search results, pick the ${count} most notable, distinct, real breakthroughs. Return STRICT JSON {"topics": string[]} where each topic is a specific, searchable phrase (e.g. "twice-yearly lenacapavir injection for HIV prevention", "donanemab trial results for early Alzheimer's").\n\n${context}`,
+        },
+      ],
+      temperature: 0.4,
+      max_completion_tokens: 300,
+    })
+    const text = completion.choices[0]?.message?.content?.trim()
+    if (!text) return []
+    const parsed = JSON.parse(text) as { topics?: unknown }
+    const topics = Array.isArray(parsed.topics) ? parsed.topics.map((t) => String(t).trim()).filter(Boolean) : []
+    return topics.slice(0, count)
+  } catch {
+    return []
+  }
+}
 
 export async function planResearch(topic: string): Promise<ResearchPlan | null> {
   const openai = getClient()
@@ -122,11 +181,11 @@ export async function gatherSources(plan: ResearchPlan): Promise<WebPage[]> {
   return pages
 }
 
-function formatSourcesForPrompt(pages: WebPage[]): string {
-  return pages
-    .map((page, index) => {
-      const body = page.excerpt.slice(0, 2500)
-      return `[${index + 1}] ${page.title} — ${page.domain}\nURL: ${page.url}\n---\n${body}\n`
+function formatSourcesForPrompt(sources: ResearchSource[]): string {
+  return sources
+    .map((source, index) => {
+      const body = source.excerpt.slice(0, 2500)
+      return `[${index + 1}] (${sourceLabel(source.kind)}) ${source.title} — ${source.domain}\nURL: ${source.url}\n---\n${body}\n`
     })
     .join('\n\n')
 }
@@ -142,16 +201,16 @@ function slugify(input: string): string {
 export async function synthesizeArticle(
   topic: string,
   plan: ResearchPlan,
-  pages: WebPage[],
+  sources: ResearchSource[],
 ): Promise<ResearchArticle | null> {
-  if (pages.length === 0) return null
+  if (sources.length === 0) return null
   const openai = getClient()
 
   const userPrompt = `Research topic: ${topic}
 Angle: ${plan.angle}
 
 Sources:
-${formatSourcesForPrompt(pages)}
+${formatSourcesForPrompt(sources)}
 
 Respond with STRICT JSON only, matching:
 {
@@ -182,11 +241,12 @@ Respond with STRICT JSON only, matching:
     const parsed = JSON.parse(text) as Partial<ResearchArticle>
     if (!parsed.title || !parsed.body_markdown) return null
 
-    const sources = pages.map((page, index) => ({
+    const citedSources = sources.map((source, index) => ({
       index: index + 1,
-      title: page.title,
-      url: page.url,
-      domain: page.domain,
+      title: source.title,
+      url: source.url,
+      domain: source.domain,
+      kind: source.kind,
     }))
 
     return {
@@ -201,7 +261,7 @@ Respond with STRICT JSON only, matching:
       tags: Array.isArray(parsed.tags)
         ? parsed.tags.map((tag) => String(tag).toLowerCase().trim()).slice(0, 6)
         : [],
-      sources,
+      sources: citedSources,
     }
   } catch (error) {
     console.error('Research synthesis failed:', error)
@@ -220,9 +280,31 @@ export async function runDeepResearch(topic: string): Promise<DeepResearchRun> {
   const plan = await planResearch(topic)
   if (!plan) return { topic, plan: null, pages: [], article: null }
 
-  const pages = await gatherSources(plan)
-  if (pages.length === 0) return { topic, plan, pages, article: null }
+  // Authoritative literature (Europe PMC + ClinicalTrials.gov) + general web,
+  // gathered in parallel. Literature is listed first so it is cited first.
+  const [pages, literature] = await Promise.all([
+    gatherSources(plan),
+    searchLiterature(topic, { journals: 4, trials: 2 }),
+  ])
 
-  const article = await synthesizeArticle(topic, plan, pages)
+  const sources: ResearchSource[] = [
+    ...literature.map((item) => ({
+      title: item.title,
+      url: item.url,
+      domain: item.domain,
+      excerpt: item.snippet,
+      kind: item.kind,
+    })),
+    ...pages.map((page) => ({
+      title: page.title,
+      url: page.url,
+      domain: page.domain,
+      excerpt: page.excerpt,
+      kind: 'web',
+    })),
+  ]
+  if (sources.length === 0) return { topic, plan, pages, article: null }
+
+  const article = await synthesizeArticle(topic, plan, sources)
   return { topic, plan, pages, article }
 }

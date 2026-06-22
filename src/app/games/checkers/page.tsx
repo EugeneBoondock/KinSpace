@@ -144,6 +144,7 @@ export default function CheckersPage() {
                   <button
                     key={`${rowIndex}-${colIndex}`}
                     onClick={() => handleSquare(rowIndex, colIndex)}
+                    aria-label={`Checkers square ${rowIndex + 1}, ${colIndex + 1}${cell ? ` ${cell.color}${cell.king ? ' king' : ''}` : ' empty'}`}
                     className={`flex h-12 w-12 items-center justify-center text-2xl transition-colors ${
                       isDark ? 'bg-[#2A4A42]' : 'bg-[#eedfc8]/10'
                     } ${isSelected ? 'ring-2 ring-[#D19A58]' : ''} ${

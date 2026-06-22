@@ -1,0 +1,80 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kinspace",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-06-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  // Serve the live domain from this Worker. Keeps the *.workers.dev URL too.
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "kinspace.co.za", "custom_domain": true },
+    { "pattern": "www.kinspace.co.za", "custom_domain": true }
+  ],
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Bindings. The IDs below are PLACEHOLDERS. Before deploying, provision the
+  // resources and paste the real IDs (see docs/CLOUDFLARE.md):
+  //   wrangler d1 create kinspace            -> database_id
+  //   wrangler kv namespace create KV        -> id
+  //   wrangler r2 bucket create kinspace-media
+  //   wrangler queues create kinspace-jobs   (requires a paid Workers plan)
+  // Local dev (wrangler dev / opennextjs-cloudflare preview) simulates these
+  // locally and does not need real IDs.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kinspace",
+      "database_id": "90404efa-7be3-45cb-8c34-711f77a919f8",
+      "migrations_dir": "drizzle"
+    }
+  ],
+
+  "kv_namespaces": [
+    {
+      // Sessions, rate-limit counters, and lightweight cache/config.
+      "binding": "KV",
+      "id": "a07ce395d7a948c2b3e0dc921b4b26e3"
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      // User uploads: avatars + post media (image/video/audio).
+      "binding": "MEDIA",
+      "bucket_name": "kinspace-media"
+    }
+  ],
+
+  "queues": {
+    "producers": [
+      {
+        "queue": "kinspace-jobs",
+        "binding": "JOBS_QUEUE"
+      }
+    ]
+  },
+
+  "triggers": {
+    // Every 5 min: medication-reminder tick (the worker's scheduled() handler
+    // pings /api/cron/med-reminders). Plus daily research + weekly digest slots.
+    "crons": ["*/5 * * * *", "0 6 * * *", "0 7 * * 1"]
+  },
+
+  "observability": {
+    "enabled": true
+  },
+
+  "vars": {
+    // Non-secret, build-safe config. Secrets go in .dev.vars (local) and
+    // `wrangler secret put` (deployed) — never here.
+    "NEXT_PUBLIC_APP_URL": "https://www.kinspace.co.za",
+    "APP_ENV": "production"
+  }
+}

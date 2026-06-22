@@ -1,253 +1,246 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { eq, sql } from 'drizzle-orm'
 import { therapyChat, type TherapyContext, type TherapyMessage } from '@/lib/ai/therapy'
-import { getAdminDb, isAdminConfigured } from '@/lib/server/firebase-admin'
+import { getDb } from '@/server/db/client'
+import {
+  profiles,
+  conditionTreatments,
+  treatments,
+  moodCheckins,
+  therapySessions,
+  medicationReminders,
+} from '@/server/db/schema'
+import { getSessionUserId } from '@/server/http/auth'
+import { rateLimit } from '@/server/http/rate-limit'
+import { checkAndConsume } from '@/server/billing/repo'
+import { detectCrisisInMessages } from '@/server/ai/safety'
+import { decryptField } from '@/server/crypto/field-encryption'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-type RequestBody = {
-  userId?: string
-  messages?: TherapyMessage[]
-  profileCache?: Record<string, unknown> | null
-  /** Session id for this therapy room, used to bump message_count. */
-  sessionId?: string | null
-  /** Client-chosen persona slug; falls back to profile.therapist_persona. */
-  personaId?: string | null
-}
+type RequestBody = { messages?: TherapyMessage[]; sessionId?: string | null; personaId?: string | null }
+type Db = ReturnType<typeof getDb>
 
-type InsightEntry = TherapyContext['conditionInsights'][number]
-
-async function hydrateContext(
-  db: FirebaseFirestore.Firestore,
-  userId: string,
-  profileCache: Record<string, unknown> | null,
-  personaOverride?: string | null,
-): Promise<TherapyContext | null> {
-  const profile = profileCache ?? (await db.collection('profiles').doc(userId).get()).data()
+async function hydrateContext(db: Db, userId: string, personaOverride?: string | null): Promise<TherapyContext | null> {
+  const profile = await db.query.profiles.findFirst({ where: eq(profiles.userId, userId) })
   if (!profile) return null
 
-  const conditions = Array.isArray(profile.conditions) ? (profile.conditions as string[]) : []
+  // Consent gate. Default ON (legacy rows have null → treated as shared); the user
+  // can opt out in Settings, after which no health detail reaches the Guide.
+  const shareHealth = profile.shareHealthWithGuide !== false
 
-  // Build an alias/name → slug map by reading the conditions collection once.
-  const conditionsSnap = await db.collection('conditions').get()
+  const conditions = shareHealth ? (profile.conditions ?? []) : []
+
+  const allConditions = await db.query.conditions.findMany()
   const aliasToSlug = new Map<string, string>()
-  conditionsSnap.docs.forEach((doc) => {
-    const data = doc.data()
-    const slug = doc.id
-    aliasToSlug.set(slug.toLowerCase(), slug)
-    const name = String(data.name ?? '').toLowerCase()
-    if (name) aliasToSlug.set(name, slug)
-    if (Array.isArray(data.aliases)) {
-      for (const alias of data.aliases) {
-        if (typeof alias === 'string') aliasToSlug.set(alias.toLowerCase(), slug)
-      }
-    }
-  })
-
-  function resolveSlug(input: string): string {
-    const raw = String(input).trim().toLowerCase()
+  for (const c of allConditions) {
+    aliasToSlug.set(c.slug.toLowerCase(), c.slug)
+    if (c.name) aliasToSlug.set(c.name.toLowerCase(), c.slug)
+    for (const alias of c.aliases ?? []) aliasToSlug.set(String(alias).toLowerCase(), c.slug)
+  }
+  const resolveSlug = (input: string): string => {
+    const raw = input.trim().toLowerCase()
     if (aliasToSlug.has(raw)) return aliasToSlug.get(raw)!
     const kebab = raw.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
     return aliasToSlug.get(kebab) ?? kebab
   }
 
-  // Pull top 3 community-rated treatments per condition
-  const conditionInsights: InsightEntry[] = await Promise.all(
+  const conditionInsights = await Promise.all(
     conditions.slice(0, 4).map(async (conditionName) => {
       const slug = resolveSlug(conditionName)
-      const snap = await db
-        .collection('condition_treatments')
-        .where('condition_slug', '==', slug)
-        .limit(5)
-        .get()
-      const rows = snap.docs
-        .map((doc) => doc.data())
-        .sort((a, b) => (b.effectiveness_avg ?? 0) - (a.effectiveness_avg ?? 0))
+      const rows = await db.query.conditionTreatments.findMany({
+        where: eq(conditionTreatments.conditionSlug, slug),
+        limit: 5,
+      })
+      const top = rows
+        .sort((a, b) => (b.effectivenessAvg ?? 0) - (a.effectivenessAvg ?? 0))
         .slice(0, 3)
-
-      const treatments = await Promise.all(
-        rows.map(async (row) => {
-          const treatmentSnap = await db.collection('treatments').doc(row.treatment_slug as string).get()
-          const name = (treatmentSnap.exists ? (treatmentSnap.data()?.name as string) : row.treatment_slug as string) ?? ''
+      const topTreatments = await Promise.all(
+        top.map(async (row) => {
+          const t = await db.query.treatments.findFirst({ where: eq(treatments.slug, row.treatmentSlug) })
           return {
-            name,
-            effectiveness: Number(row.effectiveness_avg ?? 0),
-            count: Number(row.effectiveness_count ?? 0),
+            name: t?.name ?? row.treatmentSlug,
+            effectiveness: Number(row.effectivenessAvg ?? 0),
+            count: Number(row.effectivenessCount ?? 0),
           }
         }),
       )
-
-      return {
-        condition: conditionName,
-        topTreatments: treatments.filter((treatment) => treatment.name),
-      }
+      return { condition: conditionName, topTreatments: topTreatments.filter((t) => t.name) }
     }),
   )
 
-  // Recent mood log + pattern
   const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000
-  const moodSnap = await db
-    .collection('mood_checkins')
-    .where('user_id', '==', userId)
-    .get()
-    .catch(() => null)
-  const recentMoods = moodSnap
-    ? moodSnap.docs
-        .map((doc) => doc.data())
-        .filter((entry) => {
-          const when = entry.created_at?.toDate?.() ?? (entry.day ? new Date(entry.day) : null)
-          return when && when.getTime() >= cutoff
-        })
-        .sort((a, b) => {
-          const aTime = a.created_at?.toDate?.()?.getTime() ?? 0
-          const bTime = b.created_at?.toDate?.()?.getTime() ?? 0
-          return aTime - bTime
-        })
-        .map((entry) => ({
-          day: String(entry.day ?? '').slice(0, 10),
-          mood: String(entry.mood ?? ''),
-        }))
-        .filter((entry) => entry.day && entry.mood)
-    : []
+  const moodRows = await db.query.moodCheckins.findMany({ where: eq(moodCheckins.userId, userId) })
+  const recentMoods = moodRows
+    .filter((m) => {
+      const when = m.createdAt ?? (m.day ? new Date(m.day) : null)
+      return when ? when.getTime() >= cutoff : false
+    })
+    .sort((a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0))
+    .map((m) => ({ day: String(m.day ?? '').slice(0, 10), mood: String(m.mood ?? '') }))
+    .filter((m) => m.day && m.mood)
 
   let moodPatternHint: string | null = null
   if (recentMoods.length >= 3) {
-    const heavy = recentMoods.filter((entry) =>
-      ['heavy', 'tired', 'stretched'].includes(entry.mood),
-    ).length
-    const bright = recentMoods.filter((entry) => ['hopeful', 'grounded'].includes(entry.mood)).length
-    const tail = recentMoods.slice(-5).map((entry) => entry.mood)
+    const heavy = recentMoods.filter((e) => ['heavy', 'tired', 'stretched'].includes(e.mood)).length
+    const bright = recentMoods.filter((e) => ['hopeful', 'grounded'].includes(e.mood)).length
+    const tail = recentMoods.slice(-5).map((e) => e.mood)
     let streak = 1
-    for (let index = tail.length - 2; index >= 0; index -= 1) {
-      if (tail[index] === tail[tail.length - 1]) streak += 1
+    for (let i = tail.length - 2; i >= 0; i -= 1) {
+      if (tail[i] === tail[tail.length - 1]) streak += 1
       else break
     }
     if (streak >= 3 && ['heavy', 'tired'].includes(tail[tail.length - 1])) {
       moodPatternHint = `User has logged "${tail[tail.length - 1]}" ${streak} days in a row.`
     } else if (heavy >= Math.max(4, Math.floor(recentMoods.length * 0.6))) {
-      moodPatternHint = `Mood has been mostly heavy/tired for the last two weeks.`
+      moodPatternHint = 'Mood has been mostly heavy/tired for the last two weeks.'
     } else if (bright >= Math.floor(recentMoods.length * 0.7)) {
-      moodPatternHint = `User has been in a steady bright patch — hopeful/grounded mostly.`
+      moodPatternHint = 'User has been in a steady bright patch - hopeful/grounded mostly.'
+    }
+  }
+
+  const priorRows = await db.query.therapySessions.findMany({ where: eq(therapySessions.userId, userId) })
+  const priorSessions = await Promise.all(
+    priorRows
+      .filter((s) => Boolean(s.summary))
+      .sort((a, b) => (b.startedAt?.getTime() ?? 0) - (a.startedAt?.getTime() ?? 0))
+      .slice(0, 5)
+      .map(async (s) => ({
+        summary: (await decryptField(s.summary)) ?? '',
+        key_themes: s.keyThemes ?? [],
+        mood_at_start: s.moodAtStart ?? null,
+        mood_at_end: s.moodAtEnd ?? null,
+        started_at: s.startedAt?.toISOString() ?? null,
+      })),
+  )
+
+  // Bridge the medication shelf into what the Guide knows. The shelf (reminders)
+  // is where users actually log what they take, so active reminders are the
+  // authoritative "currently taking" list; profile meds fill in the rest. Names
+  // are de-duped on their base (dose-stripped) name so "Metformin" and
+  // "Metformin (500 mg)" never both appear.
+  const medications: string[] = []
+  if (shareHealth) {
+    const baseName = (value: string) => value.replace(/\s*\(.*\)\s*$/, '').trim().toLowerCase()
+    const seen = new Set<string>()
+    const reminderRows = await db.query.medicationReminders.findMany({
+      where: eq(medicationReminders.userId, userId),
+    })
+    for (const row of reminderRows) {
+      if (row.active === false) continue
+      const name = (row.medication ?? '').trim()
+      if (!name) continue
+      const label = row.dose ? `${name} (${row.dose})` : name
+      const key = baseName(label)
+      if (seen.has(key)) continue
+      seen.add(key)
+      medications.push(label)
+    }
+    for (const med of profile.medications ?? []) {
+      const key = baseName(String(med))
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      medications.push(String(med))
     }
   }
 
   return {
     userId,
-    displayName: (profile.full_name as string | undefined) || (profile.username as string | undefined) || 'friend',
-    pronouns: (profile.pronouns as string | undefined) ?? null,
-    age: (profile.age as number | undefined) ?? null,
-    location: (profile.location as string | undefined) ?? null,
+    displayName: profile.fullName || profile.username || 'friend',
+    pronouns: profile.pronouns ?? null,
+    age: profile.age ?? null,
+    location: profile.location ?? null,
     conditions,
-    medications: Array.isArray(profile.medications) ? (profile.medications as string[]) : [],
-    comorbidities: Array.isArray(profile.comorbidities) ? (profile.comorbidities as string[]) : [],
-    goals: Array.isArray(profile.mental_health_goals) ? (profile.mental_health_goals as string[]) : [],
-    interests: Array.isArray(profile.interests) ? (profile.interests as string[]) : [],
-    preferredCommunication: (profile.preferred_communication as string | undefined) ?? null,
+    medications,
+    healthShared: shareHealth,
+    comorbidities: shareHealth ? (profile.comorbidities ?? []) : [],
+    goals: profile.mentalHealthGoals ?? [],
+    interests: profile.interests ?? [],
+    preferredCommunication: profile.preferredCommunication ?? null,
     conditionInsights,
-    currentMood: (profile.daily_mood as string | undefined) ?? null,
-    currentMoodAt: profile.mood_updated_at ? new Date(profile.mood_updated_at as string) : null,
+    currentMood: profile.dailyMood ?? null,
+    currentMoodAt: profile.moodUpdatedAt ?? null,
     recentMoods,
     moodPatternHint,
-    personaId: personaOverride ?? (profile.therapist_persona as string | undefined) ?? null,
-    priorSessions: [], // filled in at the callsite below after we have db handle + userId
+    personaId: personaOverride ?? profile.therapistPersona ?? null,
+    priorSessions,
   }
 }
 
 export async function POST(request: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ ok: false, error: 'OPENAI_API_KEY is not set.' }, { status: 500 })
+    return NextResponse.json({ ok: false, error: 'AI is not configured.' }, { status: 500 })
   }
-  if (!isAdminConfigured()) {
-    return NextResponse.json(
-      { ok: false, error: 'Firebase Admin not configured — cannot load user context securely.' },
-      { status: 500 },
-    )
+
+  const userId = await getSessionUserId(request)
+  if (!userId) return NextResponse.json({ ok: false, error: 'Please sign in.' }, { status: 401 })
+
+  const limited = await rateLimit(`therapy:${userId}`, 30, 60)
+  if (!limited.allowed) {
+    return NextResponse.json({ ok: false, error: 'Slow down a moment, then try again.' }, { status: 429 })
   }
 
   let body: RequestBody
   try {
     body = (await request.json()) as RequestBody
   } catch {
-    return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
+    return NextResponse.json({ ok: false, error: 'Invalid request.' }, { status: 400 })
   }
 
-  if (!body.userId || !Array.isArray(body.messages) || body.messages.length === 0) {
-    return NextResponse.json({ ok: false, error: 'userId and messages required' }, { status: 400 })
-  }
-
-  // Sanitise messages — we only accept user/assistant roles, and trim length.
-  const sanitised: TherapyMessage[] = body.messages
-    .filter((message) => message && (message.role === 'user' || message.role === 'assistant'))
-    .map((message) => ({
-      role: message.role,
-      content: String(message.content ?? '').slice(0, 4000),
-    }))
-    .filter((message) => message.content.length > 0)
-
+  const sanitised: TherapyMessage[] = (body.messages ?? [])
+    .filter((m) => m && (m.role === 'user' || m.role === 'assistant'))
+    .map((m) => ({ role: m.role, content: String(m.content ?? '').slice(0, 4000) }))
+    .filter((m) => m.content.length > 0)
   if (sanitised.length === 0) {
-    return NextResponse.json({ ok: false, error: 'No valid messages' }, { status: 400 })
+    return NextResponse.json({ ok: false, error: 'No message provided.' }, { status: 400 })
   }
 
-  const db = getAdminDb()
-  const context = await hydrateContext(db, body.userId, body.profileCache ?? null, body.personaId ?? null)
-  if (!context) {
-    return NextResponse.json({ ok: false, error: 'Profile not found' }, { status: 404 })
+  const db = getDb()
+
+  // Quota counts SESSIONS, not messages: consume one unit only on the first
+  // message of a session. Continuing an existing session is always free. Admins
+  // and paid tiers bypass inside checkAndConsume.
+  let isNewSession = true
+  if (body.sessionId) {
+    const sessionRow = await db.query.therapySessions.findFirst({
+      where: eq(therapySessions.id, body.sessionId),
+    })
+    if (sessionRow && (sessionRow.messageCount ?? 0) > 0) isNewSession = false
+  }
+  if (isNewSession) {
+    const quota = await checkAndConsume(userId, 'ai_therapy')
+    if (!quota.allowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `You’ve used your ${quota.limit} free Guide sessions this month. Upgrade to KinSpace Plus for unlimited sessions.`,
+          upgrade: true,
+        },
+        { status: 402 },
+      )
+    }
   }
 
-  // Pull up to 5 prior session summaries so the Guide has memory across rooms.
-  try {
-    const priorSnap = await db
-      .collection('therapy_sessions')
-      .where('user_id', '==', body.userId)
-      .get()
-    const priors = priorSnap.docs
-      .map((doc) => doc.data())
-      .filter((entry) => Boolean(entry.summary))
-      .sort((a, b) => {
-        const aTime = a.started_at?.toDate?.()?.getTime() ?? 0
-        const bTime = b.started_at?.toDate?.()?.getTime() ?? 0
-        return bTime - aTime
-      })
-      .slice(0, 5)
-      .map((entry) => ({
-        summary: String(entry.summary ?? ''),
-        key_themes: Array.isArray(entry.key_themes) ? (entry.key_themes as string[]) : [],
-        mood_at_start: (entry.mood_at_start as string | null) ?? null,
-        mood_at_end: (entry.mood_at_end as string | null) ?? null,
-        started_at: entry.started_at?.toDate?.()?.toISOString?.() ?? null,
-      }))
-    context.priorSessions = priors
-  } catch (error) {
-    console.warn('Could not load prior therapy sessions:', error)
-  }
+  const context = await hydrateContext(db, userId, body.personaId ?? null)
+  if (!context) return NextResponse.json({ ok: false, error: 'Complete your profile first.' }, { status: 404 })
 
-  // Bump message_count on the active session doc
   if (body.sessionId) {
     void db
-      .collection('therapy_sessions')
-      .doc(body.sessionId)
-      .set(
-        {
-          message_count: (await db.collection('therapy_sessions').doc(body.sessionId).get()).data()?.message_count
-            ? ((await db.collection('therapy_sessions').doc(body.sessionId).get()).data()?.message_count ?? 0) + 1
-            : 1,
-          updated_at: new Date(),
-        },
-        { merge: true },
-      )
+      .update(therapySessions)
+      .set({ messageCount: sql`${therapySessions.messageCount} + 1`, updatedAt: new Date() })
+      .where(eq(therapySessions.id, body.sessionId))
       .catch(() => undefined)
   }
 
   try {
     const result = await therapyChat(context, sanitised)
-    return NextResponse.json({
-      ok: true,
-      reply: result.reply,
-      isCrisis: result.isCrisis,
-    })
+    const isCrisis = result.isCrisis || detectCrisisInMessages(sanitised)
+    return NextResponse.json({ ok: true, reply: result.reply, isCrisis, endSession: result.endSession && !isCrisis })
   } catch (error) {
-    console.error('Therapy chat failed:', error)
-    return NextResponse.json({ ok: false, error: 'Therapy chat failed' }, { status: 500 })
+    console.error('Therapy chat failed')
+    void error
+    return NextResponse.json({ ok: false, error: 'The Guide is unavailable right now.' }, { status: 500 })
   }
 }

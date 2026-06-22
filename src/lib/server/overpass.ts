@@ -29,7 +29,14 @@ export async function postOverpass(query: string, timeoutMs = 25_000) {
       const response = await withTimeout(
         fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            // OSM/Overpass usage policy requires a descriptive User-Agent. Node's
+            // fetch (undici) otherwise gets blocked with an HTML/XML error page,
+            // which broke the care map (response.json() threw → "degraded").
+            'User-Agent': 'KinSpace/1.0 (care map; +https://kinspace.co.za)',
+            Accept: 'application/json',
+          },
           body,
           cache: 'no-store',
         }),

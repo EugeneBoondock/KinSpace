@@ -5,6 +5,9 @@ import { AuthProvider } from "@/lib/AuthContext";
 import ResponsiveNavbar from "@/components/ResponsiveNavbar";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import { ToastProvider } from "@/components/Toast";
+import { ThemeProvider, themeInitScript } from "@/components/ThemeProvider";
+import MedicationShelf from "@/components/MedicationShelf";
+import Script from "next/script";
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -68,15 +71,28 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" rel="stylesheet" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className={`${manrope.className} bg-brand-primary text-brand-background antialiased`}>
-        <AuthProvider>
-          <ToastProvider>
-            <ResponsiveNavbar />
-            <main className="min-h-screen">{children}</main>
-            <ServiceWorkerRegistrar />
-          </ToastProvider>
-        </AuthProvider>
+      <body className={`${manrope.className} bg-brand-canvas text-brand-ink antialiased`}>
+        <ThemeProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <ResponsiveNavbar />
+              <main className="min-h-screen">{children}</main>
+              <MedicationShelf />
+              <ServiceWorkerRegistrar />
+            </ToastProvider>
+          </AuthProvider>
+        </ThemeProvider>
+        {/* Cloudflare Web Analytics, privacy-first traffic, no cookies. Renders
+            only when the beacon token is configured (set NEXT_PUBLIC_CF_BEACON_TOKEN). */}
+        {process.env.NEXT_PUBLIC_CF_BEACON_TOKEN && (
+          <Script
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            strategy="afterInteractive"
+            data-cf-beacon={`{"token":"${process.env.NEXT_PUBLIC_CF_BEACON_TOKEN}"}`}
+          />
+        )}
       </body>
     </html>
   );

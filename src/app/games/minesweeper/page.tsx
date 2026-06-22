@@ -15,6 +15,7 @@ import {
   type MsDifficulty,
   type MsGrid,
 } from '@/lib/game-engines/minesweeper'
+import { playSfx } from '@/lib/audio/sfx'
 
 const NUMBER_COLORS = ['', 'text-[#6B8A83]', 'text-[#D19A58]', 'text-[#B85C3A]', 'text-[#d1c858]', 'text-[#B85C3A]', 'text-[#B85C3A]', 'text-[#eedfc8]', 'text-[#eedfc8]/60']
 
@@ -46,14 +47,22 @@ export default function MinesweeperPage() {
     }
     const { grid: next, exploded } = reveal(current, row, col)
     setGrid(next)
-    if (exploded) setStatus('lost')
-    else if (hasWon(next)) setStatus('won')
+    if (exploded) {
+      setStatus('lost')
+      playSfx('lose')
+    } else if (hasWon(next)) {
+      setStatus('won')
+      playSfx('win')
+    } else {
+      playSfx('move')
+    }
   }
 
   function handleFlag(event: React.MouseEvent, row: number, col: number) {
     event.preventDefault()
     if (status !== 'playing') return
     setGrid(toggleFlag(grid, row, col))
+    playSfx('pop')
   }
 
   const mineCount = useMemo(() => {
@@ -99,6 +108,15 @@ export default function MinesweeperPage() {
                   key={`${rowIndex}-${colIndex}`}
                   onClick={() => handleReveal(rowIndex, colIndex)}
                   onContextMenu={(event) => handleFlag(event, rowIndex, colIndex)}
+                  aria-label={`Minesweeper square ${rowIndex + 1}, ${colIndex + 1}${
+                    cell.flagged
+                      ? ' flagged'
+                      : cell.revealed
+                        ? cell.mine
+                          ? ' mine'
+                          : ` ${cell.neighbors} nearby`
+                        : ' hidden'
+                  }`}
                   className={`flex h-7 w-7 items-center justify-center text-xs font-bold ${
                     cell.revealed
                       ? cell.mine

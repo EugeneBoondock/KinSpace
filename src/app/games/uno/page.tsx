@@ -161,6 +161,7 @@ export default function UnoPage() {
                       key={card.id}
                       onClick={() => handleCardClick(card)}
                       disabled={disabled}
+                      aria-label={`Play ${labelFor(card)}`}
                       className={`flex h-24 w-16 items-center justify-center rounded-xl px-1 text-center text-[10px] font-bold transition-transform ${colorClass[card.color]} ${
                         disabled ? 'opacity-50' : 'hover:-translate-y-1'
                       }`}

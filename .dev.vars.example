@@ -1,0 +1,47 @@
+# Local secrets for `wrangler dev` / `opennextjs-cloudflare preview` and
+# `next dev` (loaded via initOpenNextCloudflareForDev). Copy to `.dev.vars`
+# and fill in. NEVER commit `.dev.vars`. For deployed envs use
+# `wrangler secret put <NAME>`.
+
+# ── Auth ─────────────────────────────────────────────────────────────────────
+# 32+ byte random string used to sign/verify session tokens.
+#   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+AUTH_SECRET=
+
+# Field encryption at rest for sensitive data (base64url 32 bytes). Falls back to
+# deriving from AUTH_SECRET if unset. Generate:
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+FIELD_ENCRYPTION_KEY=
+
+# Google OAuth (https://console.cloud.google.com/apis/credentials)
+# Authorized redirect URI: <APP_URL>/api/auth/google/callback
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# ── Bot protection: Cloudflare Turnstile ────────────────────────────────────
+# https://dash.cloudflare.com/?to=/:account/turnstile
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=
+TURNSTILE_SECRET_KEY=
+
+# ── OpenAI ───────────────────────────────────────────────────────────────────
+OPENAI_API_KEY=
+# Verify these model ids resolve in your OpenAI account before relying on them.
+OPENAI_MODEL=gpt-5.4-mini
+OPENAI_MODEL_FULL=gpt-5.4
+
+# ── Email (transactional: verification, password reset, digest) ─────────────
+# Cloudflare Email or a provider like Resend. Adapter is pluggable.
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=
+EMAIL_FROM="KinSpace <hello@kinspace.co.za>"
+
+# ── Payments: Paystack (https://dashboard.paystack.com/#/settings/developers) ─
+PAYSTACK_SECRET_KEY=
+NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=
+PAYSTACK_WEBHOOK_SECRET=
+# Paystack plan codes (create monthly ZAR plans in the dashboard, paste codes)
+PAYSTACK_PLAN_PLUS=
+PAYSTACK_PLAN_PRO=
+
+# ── Cron protection ──────────────────────────────────────────────────────────
+RESEARCH_CRON_SECRET=

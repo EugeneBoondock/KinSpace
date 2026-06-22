@@ -1,363 +1,368 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import PlatformAvatarPicker from '@/components/PlatformAvatarPicker';
-import ProfileAvatar from '@/components/ProfileAvatar';
-import { useAuth } from '@/lib/AuthContext';
-import { DatabaseService } from '@/lib/database';
-import { EncryptionService } from '@/lib/encryption';
-import { resolveAvatarUrl } from '@/lib/profile-avatars';
-import { StorageService } from '@/lib/storage';
+import { useState, useEffect, useRef, type ReactNode } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
+import { useRouter } from 'next/navigation'
+import PlatformAvatarPicker from '@/components/PlatformAvatarPicker'
+import ProfileAvatar from '@/components/ProfileAvatar'
+import { useAuth } from '@/lib/AuthContext'
+import { DatabaseService } from '@/lib/database'
+import { EncryptionService } from '@/lib/encryption'
+import { resolveAvatarUrl } from '@/lib/profile-avatars'
+import { StorageService } from '@/lib/storage'
+import { Button, Input, Spinner, Alert } from '@/components/ui'
 
-const conditionSuggestions = [
-  'Anxiety', 'Depression', 'PTSD', 'Bipolar', 'OCD',
-  'Fibromyalgia', 'Lupus', 'Crohn\'s', 'MS', 'Arthritis',
-  'Diabetes', 'Cancer', 'ADHD', 'Autism', 'Chronic Pain',
-  'Eating Disorder', 'Substance Use', 'Grief', 'COPD', 'Epilepsy',
-];
+// ── Conversational answer sets (warm, non-invasive) ─────────────────────────
+const REASONS = [
+  { value: 'newly_diagnosed', label: 'Newly diagnosed', icon: 'ri-seedling-line' },
+  { value: 'in_treatment', label: 'In treatment', icon: 'ri-capsule-line' },
+  { value: 'managing', label: 'Managing day to day', icon: 'ri-sun-line' },
+  { value: 'in_recovery', label: 'In recovery', icon: 'ri-route-line' },
+  { value: 'caregiver', label: 'Supporting someone', icon: 'ri-hand-heart-line' },
+  { value: 'grieving', label: 'Grieving a loss', icon: 'ri-cloud-line' },
+  { value: 'exploring', label: 'Just exploring', icon: 'ri-compass-3-line' },
+]
 
-const statusOptions = [
-  { value: '', label: 'Select your status' },
-  { value: 'newly_diagnosed', label: 'Newly Diagnosed' },
-  { value: 'in_treatment', label: 'In Treatment' },
-  { value: 'managing', label: 'Managing / Stable' },
-  { value: 'in_recovery', label: 'In Recovery' },
-  { value: 'remission', label: 'In Remission' },
-  { value: 'caregiver', label: 'Caregiver / Supporter' },
-  { value: 'prefer_not_to_say', label: 'Prefer Not to Say' },
-];
+const FOCUS = [
+  { value: 'understand', label: 'Understanding my condition', icon: 'ri-book-open-line' },
+  { value: 'connect', label: 'Meeting people who get it', icon: 'ri-group-line' },
+  { value: 'track', label: 'Tracking how I feel', icon: 'ri-line-chart-line' },
+  { value: 'calm', label: 'Calmer, steadier days', icon: 'ri-mental-health-line' },
+  { value: 'answers', label: 'Practical answers', icon: 'ri-lightbulb-line' },
+  { value: 'vent', label: 'A place to vent', icon: 'ri-chat-smile-3-line' },
+]
+
+const MOODS = [
+  { value: 'grounded', emoji: '🌿', label: 'Grounded' },
+  { value: 'okay', emoji: '🙂', label: 'Okay' },
+  { value: 'hopeful', emoji: '✨', label: 'Hopeful' },
+  { value: 'tired', emoji: '😮‍💨', label: 'Tired' },
+  { value: 'heavy', emoji: '🌧️', label: 'Heavy' },
+  { value: 'numb', emoji: '🌫️', label: 'Numb' },
+]
+
+const CONDITION_SUGGESTIONS = [
+  'Anxiety', 'Depression', 'PTSD', 'Bipolar', 'ADHD', 'Fibromyalgia',
+  'Chronic Pain', 'Diabetes', 'HIV', 'Lupus', 'IBS', 'Migraine',
+  'Arthritis', 'Cancer', 'Grief', 'Autism',
+]
+
+const STEPS = ['intro', 'reason', 'focus', 'mood', 'conditions', 'identity', 'done'] as const
+type StepId = (typeof STEPS)[number]
+const PROGRESS_STEPS: StepId[] = ['reason', 'focus', 'mood', 'conditions', 'identity']
 
 export default function OnboardingPage() {
-  const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
-  const [step, setStep] = useState(1);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [checkingProfile, setCheckingProfile] = useState(true);
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
+  const [stepIndex, setStepIndex] = useState(0)
+  const [checkingProfile, setCheckingProfile] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  // Step 1 fields (About You)
-  const [fullName, setFullName] = useState('');
-  const [age, setAge] = useState('');
-  const [location, setLocation] = useState('');
-  const [bio, setBio] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
+  // Answers
+  const [reason, setReason] = useState('')
+  const [focus, setFocus] = useState<string[]>([])
+  const [mood, setMood] = useState('')
+  const [conditions, setConditions] = useState<string[]>([])
+  const [conditionInput, setConditionInput] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [isAnonymous, setIsAnonymous] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
-  // Step 2 fields (Health Profile)
-  const [conditions, setConditions] = useState<string[]>([]);
-  const [conditionInput, setConditionInput] = useState('');
-  const [comorbidities, setComorbidities] = useState('');
-  const [medications, setMedications] = useState('');
-  const [status, setStatus] = useState('');
-  const [isAnonymous, setIsAnonymous] = useState(false);
+  const step = STEPS[stepIndex]
+  const firstName = (displayName || user?.displayName || '').split(' ')[0] || 'friend'
 
-  const totalSteps = 3; // Welcome + About You + Health Profile
-
-  // Redirect if not logged in or already onboarded
   useEffect(() => {
-    if (authLoading) return;
-
+    if (authLoading) return
     if (!user) {
-      router.push('/login');
-      return;
+      router.push('/login')
+      return
     }
-
-    const checkOnboarding = async () => {
+    setDisplayName(user.displayName || '')
+    ;(async () => {
       try {
-        const profile = await DatabaseService.getProfile(user.userId);
+        const profile = await DatabaseService.getProfile(user.userId)
         if (profile && (profile as Record<string, unknown>).onboarding_complete) {
-          router.push('/dashboard');
-          return;
+          router.push('/dashboard')
+          return
         }
-      } catch (err) {
-        console.error('Error checking onboarding status:', err);
+      } catch {
+        // best effort: let them onboard
       } finally {
-        setCheckingProfile(false);
+        setCheckingProfile(false)
       }
-    };
+    })()
+  }, [user, authLoading, router])
 
-    checkOnboarding();
-  }, [user, authLoading, router]);
-
-  const addCondition = (condition: string) => {
-    const trimmed = condition.trim();
-    if (trimmed && !conditions.includes(trimmed)) {
-      setConditions([...conditions, trimmed]);
-    }
-    setConditionInput('');
-  };
-
-  const removeCondition = (condition: string) => {
-    setConditions(conditions.filter((c) => c !== condition));
-  };
-
-  const handleConditionKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addCondition(conditionInput);
-    }
-  };
-
-  const nextStep = () => {
-    setError('');
-    setStep(step + 1);
-  };
-
-  const handleSkip = () => {
-    if (step < totalSteps) {
-      nextStep();
-    } else {
-      handleComplete();
-    }
-  };
-
-  const handleSkipAll = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      await DatabaseService.updateProfile(user.userId, { onboarding_complete: true });
-      router.push('/dashboard');
-    } catch (err) {
-      console.error('Skip error:', err);
-      router.push('/dashboard');
-    }
-  };
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-
-    const validation = StorageService.validateFile(file, 5);
-    if (!validation.valid) {
-      setError(validation.error || 'Invalid file');
-      return;
-    }
-
-    setUploadingAvatar(true);
-    setError('');
-    try {
-      const url = await StorageService.uploadProfileAvatar(user.userId, file);
-      setAvatarUrl(url);
-      await DatabaseService.updateProfile(user.userId, { avatar_url: url });
-    } catch (err) {
-      console.error('Avatar upload failed:', err);
-      setError('Failed to upload avatar. Please try again.');
-    } finally {
-      setUploadingAvatar(false);
-      if (avatarInputRef.current) {
-        avatarInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handlePlatformAvatarSelect = async (selectedAvatarUrl: string) => {
-    if (!user) return;
-
-    setUploadingAvatar(true);
-    setError('');
-    try {
-      setAvatarUrl(selectedAvatarUrl);
-      await DatabaseService.updateProfile(user.userId, { avatar_url: selectedAvatarUrl });
-    } catch (err) {
-      console.error('Platform avatar update failed:', err);
-      setError('Failed to update profile photo. Please try again.');
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
-
-  const handleComplete = async () => {
-    if (!user) return;
-
-    setError('');
-    setLoading(true);
-
-    try {
-      const comorbidityArray = comorbidities
-        ? comorbidities.split(',').map((c) => c.trim()).filter(Boolean)
-        : [];
-      const medicationArray = medications
-        ? medications.split(',').map((c) => c.trim()).filter(Boolean)
-        : [];
-
-      const profileData: Record<string, unknown> = {
-        full_name: fullName.trim() || null,
-        age: age ? parseInt(age) : null,
-        location: location.trim() || null,
-        bio: bio.trim() || null,
-        status: status || null,
-        is_anonymous: isAnonymous,
-        updated_at: new Date().toISOString(),
-      };
-
-      // Encrypt sensitive health data
-      const key = await EncryptionService.getOrCreateUserKey(user.userId);
-      const encrypted = await EncryptionService.encryptFields(
-        { conditions, comorbidities: comorbidityArray, medications: medicationArray, status },
-        key
-      );
-
-      await DatabaseService.updateProfile(user.userId, {
-        ...profileData,
-        ...encrypted,
-        onboarding_complete: true,
-      });
-
-      router.push('/dashboard');
-    } catch (err) {
-      console.error('Onboarding error:', err);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('An unexpected error occurred. Please try again.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Loading states
-  if (authLoading || checkingProfile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <i className="ri-loader-4-line animate-spin text-3xl text-[#D19A58]" />
-          <p className="text-sm text-[#eedfc8]/50 mt-3">Loading...</p>
-        </div>
-      </div>
-    );
+  const go = (delta: number) => {
+    setError('')
+    setStepIndex((i) => Math.min(STEPS.length - 1, Math.max(0, i + delta)))
   }
 
-  if (!user) return null;
+  const toggleFocus = (value: string) =>
+    setFocus((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]))
+
+  const addCondition = (c: string) => {
+    const t = c.trim()
+    if (t && !conditions.includes(t)) setConditions((prev) => [...prev, t])
+    setConditionInput('')
+  }
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    const validation = StorageService.validateFile(file, 5)
+    if (!validation.valid) {
+      setError(validation.error || 'That file did not work, try another.')
+      return
+    }
+    setUploadingAvatar(true)
+    setError('')
+    try {
+      const url = await StorageService.uploadProfileAvatar(user.userId, file)
+      setAvatarUrl(url)
+    } catch {
+      setError('Could not upload that photo. Please try again.')
+    } finally {
+      setUploadingAvatar(false)
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
+    }
+  }
+
+  const handleSkipAll = async () => {
+    if (!user) return
+    setSaving(true)
+    try {
+      await DatabaseService.updateProfile(user.userId, { onboarding_complete: true })
+    } catch {
+      // proceed regardless
+    }
+    router.push('/dashboard')
+  }
+
+  const handleComplete = async () => {
+    if (!user) return
+    setError('')
+    setSaving(true)
+    try {
+      const updates: Record<string, unknown> = { onboarding_complete: true, is_anonymous: isAnonymous }
+      if (reason) updates.onboarding_status = reason
+      if (focus.length) updates.interests = focus
+      if (mood) {
+        updates.daily_mood = mood
+        updates.mood_updated_at = new Date().toISOString()
+      }
+      if (displayName.trim()) updates.full_name = displayName.trim()
+      if (avatarUrl) updates.avatar_url = avatarUrl
+      if (conditions.length) {
+        const key = await EncryptionService.getOrCreateUserKey(user.userId)
+        const encrypted = await EncryptionService.encryptFields({ conditions }, key)
+        Object.assign(updates, encrypted)
+      }
+      await DatabaseService.updateProfile(user.userId, updates)
+      setStepIndex(STEPS.indexOf('done'))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (authLoading || checkingProfile) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-brand-canvas">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Spinner className="h-8 w-8 text-brand-accent2" />
+          <p className="text-sm text-brand-ink/60">Getting things ready…</p>
+        </div>
+      </div>
+    )
+  }
+  if (!user) return null
 
   const currentAvatarUrl = resolveAvatarUrl({
     avatar_url: avatarUrl,
-    full_name: fullName || user.displayName || '',
+    full_name: displayName || user.displayName || '',
     userId: user.userId,
     username: user.username,
-  });
+  })
+  const progressPct = step === 'done' ? 100 : (PROGRESS_STEPS.indexOf(step) + 1) / (PROGRESS_STEPS.length + 1) * 100
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-start px-4 py-8">
-      <div className="w-full max-w-md">
-        {/* Progress dots (hidden on welcome) */}
-        {step > 1 && (
-          <div className="flex items-center justify-center gap-2 mb-8">
-            {[2, 3].map((s) => {
-              const isActive = s === step;
-              const isComplete = s < step;
-              return (
-                <React.Fragment key={s}>
-                  <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
-                      isComplete
-                        ? 'bg-[#6B8A83] text-white'
-                        : isActive
-                        ? 'bg-[#D19A58] text-white'
-                        : 'bg-[#eedfc8]/10 text-[#eedfc8]/40'
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-brand-canvas">
+      {/* Soft, STATIC ambient tints. Note: avoid animated + heavily-blurred
+          layers here — a large animated blur (breathing-gradient + blur-[130px])
+          corrupts GPU compositing on throttled mobile devices (renders as static
+          over the avatar picker). Keep these cheap and non-animated. */}
+      <div aria-hidden="true" className="pointer-events-none absolute -left-24 top-0 h-72 w-72 rounded-full bg-brand-accent2/[0.06] blur-2xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-brand-accent3/[0.06] blur-2xl" />
+
+      {/* Top bar: logo + progress + skip */}
+      <header className="relative z-10 mx-auto flex w-full max-w-2xl items-center gap-4 px-5 py-5 sm:px-6">
+        <Link href="/" className="flex items-center gap-2" aria-label="KinSpace home">
+          <Image src="/images/gather_logo.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg" priority />
+          <span className="text-base font-black tracking-tight text-brand-ink">KinSpace</span>
+        </Link>
+        {step !== 'intro' && step !== 'done' && (
+          <>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-brand-ink/10">
+              <div className="h-full rounded-full bg-brand-accent2 transition-all duration-500 ease-out" style={{ width: `${progressPct}%` }} />
+            </div>
+            <button type="button" onClick={handleSkipAll} className="shrink-0 text-sm font-medium text-brand-ink/45 transition-colors hover:text-brand-ink/70">
+              Skip
+            </button>
+          </>
+        )}
+      </header>
+
+      <main className="relative z-10 mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-5 pb-12 sm:px-6">
+        <div key={step} className="animate-step-in">
+          {/* ── Intro ── */}
+          {step === 'intro' && (
+            <div className="text-center">
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-accent2/15 animate-pop">
+                <i className="ri-hand-heart-line text-4xl text-brand-accent2" aria-hidden="true" />
+              </div>
+              <h1 className="text-3xl font-black tracking-tight text-brand-ink sm:text-4xl">
+                Hi {firstName}, welcome in.
+              </h1>
+              <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-brand-ink/65">
+                A few quick, friendly questions so KinSpace feels like yours. No wrong answers, nothing is required,
+                and you can change anything later.
+              </p>
+              <div className="mx-auto mt-7 flex max-w-md flex-col gap-2.5 text-left">
+                {[
+                  { icon: 'ri-timer-line', text: 'Takes about a minute' },
+                  { icon: 'ri-shield-keyhole-line', text: 'Health details are encrypted, only you can read them' },
+                  { icon: 'ri-eye-off-line', text: 'Stay anonymous if that feels better' },
+                ].map((r) => (
+                  <div key={r.text} className="flex items-center gap-3 rounded-2xl bg-brand-surface/70 px-4 py-3 ring-1 ring-brand-line">
+                    <i className={`${r.icon} text-lg text-brand-accent3`} aria-hidden="true" />
+                    <span className="text-sm text-brand-ink/75">{r.text}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-8">
+                <Button type="button" size="lg" onClick={() => go(1)} className="px-10">
+                  Let&rsquo;s begin <i className="ri-arrow-right-line" aria-hidden="true" />
+                </Button>
+              </div>
+              <button type="button" onClick={handleSkipAll} className="mt-4 text-sm text-brand-ink/45 hover:text-brand-ink/70">
+                Skip and go to my dashboard
+              </button>
+            </div>
+          )}
+
+          {/* ── Reason ── */}
+          {step === 'reason' && (
+            <StepShell
+              title="What brings you to KinSpace?"
+              hint="Pick whatever fits best right now. This just helps us meet you where you are."
+            >
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {REASONS.map((r) => (
+                  <SelectChip key={r.value} icon={r.icon} label={r.label} selected={reason === r.value} onClick={() => setReason(r.value)} />
+                ))}
+              </div>
+              <StepNav onBack={() => go(-1)} onNext={() => go(1)} nextDisabled={!reason} />
+            </StepShell>
+          )}
+
+          {/* ── Focus ── */}
+          {step === 'focus' && (
+            <StepShell title="What would help most?" hint="Choose as many as you like. We will gently shape your space around these.">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {FOCUS.map((f) => (
+                  <SelectChip key={f.value} icon={f.icon} label={f.label} selected={focus.includes(f.value)} onClick={() => toggleFocus(f.value)} multi />
+                ))}
+              </div>
+              <StepNav onBack={() => go(-1)} onNext={() => go(1)} nextLabel={focus.length ? 'Continue' : 'Skip'} />
+            </StepShell>
+          )}
+
+          {/* ── Mood ── */}
+          {step === 'mood' && (
+            <StepShell title={`How are you arriving today, ${firstName}?`} hint="No pressure, this is just a gentle check-in. You can update it any time.">
+              <div className="grid grid-cols-3 gap-2.5">
+                {MOODS.map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setMood(m.value)}
+                    className={`flex flex-col items-center gap-1.5 rounded-2xl border px-3 py-4 transition-all active:scale-95 ${
+                      mood === m.value
+                        ? 'border-brand-accent2 bg-brand-accent2/10 ring-2 ring-brand-accent2/40'
+                        : 'border-brand-line bg-brand-surface/70 hover:border-brand-line-strong'
                     }`}
                   >
-                    {isComplete ? <i className="ri-check-line" /> : s - 1}
-                  </div>
-                  {s < 3 && (
-                    <div className={`w-12 h-0.5 rounded transition-all duration-300 ${isComplete ? 'bg-[#6B8A83]' : 'bg-[#eedfc8]/10'}`} />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Step 1: Welcome */}
-        {step === 1 && (
-          <div className="card text-center space-y-6 animate-fade-in py-8">
-            <div className="w-20 h-20 rounded-full bg-[#D19A58]/20 flex items-center justify-center mx-auto">
-              <i className="ri-hand-heart-line text-4xl text-[#D19A58]" />
-            </div>
-
-            <div>
-              <h1 className="text-2xl font-bold text-[#eedfc8] mb-2">
-                Welcome to KinSpace, {user.displayName?.split(' ')[0] || 'friend'}!
-              </h1>
-              <p className="text-sm text-[#eedfc8]/60 leading-relaxed max-w-sm mx-auto">
-                Let&apos;s set up your profile so we can connect you with the right community.
-                This only takes a minute.
-              </p>
-            </div>
-
-            {/* Privacy promise */}
-            <div className="space-y-3 text-left">
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-[#6B8A83]/10">
-                <i className="ri-shield-keyhole-line text-[#6B8A83] text-lg mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-[#eedfc8]">End-to-End Encrypted</p>
-                  <p className="text-xs text-[#eedfc8]/50">Your health data is encrypted before it leaves your device. Only you can read it.</p>
-                </div>
+                    <span className="text-3xl">{m.emoji}</span>
+                    <span className="text-sm font-medium text-brand-ink/75">{m.label}</span>
+                  </button>
+                ))}
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-[#D19A58]/10">
-                <i className="ri-eye-off-line text-[#D19A58] text-lg mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-[#eedfc8]">You Control Your Visibility</p>
-                  <p className="text-xs text-[#eedfc8]/50">Choose to stay anonymous. Share only what you&apos;re comfortable with.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-[#B85C3A]/10">
-                <i className="ri-delete-bin-line text-[#B85C3A] text-lg mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-[#eedfc8]">Delete Anytime</p>
-                  <p className="text-xs text-[#eedfc8]/50">You can remove all your data at any point from settings.</p>
-                </div>
-              </div>
-            </div>
+              <StepNav onBack={() => go(-1)} onNext={() => go(1)} nextLabel={mood ? 'Continue' : 'Skip'} />
+            </StepShell>
+          )}
 
-            <button
-              type="button"
-              onClick={nextStep}
-              className="btn-primary w-full py-3.5 text-base font-bold flex items-center justify-center gap-2"
+          {/* ── Conditions ── */}
+          {step === 'conditions' && (
+            <StepShell
+              title="Anything you're navigating?"
+              hint="Totally optional, and end-to-end encrypted, only you can ever read it. Skip if you'd rather not say."
             >
-              Let&apos;s Get Started
-              <i className="ri-arrow-right-line" />
-            </button>
+              {conditions.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {conditions.map((c) => (
+                    <span key={c} className="inline-flex items-center gap-1.5 rounded-full bg-brand-accent2/12 px-3 py-1.5 text-sm font-medium text-brand-accent2 animate-pop">
+                      {c}
+                      <button type="button" onClick={() => setConditions((p) => p.filter((x) => x !== c))} aria-label={`Remove ${c}`} className="hover:text-brand-accent1">
+                        <i className="ri-close-line text-xs" aria-hidden="true" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <Input
+                value={conditionInput}
+                onChange={(e) => setConditionInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addCondition(conditionInput)
+                  }
+                }}
+                aria-label="Add what you're navigating"
+                placeholder="Type and press Enter, or pick below"
+              />
+              <div className="flex flex-wrap gap-1.5">
+                {CONDITION_SUGGESTIONS.filter((s) => !conditions.includes(s)).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => addCondition(s)}
+                    className="rounded-full bg-brand-ink/[0.05] px-3 py-1.5 text-sm text-brand-ink/60 transition-colors hover:bg-brand-ink/10 hover:text-brand-ink"
+                  >
+                    + {s}
+                  </button>
+                ))}
+              </div>
+              <StepNav onBack={() => go(-1)} onNext={() => go(1)} nextLabel={conditions.length ? 'Continue' : 'Skip'} />
+            </StepShell>
+          )}
 
-            <button
-              type="button"
-              onClick={() => { handleSkipAll(); }}
-              className="text-sm text-[#eedfc8]/40 hover:text-[#eedfc8]/60 transition-colors"
-            >
-              Skip and go to dashboard
-            </button>
-          </div>
-        )}
-
-        {/* Step 2: About You */}
-        {step === 2 && (
-          <div className="card space-y-5 animate-fade-in">
-            <div className="flex items-center gap-2 mb-2">
-              <i className="ri-user-heart-line text-[#D19A58]" />
-              <h2 className="font-semibold text-[#eedfc8]">About You</h2>
-            </div>
-            <p className="text-xs text-[#eedfc8]/50 -mt-2">
-              These fields are optional. Share what you&apos;re comfortable with.
-            </p>
-
-            {/* Avatar Upload */}
-            <div className="space-y-4">
+          {/* ── Identity ── */}
+          {step === 'identity' && (
+            <StepShell title="Make it yours" hint="Pick a look and a name. You can stay anonymous in the community whenever you want.">
               <div className="flex flex-col items-center gap-3">
                 <div className="relative">
-                  <div className="w-20 h-20 rounded-full bg-[#eedfc8]/10 flex items-center justify-center overflow-hidden border-2 border-[#eedfc8]/20">
-                    <ProfileAvatar
-                      alt="Avatar"
-                      avatarUrl={avatarUrl}
-                      className="h-full w-full object-cover"
-                      fullName={fullName || user.displayName || ''}
-                      userId={user.userId}
-                      username={user.username}
-                    />
+                  <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full ring-2 ring-brand-line">
+                    <ProfileAvatar alt="Your avatar" avatarUrl={avatarUrl} className="h-full w-full object-cover" fullName={displayName || user.displayName || ''} userId={user.userId} username={user.username} />
                     {uploadingAvatar && (
-                      <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
-                        <i className="ri-loader-4-line animate-spin text-white text-xl" />
+                      <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+                        <Spinner className="h-6 w-6 text-white" />
                       </div>
                     )}
                   </div>
@@ -365,311 +370,127 @@ export default function OnboardingPage() {
                     type="button"
                     onClick={() => avatarInputRef.current?.click()}
                     disabled={uploadingAvatar}
-                    className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#D19A58] flex items-center justify-center text-white text-sm hover:bg-[#D19A58]/80 transition-colors"
+                    aria-label="Upload a photo"
+                    className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-brand-accent2 text-white shadow-sm transition-colors hover:bg-brand-accent2/90"
                   >
-                    <i className="ri-camera-line" />
+                    <i className="ri-camera-line" aria-hidden="true" />
                   </button>
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    onChange={handleAvatarUpload}
-                    className="hidden"
-                  />
+                  <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleAvatarUpload} className="hidden" />
                 </div>
-                <div className="text-center">
-                  <p className="text-xs text-[#eedfc8]/40">Upload your own or choose a KinSpace icon.</p>
-                  <button
-                    type="button"
-                    onClick={() => avatarInputRef.current?.click()}
-                    disabled={uploadingAvatar}
-                    className="btn-secondary mt-3 !py-2 !px-4 disabled:opacity-60"
-                  >
-                    Upload from device
-                  </button>
-                </div>
+                <PlatformAvatarPicker disabled={uploadingAvatar} onSelect={(url) => setAvatarUrl(url)} selectedAvatarUrl={currentAvatarUrl} />
               </div>
-              <div>
-                <p className="mb-2 text-xs font-medium text-[#eedfc8]/50">KinSpace icons</p>
-                <PlatformAvatarPicker
-                  disabled={uploadingAvatar}
-                  onSelect={handlePlatformAvatarSelect}
-                  selectedAvatarUrl={currentAvatarUrl}
-                />
-              </div>
-            </div>
 
-            <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-[#eedfc8]/80 mb-1.5">
-                Full Name
-              </label>
-              <div className="relative">
-                <i className="ri-user-line absolute left-3 top-1/2 -translate-y-1/2 text-[#eedfc8]/40" />
-                <input
-                  type="text"
-                  id="fullName"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Your real name (optional)"
-                  className="input-field pl-10"
-                />
-              </div>
-            </div>
+              <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} aria-label="Display name" placeholder="A name or nickname" />
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="age" className="block text-sm font-medium text-[#eedfc8]/80 mb-1.5">
-                  Age
-                </label>
-                <input
-                  type="number"
-                  id="age"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  min="13"
-                  max="120"
-                  placeholder="Your age"
-                  className="input-field"
-                />
-              </div>
-              <div>
-                <label htmlFor="location" className="block text-sm font-medium text-[#eedfc8]/80 mb-1.5">
-                  Location
-                </label>
-                <input
-                  type="text"
-                  id="location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="City, Country"
-                  className="input-field"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="bio" className="block text-sm font-medium text-[#eedfc8]/80 mb-1.5">
-                Bio
-              </label>
-              <textarea
-                id="bio"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                rows={3}
-                placeholder="Tell us a bit about yourself..."
-                className="input-field resize-none"
-              />
-            </div>
-
-            {error && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                <i className="ri-error-warning-line text-red-400 mt-0.5" />
-                <p className="text-sm text-red-400">{error}</p>
-              </div>
-            )}
-
-            <div className="flex gap-3">
               <button
                 type="button"
-                onClick={handleSkip}
-                className="btn-secondary flex-1 py-3 flex items-center justify-center gap-2 text-[#eedfc8]/50"
+                onClick={() => setIsAnonymous((v) => !v)}
+                className="flex w-full items-center gap-3 rounded-2xl bg-brand-surface/70 p-3.5 text-left ring-1 ring-brand-line transition-colors hover:ring-brand-line-strong"
               >
-                Skip for now
+                <span role="switch" aria-checked={isAnonymous} className={`flex h-6 w-10 shrink-0 items-center rounded-full transition-colors ${isAnonymous ? 'bg-brand-accent2' : 'bg-brand-ink/20'}`}>
+                  <span className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${isAnonymous ? 'translate-x-5' : 'translate-x-1'}`} />
+                </span>
+                <span>
+                  <span className="block text-sm font-medium text-brand-ink">Stay anonymous</span>
+                  <span className="block text-xs text-brand-ink/55">Your name stays hidden, you appear by username only.</span>
+                </span>
               </button>
-              <button
-                type="button"
-                onClick={nextStep}
-                className="btn-primary flex-1 py-3 flex items-center justify-center gap-2"
-              >
-                Continue
-                <i className="ri-arrow-right-line" />
-              </button>
-            </div>
-          </div>
-        )}
 
-        {/* Step 3: Health Profile */}
-        {step === 3 && (
-          <div className="card space-y-5 animate-fade-in">
-            <div className="flex items-center gap-2 mb-2">
-              <i className="ri-heart-pulse-line text-[#D19A58]" />
-              <h2 className="font-semibold text-[#eedfc8]">Health Profile</h2>
-            </div>
-            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-[#6B8A83]/10 -mt-2">
-              <i className="ri-shield-keyhole-line text-[#6B8A83] text-sm mt-0.5" />
-              <p className="text-xs text-[#eedfc8]/60">
-                This data is <strong className="text-[#6B8A83]">end-to-end encrypted</strong>. Only you can see it.
-              </p>
-            </div>
+              {error && <Alert tone="error">{error}</Alert>}
+              <StepNav onBack={() => go(-1)} onNext={handleComplete} nextLabel={saving ? 'Setting up…' : 'Finish'} nextLoading={saving} nextAccent />
+            </StepShell>
+          )}
 
-            {/* Conditions */}
-            <div>
-              <label className="block text-sm font-medium text-[#eedfc8]/80 mb-1.5">
-                Conditions
-              </label>
-              {conditions.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {conditions.map((c) => (
-                    <span key={c} className="badge flex items-center gap-1 bg-[#D19A58]/20 text-[#D19A58]">
-                      {c}
-                      <button
-                        type="button"
-                        onClick={() => removeCondition(c)}
-                        className="hover:text-[#B85C3A] transition-colors"
-                      >
-                        <i className="ri-close-line text-xs" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <input
-                type="text"
-                value={conditionInput}
-                onChange={(e) => setConditionInput(e.target.value)}
-                onKeyDown={handleConditionKeyDown}
-                placeholder="Type and press Enter, or pick below"
-                className="input-field"
-              />
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {conditionSuggestions
-                  .filter((s) => !conditions.includes(s))
-                  .slice(0, 10)
-                  .map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => addCondition(s)}
-                      className="text-xs px-2.5 py-1 rounded-full bg-[#eedfc8]/5 text-[#eedfc8]/50 hover:bg-[#eedfc8]/10 hover:text-[#eedfc8]/70 transition-colors"
-                    >
-                      + {s}
-                    </button>
-                  ))}
-              </div>
-            </div>
-
-            {/* Comorbidities */}
-            <div>
-              <label htmlFor="comorbidities" className="block text-sm font-medium text-[#eedfc8]/80 mb-1.5">
-                Comorbidities
-              </label>
-              <input
-                type="text"
-                id="comorbidities"
-                value={comorbidities}
-                onChange={(e) => setComorbidities(e.target.value)}
-                placeholder="e.g., Diabetes, Hypertension (comma-separated)"
-                className="input-field"
-              />
-            </div>
-
-            {/* Medications */}
-            <div>
-              <label htmlFor="medications" className="block text-sm font-medium text-[#eedfc8]/80 mb-1.5">
-                Medications
-              </label>
-              <input
-                type="text"
-                id="medications"
-                value={medications}
-                onChange={(e) => setMedications(e.target.value)}
-                placeholder="e.g., Prednisone, Methotrexate (comma-separated)"
-                className="input-field"
-              />
-            </div>
-
-            {/* Status */}
-            <div>
-              <label htmlFor="status" className="block text-sm font-medium text-[#eedfc8]/80 mb-1.5">
-                Current Status
-              </label>
-              <select
-                id="status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="input-field"
-              >
-                {statusOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
+          {/* ── Done ── */}
+          {step === 'done' && (
+            <div className="relative text-center">
+              {/* confetti */}
+              <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-4 mx-auto flex max-w-xs justify-between">
+                {['🌿', '✨', '💚', '🌼', '🤍', '🌱', '✨'].map((c, i) => (
+                  <span key={i} className="animate-confetti text-xl" style={{ animationDelay: `${i * 90}ms` }}>{c}</span>
                 ))}
-              </select>
-            </div>
-
-            {/* Anonymous toggle */}
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-[#eedfc8]/5">
-              <button
-                type="button"
-                onClick={() => setIsAnonymous(!isAnonymous)}
-                className={`w-10 h-6 rounded-full flex items-center flex-shrink-0 transition-colors duration-200 ${
-                  isAnonymous ? 'bg-[#D19A58]' : 'bg-[#eedfc8]/20'
-                }`}
-              >
-                <span
-                  className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${
-                    isAnonymous ? 'translate-x-5' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-              <div>
-                <p className="text-sm font-medium text-[#eedfc8]">Stay Anonymous</p>
-                <p className="text-xs text-[#eedfc8]/50">
-                  Your real name will be hidden. You&apos;ll appear with your username only.
-                </p>
+              </div>
+              <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-brand-accent3/15 animate-pop">
+                <i className="ri-check-line text-5xl text-brand-accent3" aria-hidden="true" />
+              </div>
+              <h1 className="text-3xl font-black tracking-tight text-brand-ink sm:text-4xl">You&rsquo;re all set, {firstName}.</h1>
+              <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-brand-ink/65">
+                Your space is ready. Everything you just shared is yours to change any time from settings.
+              </p>
+              <div className="mt-8">
+                <Button type="button" size="lg" variant="accent" onClick={() => router.push('/dashboard')} className="px-10">
+                  Enter KinSpace <i className="ri-arrow-right-line" aria-hidden="true" />
+                </Button>
               </div>
             </div>
-
-            {error && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                <i className="ri-error-warning-line text-red-400 mt-0.5" />
-                <p className="text-sm text-red-400">{error}</p>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setError('');
-                  setStep(step - 1);
-                }}
-                className="btn-secondary flex-1 py-3 flex items-center justify-center gap-2"
-              >
-                <i className="ri-arrow-left-line" />
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={handleComplete}
-                disabled={loading}
-                className="btn-accent flex-1 py-3 flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <i className="ri-loader-4-line animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <i className="ri-check-line" />
-                    Complete
-                  </>
-                )}
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSkip}
-              disabled={loading}
-              className="w-full text-center text-sm text-[#eedfc8]/40 hover:text-[#eedfc8]/60 transition-colors py-1"
-            >
-              Skip for now
-            </button>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </main>
     </div>
-  );
+  )
+}
+
+// ── Small building blocks ───────────────────────────────────────────────────
+function StepShell({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
+  return (
+    <div className="space-y-5">
+      <div className="space-y-2 text-center">
+        <h1 className="text-2xl font-black tracking-tight text-brand-ink sm:text-3xl">{title}</h1>
+        <p className="mx-auto max-w-md text-sm leading-relaxed text-brand-ink/60">{hint}</p>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function SelectChip({ icon, label, selected, onClick, multi }: { icon: string; label: string; selected: boolean; onClick: () => void; multi?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={`flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-all active:scale-[0.98] ${
+        selected
+          ? 'border-brand-accent2 bg-brand-accent2/10 ring-2 ring-brand-accent2/40'
+          : 'border-brand-line bg-brand-surface/70 hover:border-brand-line-strong'
+      }`}
+    >
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${selected ? 'bg-brand-accent2/20 text-brand-accent2' : 'bg-brand-ink/[0.05] text-brand-ink/50'}`}>
+        <i className={icon} aria-hidden="true" />
+      </span>
+      <span className="flex-1 text-sm font-medium text-brand-ink">{label}</span>
+      {multi ? (
+        <i className={`${selected ? 'ri-checkbox-circle-fill text-brand-accent2' : 'ri-checkbox-blank-circle-line text-brand-ink/25'}`} aria-hidden="true" />
+      ) : (
+        selected && <i className="ri-check-line text-brand-accent2" aria-hidden="true" />
+      )}
+    </button>
+  )
+}
+
+function StepNav({
+  onBack,
+  onNext,
+  nextLabel = 'Continue',
+  nextDisabled,
+  nextLoading,
+  nextAccent,
+}: {
+  onBack: () => void
+  onNext: () => void
+  nextLabel?: string
+  nextDisabled?: boolean
+  nextLoading?: boolean
+  nextAccent?: boolean
+}) {
+  return (
+    <div className="flex items-center gap-3 pt-2">
+      <Button type="button" variant="secondary" onClick={onBack} leadingIcon={<i className="ri-arrow-left-line" aria-hidden="true" />}>
+        Back
+      </Button>
+      <Button type="button" variant={nextAccent ? 'accent' : 'primary'} onClick={onNext} disabled={nextDisabled} isLoading={nextLoading} fullWidth>
+        {nextLabel}
+      </Button>
+    </div>
+  )
 }

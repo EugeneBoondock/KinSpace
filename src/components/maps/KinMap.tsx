@@ -13,6 +13,7 @@ type KinMapProps = {
   selectedMarkerId?: string | null
   userLocation?: Coordinates | null
   directions?: MapDirectionsResult | null
+  followUser?: boolean
   onSelectMarker?: (markerId: string) => void
 }
 

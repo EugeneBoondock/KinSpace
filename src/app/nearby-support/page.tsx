@@ -1,10 +1,10 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import BottomNav from '@/components/BottomNav'
 import KinMap from '@/components/maps/KinMap'
 import PageFrame from '@/components/PageFrame'
+import { Badge, Button, Card, EmptyState, Input, LinkButton, Skeleton } from '@/components/ui'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { geocodeQueries, getMapDirections, getNearbyFallbackPlaces } from '@/lib/map-client'
@@ -13,6 +13,11 @@ import { formatCompactNumber, formatRelativeTime, getDistanceKm, normalizeKeywor
 
 type SortOption = 'recent' | 'popularity' | 'distance'
 type Group = Record<string, unknown> & { id: string }
+
+// Fallback map center (Johannesburg, SA) so the care map loads places even when
+// the visitor declines or can't share location, geolocation, when granted,
+// overrides this. Without it, nothing ever loaded (the silent bug).
+const DEFAULT_CENTER: Coordinates = { latitude: -26.2041, longitude: 28.0473 }
 
 function resolveGroupCoordinates(group: Group) {
   if (typeof group.latitude === 'number' && typeof group.longitude === 'number') {
@@ -38,7 +43,10 @@ export default function NearbySupportPage() {
   const [fallbackGroups, setFallbackGroups] = useState<SupportMapMarker[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('distance')
-  const [userLocation, setUserLocation] = useState<Coordinates | null>(null)
+  // Start at the default center so the map + places load immediately; real
+  // geolocation (if granted) overrides it. Never block place-loading on a
+  // permission prompt that may hang or be declined.
+  const [userLocation, setUserLocation] = useState<Coordinates>(DEFAULT_CENTER)
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null)
   const [directions, setDirections] = useState<MapDirectionsResult | null>(null)
   const [routing, setRouting] = useState(false)
@@ -52,8 +60,7 @@ export default function NearbySupportPage() {
         ])
 
         const inPersonGroups = (allGroups as Group[]).filter((group) =>
-          ['in-person', 'hybrid'].includes((group.type as string | undefined) || 'virtual'),
-        )
+          ['in-person', 'hybrid'].includes((group.type as string | undefined) || 'virtual'))
 
         const geocodeTargets = inPersonGroups
           .filter((group) => !resolveGroupCoordinates(group) && buildGroupLocationQuery(group))
@@ -71,9 +78,7 @@ export default function NearbySupportPage() {
           new Set(
             (memberships as Array<{ group?: { id?: string } | null }>)
               .map((membership) => membership.group?.id)
-              .filter(Boolean) as string[],
-          ),
-        )
+              .filter(Boolean) as string[]))
       } catch (error) {
         console.error('Failed to load nearby support groups:', error)
       } finally {
@@ -85,7 +90,10 @@ export default function NearbySupportPage() {
   }, [user])
 
   useEffect(() => {
-    if (!navigator.geolocation) return
+    if (!navigator.geolocation) {
+      setUserLocation(DEFAULT_CENTER)
+      return
+    }
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -94,9 +102,9 @@ export default function NearbySupportPage() {
           longitude: position.coords.longitude,
         })
       },
-      () => undefined,
-      { enableHighAccuracy: true, timeout: 10_000 },
-    )
+      // Denied or timed out → fall back to the default center so places still load.
+      () => setUserLocation(DEFAULT_CENTER),
+      { enableHighAccuracy: true, timeout: 10_000 })
   }, [])
 
   useEffect(() => {
@@ -124,8 +132,7 @@ export default function NearbySupportPage() {
             longitude: result.longitude as number,
             source: 'osm',
             tags: Array.isArray(result.tags) ? (result.tags as string[]) : [],
-          })),
-        )
+          })))
       } catch (error) {
         console.error('Failed to load fallback support places:', error)
       }
@@ -174,8 +181,7 @@ export default function NearbySupportPage() {
     const filtered = combined.filter((marker) => {
       if (!query) return true
       return normalizeKeywords(marker.title, marker.subtitle, marker.description, marker.address, marker.tags).some(
-        (keyword) => keyword.includes(query) || query.includes(keyword),
-      )
+        (keyword) => keyword.includes(query) || query.includes(keyword))
     })
 
     return filtered.sort((first, second) => {
@@ -225,8 +231,7 @@ export default function NearbySupportPage() {
       const result = await getMapDirections(
         userLocation,
         { latitude: selectedMarker.latitude, longitude: selectedMarker.longitude },
-        'walking',
-      )
+        'walking')
       setDirections(result)
     } catch (error) {
       console.error('Failed to build nearby support route:', error)
@@ -249,31 +254,37 @@ export default function NearbySupportPage() {
   return (
     <PageFrame>
       <div className="page-grid">
-        <section className="card">
+        <Card>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-background/45">
                 Nearby support
               </p>
-              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">In-person and hybrid support on a native map</h1>
-              <p className="mt-2 max-w-2xl text-sm text-[#eedfc8]/60">
-                Community groups with physical locations now live on the same in-app map system as the care directory.
+              <h1 className="mt-2 text-2xl font-bold text-brand-background sm:text-3xl">
+                In-person and hybrid groups near you
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-brand-background/65">
+                Community groups that meet in person, mapped alongside the care directory so you can find one close by.
               </p>
             </div>
             <div className="w-full max-w-sm">
               <div className="relative">
-                <i className="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-[#eedfc8]/35" />
-                <input
+                <i
+                  className="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-brand-background/40"
+                  aria-hidden="true"
+                />
+                <Input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  className="input-field !pl-11"
+                  className="pl-11"
+                  aria-label="Search by group, category, or venue"
                   placeholder="Search by group, category, or venue"
                 />
               </div>
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Sort support groups">
             {([
               { value: 'distance' as SortOption, label: 'Nearest' },
               { value: 'popularity' as SortOption, label: 'Popular' },
@@ -281,50 +292,50 @@ export default function NearbySupportPage() {
             ]).map((option) => (
               <button
                 key={option.value}
+                type="button"
+                aria-pressed={sortBy === option.value}
                 onClick={() => setSortBy(option.value)}
-                className={`rounded-full px-4 py-2 text-sm transition-all ${
-                  sortBy === option.value ? 'tab-active' : 'bg-[#eedfc8]/8 text-[#eedfc8]/60'
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 ${
+                  sortBy === option.value ? 'tab-active' : 'bg-brand-background/[0.08] text-brand-background/60 hover:text-brand-background/90'
                 }`}
               >
                 {option.label}
               </button>
             ))}
           </div>
-        </section>
+        </Card>
 
         <div className="page-grid lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,26rem)] lg:items-start">
           <section className="space-y-4">
-            <div className="card">
+            <Card>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-sm text-[#eedfc8]/50">
-                  {formatCompactNumber(visibleMarkers.length)} map result{visibleMarkers.length === 1 ? '' : 's'}
-                </div>
+                <p className="text-sm text-brand-background/55">
+                  {formatCompactNumber(visibleMarkers.length)} result{visibleMarkers.length === 1 ? '' : 's'} on the map
+                </p>
                 <div className="flex gap-2">
-                  <button
+                  <Button
                     onClick={() => void handleRouteRequest()}
                     disabled={!selectedMarker || !userLocation || routing}
-                    className="btn-primary !rounded-2xl !px-4 !py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    isLoading={routing}
+                    leadingIcon={!routing ? <i className="ri-walk-line" aria-hidden="true" /> : undefined}
                   >
-                    {routing ? 'Routing...' : 'Walk from me'}
-                  </button>
+                    {routing ? 'Routing…' : 'Walk from me'}
+                  </Button>
                   {directions && (
-                    <button
-                      onClick={() => setDirections(null)}
-                      className="btn-secondary !rounded-2xl !px-4 !py-2.5 text-sm"
-                    >
+                    <Button variant="secondary" onClick={() => setDirections(null)}>
                       Clear route
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
 
               {directions && (
-                <div className="mt-4 flex gap-3 text-xs text-[#eedfc8]/55">
-                  <span className="badge">{directions.distanceKm.toFixed(1)} km</span>
-                  <span className="badge">{directions.durationMinutes} min walk</span>
+                <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                  <Badge>{directions.distanceKm.toFixed(1)} km</Badge>
+                  <Badge>{directions.durationMinutes} min walk</Badge>
                 </div>
               )}
-            </div>
+            </Card>
 
             <KinMap
               markers={visibleMarkers}
@@ -337,61 +348,64 @@ export default function NearbySupportPage() {
 
           <aside className="space-y-4">
             {selectedMarker && (
-              <section className="card">
+              <Card>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="badge bg-[#6B8A83]/18 text-[#6B8A83]">Nearby support</span>
-                  {selectedMarker.source && <span className="badge">{selectedMarker.source}</span>}
+                  <Badge className="bg-brand-accent3/20 text-brand-accent3">Nearby support</Badge>
+                  {selectedMarker.source && <Badge>{selectedMarker.source}</Badge>}
                 </div>
-                <h2 className="mt-4 text-xl font-semibold text-[#eedfc8]">{selectedMarker.title}</h2>
+                <h2 className="mt-4 text-xl font-semibold text-brand-background">{selectedMarker.title}</h2>
                 {selectedMarker.subtitle && (
-                  <p className="mt-1 text-sm text-[#eedfc8]/50">{selectedMarker.subtitle}</p>
+                  <p className="mt-1 text-sm text-brand-background/55">{selectedMarker.subtitle}</p>
                 )}
                 {selectedMarker.description && (
-                  <p className="mt-4 text-sm leading-relaxed text-[#eedfc8]/70">{selectedMarker.description}</p>
+                  <p className="mt-4 text-sm leading-relaxed text-brand-background/70">{selectedMarker.description}</p>
                 )}
-                <div className="mt-4 space-y-2 text-sm text-[#eedfc8]/60">
+                <div className="mt-4 space-y-2 text-sm text-brand-background/65">
                   {selectedMarker.address && (
-                    <p>
-                      <i className="ri-map-pin-line mr-1.5 text-[#eedfc8]/35" />
-                      {selectedMarker.address}
+                    <p className="flex items-start gap-2">
+                      <i className="ri-map-pin-line mt-0.5 text-brand-background/40" aria-hidden="true" />
+                      <span>{selectedMarker.address}</span>
                     </p>
                   )}
                   {selectedMarker.distanceKm != null && (
-                    <p>
-                      <i className="ri-route-line mr-1.5 text-[#eedfc8]/35" />
-                      {selectedMarker.distanceKm.toFixed(1)} km away
+                    <p className="flex items-center gap-2">
+                      <i className="ri-route-line text-brand-background/40" aria-hidden="true" />
+                      <span>{selectedMarker.distanceKm.toFixed(1)} km away</span>
                     </p>
                   )}
                 </div>
                 {selectedMarker.source === 'community' ? (
                   <div className="mt-5 flex gap-2">
-                    <button
+                    <Button
+                      fullWidth
                       onClick={() => handleJoinGroup(selectedMarker.id)}
                       disabled={joinedGroupIds.has(selectedMarker.id) || !user}
-                      className="btn-primary flex-1 !rounded-2xl !py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                      leadingIcon={
+                        joinedGroupIds.has(selectedMarker.id) ? <i className="ri-check-line" aria-hidden="true" /> : undefined
+                      }
                     >
                       {joinedGroupIds.has(selectedMarker.id) ? 'Joined' : user ? 'Join group' : 'Sign in to join'}
-                    </button>
-                    <Link href="/groups" className="btn-secondary flex-1 !rounded-2xl !py-2.5 text-center text-sm">
+                    </Button>
+                    <LinkButton href="/groups" variant="secondary" fullWidth>
                       Open groups
-                    </Link>
+                    </LinkButton>
                   </div>
                 ) : (
                   <div className="mt-5">
-                    <Link href="/map?type=group" className="btn-secondary block w-full !rounded-2xl !py-2.5 text-center text-sm">
+                    <LinkButton href="/map?type=group" variant="secondary" fullWidth>
                       Open full support map
-                    </Link>
+                    </LinkButton>
                   </div>
                 )}
-              </section>
+              </Card>
             )}
 
-            <section className="card">
-              <h2 className="section-title">Support list</h2>
+            <Card>
+              <h2 className="mb-3 text-lg font-bold text-brand-background">Support list</h2>
               <div className="space-y-3">
                 {loading ? (
                   Array.from({ length: 4 }).map((_, index) => (
-                    <div key={index} className="h-28 skeleton rounded-3xl" />
+                    <Skeleton key={index} className="h-28 rounded-2xl" />
                   ))
                 ) : visibleMarkers.length > 0 ? (
                   visibleMarkers.map((marker) => {
@@ -401,29 +415,31 @@ export default function NearbySupportPage() {
                     return (
                       <button
                         key={marker.id}
+                        type="button"
                         onClick={() => setSelectedMarkerId(marker.id)}
-                        className={`w-full rounded-3xl border p-4 text-left transition-all ${
+                        className={`w-full rounded-2xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 ${
                           selectedMarker?.id === marker.id
-                            ? 'border-[#6B8A83]/30 bg-[#6B8A83]/10'
-                            : 'border-[#eedfc8]/8 bg-[#eedfc8]/4 hover:bg-[#eedfc8]/8'
+                            ? 'border-brand-accent3/30 bg-brand-accent3/10'
+                            : 'border-brand-background/10 bg-brand-background/[0.04] hover:bg-brand-background/[0.08]'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="truncate font-semibold text-[#eedfc8]">{marker.title}</p>
+                            <p className="truncate font-semibold text-brand-background">{marker.title}</p>
                             {marker.subtitle && (
-                              <p className="mt-1 text-xs text-[#eedfc8]/45">{marker.subtitle}</p>
+                              <p className="mt-1 text-xs text-brand-background/45">{marker.subtitle}</p>
                             )}
                           </div>
                           {marker.distanceKm != null && (
-                            <span className="badge text-[10px]">{marker.distanceKm.toFixed(1)} km</span>
+                            <Badge className="shrink-0 text-[10px]">{marker.distanceKm.toFixed(1)} km</Badge>
                           )}
                         </div>
                         {marker.address && (
-                          <p className="mt-3 line-clamp-2 text-sm text-[#eedfc8]/60">{marker.address}</p>
+                          <p className="mt-3 line-clamp-2 text-sm text-brand-background/60">{marker.address}</p>
                         )}
                         {Boolean(nextMeetingAt) && (
-                          <p className="mt-2 text-xs text-[#D19A58]">
+                          <p className="mt-2 flex items-center gap-1.5 text-xs text-brand-accent2">
+                            <i className="ri-calendar-event-line" aria-hidden="true" />
                             Next meeting {formatRelativeTime(nextMeetingAt)}
                           </p>
                         )}
@@ -431,15 +447,14 @@ export default function NearbySupportPage() {
                     )
                   })
                 ) : (
-                  <div className="card-light text-center">
-                    <i className="ri-map-pin-2-line text-4xl text-[#eedfc8]/25" />
-                    <p className="mt-3 text-sm text-[#eedfc8]/60">
-                      No nearby support groups matched that filter yet.
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon={<i className="ri-map-pin-2-line text-4xl" aria-hidden="true" />}
+                    title="No groups nearby yet"
+                    description="No in-person groups matched that filter. Try a broader search or check back soon."
+                  />
                 )}
               </div>
-            </section>
+            </Card>
           </aside>
         </div>
       </div>

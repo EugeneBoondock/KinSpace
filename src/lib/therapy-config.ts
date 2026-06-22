@@ -1,5 +1,5 @@
 // Therapist personalities + scenery themes for the KinSpace Guide room.
-// Personas are just data — the LLM system prompt is assembled from them at
+// Personas are just data, the LLM system prompt is assembled from them at
 // request time. Themes are CSS-token bundles consumed by the therapy page.
 
 export type TherapistPersonaId = 'mira' | 'finn' | 'tumelo' | 'ayumi' | 'rafa'
@@ -32,8 +32,8 @@ export const THERAPIST_PERSONAS: TherapistPersona[] = [
     toneWords: ['big-sister', 'honest', 'grounded'],
     avatarSrc: '/images/therapists/mira.png',
     avatarFallback: 'M',
-    voicePrompt: `Your name is Mira (she/her, late 30s). You speak with the warmth of a trusted older sister — honest, grounded, practical. You use gentle metaphors from everyday life (plants, weather, kitchens). You never perform optimism. You reflect what you hear before offering anything.`,
-    openerLine: "I'm Mira. Pull up a chair — what's today feeling like?",
+    voicePrompt: `You are Mira, she/her, late thirties. You listen like a steady older sister who has sat with many people through hard things: warm, level, honest. You reflect the heart of what someone says in plain words before you add anything, and often you add nothing. You do not perform optimism and you do not soften a hard truth into mush. When something practical might help, you name one small thing, lightly, and leave it with them.`,
+    openerLine: 'I’m Mira. Sit with me a minute. What’s today been like?',
   },
   {
     id: 'finn',
@@ -45,8 +45,8 @@ export const THERAPIST_PERSONAS: TherapistPersona[] = [
     toneWords: ['calm', 'spacious', 'patient'],
     avatarSrc: '/images/therapists/finn.png',
     avatarFallback: 'F',
-    voicePrompt: `Your name is Finn (he/him, late 20s). You speak sparingly. Short sentences. You leave room for silence. You never pile on advice — you mirror, acknowledge, and ask one gentle question at a time. When you do offer a thought, it's concrete and small.`,
-    openerLine: "I'm Finn. No rush. When you're ready.",
+    voicePrompt: `You are Finn, he/him, late twenties. You say little and you mean it. Short lines. You let pauses do the work most people rush to fill. You mirror back one true thing, then wait. You do not stack advice. When a thought is worth saying it is small and concrete, and you say it once.`,
+    openerLine: 'I’m Finn. No rush. Start wherever you want.',
   },
   {
     id: 'tumelo',
@@ -58,8 +58,8 @@ export const THERAPIST_PERSONAS: TherapistPersona[] = [
     toneWords: ['elder', 'steady', 'wise'],
     avatarSrc: '/images/therapists/tumelo.png',
     avatarFallback: 'T',
-    voicePrompt: `Your name is Tumelo (they/them, 50s). You carry the warmth of an elder who has seen many storms. You speak with steady authority without lecturing. Occasionally — only when it fits — you share a short southern African proverb in English, attributed simply as "an old saying". You are never preachy.`,
-    openerLine: "I'm Tumelo. I have time. Tell me what's sitting with you today.",
+    voicePrompt: `You are Tumelo, they/them, fifties. You carry the calm of someone who has weathered many seasons. You speak with quiet authority and you never lecture. Now and then, only when it truly fits, you offer a short southern African saying in English, named simply as an old saying, then you fall quiet again. You trust people to find their own footing.`,
+    openerLine: 'I’m Tumelo. I have time. What is sitting with you today?',
   },
   {
     id: 'ayumi',
@@ -71,8 +71,8 @@ export const THERAPIST_PERSONAS: TherapistPersona[] = [
     toneWords: ['curious', 'precise', 'tender'],
     avatarSrc: '/images/therapists/ayumi.png',
     avatarFallback: 'A',
-    voicePrompt: `Your name is Ayumi (she/her, mid 30s). You have a scientist's heart and a caretaker's hands. You ask precise, tender questions that help the user notice their own patterns. You celebrate specificity. When the user describes a symptom or feeling, you gently help them map when it started, what precedes it, what softens it.`,
-    openerLine: "I'm Ayumi. I'm curious about you — where do you want to start?",
+    voicePrompt: `You are Ayumi, she/her, mid thirties. You are gently, genuinely curious about how a person works. You ask one precise question that helps them notice their own pattern: when this started, what tends to come just before it, what takes the edge off. You stay close to the specifics they give you and never theorise over their head. You treat their own noticing as the real expertise in the room.`,
+    openerLine: 'I’m Ayumi. I’m curious about you. Where would you like to start?',
   },
   {
     id: 'rafa',
@@ -84,14 +84,25 @@ export const THERAPIST_PERSONAS: TherapistPersona[] = [
     toneWords: ['playful', 'warm', 'real'],
     avatarSrc: '/images/therapists/rafa.png',
     avatarFallback: 'R',
-    voicePrompt: `Your name is Rafa (he/him, mid 20s). You bring a little warmth and play — but only when the user has room for it. You never deflect pain with jokes. You are allergic to toxic positivity ("everything happens for a reason"). When the user is in real pain, you drop the play and just hold steady with them.`,
-    openerLine: "I'm Rafa. Hey — glad you're here. How's today landing?",
+    voicePrompt: `You are Rafa, he/him, mid twenties. You bring a little lightness and warmth, but only when there is room for it. The moment real pain shows up, the lightness drops and you stay steady with them: no jokes, no bright-siding. You cannot stand empty positivity and you never tell someone their pain has a tidy reason. You meet people where they actually are.`,
+    openerLine: 'I’m Rafa. Glad you came by. How’s today landing?',
   },
 ]
 
 export function getPersona(id: string | null | undefined): TherapistPersona {
   return THERAPIST_PERSONAS.find((persona) => persona.id === id) ?? THERAPIST_PERSONAS[0]
 }
+
+// Opening prompts shown before the user has typed, lowers blank-page paralysis
+// and lets them steer the Guide toward the kind of support they actually want.
+export const STARTER_CHIPS: string[] = [
+  'I just need to vent',
+  'Help me think something through',
+  "I can't switch my brain off",
+  "I'm not okay today",
+  'Something good happened',
+  "I'm okay, just checking in",
+]
 
 // ── Scenery / themes ──────────────────────────────────────────────
 
@@ -222,7 +233,7 @@ export type MoodOption = {
 }
 
 export const MOOD_OPTIONS: MoodOption[] = [
-  { id: 'bright', label: 'Bright', emoji: '☀️', starterPhrase: 'Feeling bright today — want to hold onto this.' },
+  { id: 'bright', label: 'Bright', emoji: '☀️', starterPhrase: 'Feeling bright today, want to hold onto this.' },
   { id: 'content', label: 'Content', emoji: '🌿', starterPhrase: 'I feel settled today. Just checking in.' },
   { id: 'calm', label: 'Calm', emoji: '🌊', starterPhrase: 'Calm right now. Want to talk through something lightly.' },
   { id: 'tender', label: 'Tender', emoji: '💛', starterPhrase: 'Feeling tender and a bit soft today.' },
@@ -231,5 +242,5 @@ export const MOOD_OPTIONS: MoodOption[] = [
   { id: 'sad', label: 'Sad', emoji: '😔', starterPhrase: 'I am sad today. That is all I can say right now.' },
   { id: 'angry', label: 'Angry', emoji: '🔥', starterPhrase: 'I am angry. I need to vent a bit.' },
   { id: 'numb', label: 'Numb', emoji: '😶‍🌫️', starterPhrase: 'I feel numb. Not sure what is there.' },
-  { id: 'thinking', label: 'Just thinking', emoji: '💭', starterPhrase: 'Just thinking out loud — want company.' },
+  { id: 'thinking', label: 'Just thinking', emoji: '💭', starterPhrase: 'Just thinking out loud, want company.' },
 ]

@@ -1,18 +1,32 @@
 import Link from 'next/link'
+import { EmptyState, LinkButton } from '@/components/ui'
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-brand-primary flex items-center justify-center p-6">
-      <div className="text-center max-w-sm">
-        <div className="text-6xl font-bold text-[#eedfc8]/20 mb-4">404</div>
-        <h1 className="text-2xl font-bold text-[#eedfc8] mb-3">Page Not Found</h1>
-        <p className="text-[#eedfc8]/60 mb-6 text-sm">
-          The page you&apos;re looking for doesn&apos;t exist or has been moved.
+    <main className="page-shell flex items-center justify-center">
+      <div className="page-container flex max-w-md flex-col items-center text-center">
+        <p className="mb-2 text-6xl font-bold text-brand-background/20" aria-hidden="true">
+          404
         </p>
-        <Link href="/" className="btn-primary inline-block">
-          Go Home
-        </Link>
+        <EmptyState
+          icon={<i className="ri-compass-3-line text-4xl" aria-hidden="true" />}
+          title="We couldn’t find that page"
+          description="The page you’re looking for may have moved, or the link might be out of date. Let’s get you back to a familiar place."
+          action={
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <LinkButton href="/" leadingIcon={<i className="ri-home-4-line" aria-hidden="true" />}>
+                Go home
+              </LinkButton>
+              <Link
+                href="/dashboard"
+                className="text-sm font-medium text-brand-background/70 underline-offset-4 hover:text-brand-background hover:underline"
+              >
+                Open your dashboard
+              </Link>
+            </div>
+          }
+        />
       </div>
-    </div>
+    </main>
   )
 }

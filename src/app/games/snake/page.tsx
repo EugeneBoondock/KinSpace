@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
+import { playSfx } from '@/lib/audio/sfx'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 
@@ -48,6 +49,10 @@ export default function SnakePage() {
   useEffect(() => {
     directionRef.current = direction
   }, [direction])
+
+  useEffect(() => {
+    if (status === 'lost') playSfx('lose')
+  }, [status])
 
   const reset = useCallback(() => {
     const start = [{ x: 10, y: 10 }]
@@ -105,6 +110,7 @@ export default function SnakePage() {
         else {
           const newScore = score + 10
           setScore(newScore)
+          playSfx('pop')
           setFood(randomCell(newSnake))
           if (newScore > best) {
             setBest(newScore)
@@ -132,7 +138,7 @@ export default function SnakePage() {
               </p>
               <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Snake</h1>
               <p className="mt-2 max-w-xl text-sm text-[#eedfc8]/60">
-                Arrow keys to steer. Eat the dot. Steady rhythm — no rush.
+                Arrow keys to steer. Eat the dot. Steady rhythm - no rush.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 text-xs">

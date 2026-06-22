@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
+import { playSfx } from '@/lib/audio/sfx'
 import { WORDLE_WORDS } from '@/lib/game-data/wordle-words'
 
 type LetterState = 'correct' | 'present' | 'absent' | 'empty'
@@ -23,14 +24,14 @@ function evaluateGuess(guess: string, answer: string): LetterState[] {
   const answerChars = answer.split('')
   const guessChars = guess.split('')
 
-  // First pass — correct
+  // First pass - correct
   for (let index = 0; index < WORD_LENGTH; index += 1) {
     if (guessChars[index] === answerChars[index]) {
       result[index] = 'correct'
       answerChars[index] = '_'
     }
   }
-  // Second pass — present
+  // Second pass - present
   for (let index = 0; index < WORD_LENGTH; index += 1) {
     if (result[index] === 'correct') continue
     const position = answerChars.indexOf(guessChars[index])
@@ -64,8 +65,15 @@ export default function WordlePage() {
     const next = [...guesses, guess]
     setGuesses(next)
     setCurrentGuess('')
-    if (guess === answer) setStatus('won')
-    else if (next.length >= MAX_ROUNDS) setStatus('lost')
+    if (guess === answer) {
+      setStatus('won')
+      playSfx('win')
+    } else if (next.length >= MAX_ROUNDS) {
+      setStatus('lost')
+      playSfx('lose')
+    } else {
+      playSfx('move')
+    }
   }, [answer, currentGuess, guesses, status])
 
   useEffect(() => {
@@ -121,8 +129,8 @@ export default function WordlePage() {
           </Link>
           <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/45">Wordle</p>
-              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Five-letter focus</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/45">Five-letter focus</p>
+              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Wordle</h1>
               <p className="mt-2 max-w-xl text-sm text-[#eedfc8]/60">
                 Fresh word each game. You have six guesses. Use your keyboard or tap the on-screen keys.
               </p>

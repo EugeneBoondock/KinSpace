@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
+import { playSfx } from '@/lib/audio/sfx'
 import {
   availableMoves,
   checkWinner,
@@ -40,6 +41,7 @@ export default function TicTacToePage() {
     next[index] = 'X'
     setBoard(next)
     setTurn('O')
+    playSfx('move')
   }
 
   useEffect(() => {
@@ -52,11 +54,13 @@ export default function TicTacToePage() {
         you: current.you + (winner === 'X' ? 1 : 0),
         ai: current.ai + (winner === 'O' ? 1 : 0),
       }))
+      playSfx(winner === 'X' ? 'win' : 'lose')
       return
     }
     if (isDraw(board)) {
       setStatus('draw')
       setScores((current) => ({ ...current, draw: current.draw + 1 }))
+      playSfx('pop')
       return
     }
     if (turn === 'O' && status === 'playing') {
@@ -67,6 +71,7 @@ export default function TicTacToePage() {
         next[aiIndex] = 'O'
         setBoard(next)
         setTurn('X')
+        playSfx('move')
       }, 380)
       return () => clearTimeout(timer)
     }
@@ -140,7 +145,7 @@ export default function TicTacToePage() {
                 ? checkWinner(board).winner === 'X'
                   ? 'You won!'
                   : 'AI won this one.'
-                : 'Draw — even ground.'}
+                : 'Draw - even ground.'}
             </p>
           )}
         </section>

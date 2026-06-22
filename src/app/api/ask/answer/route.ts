@@ -1,27 +1,94 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { eq } from 'drizzle-orm'
 import { answerAsk, type AskContext } from '@/lib/ai/ask'
-import { getAdminDb, isAdminConfigured } from '@/lib/server/firebase-admin'
+import { getDb } from '@/server/db/client'
+import { askQuestions, profiles } from '@/server/db/schema'
+import { getSessionUserId } from '@/server/http/auth'
+import { rateLimit } from '@/server/http/rate-limit'
+import { checkAndConsume } from '@/server/billing/repo'
+import { getConditionStudy } from '@/server/data/health'
+import { getHealthTimeline } from '@/server/data/timeline'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-type RequestBody = {
-  questionId?: string
-  userId?: string | null
-  question?: string
-  /** When true, we only run the AI + web search and return, without writing to Firestore. */
-  dryRun?: boolean
+type RequestBody = { questionId?: string; question?: string; dryRun?: boolean }
+
+type StructuredSource = NonNullable<AskContext['structuredSources']>[number]
+
+function cleanList(value: unknown, limit = 5): string[] {
+  if (!Array.isArray(value)) return []
+  return Array.from(new Set(value.map((item) => String(item).trim()).filter(Boolean))).slice(0, limit)
+}
+
+async function buildStructuredSources(db: ReturnType<typeof getDb>, userId: string): Promise<StructuredSource[]> {
+  const sources: StructuredSource[] = []
+  const ctx = { db, userId }
+
+  try {
+    const profile = await db.query.profiles.findFirst({ where: eq(profiles.userId, userId) })
+    const profileConditions = cleanList(profile?.conditions, 4)
+    const profileComorbidities = cleanList(profile?.comorbidities, 4)
+    if (profileConditions.length > 0 || profileComorbidities.length > 0) {
+      sources.push({
+        label: 'Profile health summary',
+        source: 'KinSpace profile',
+        summary: [
+          profileConditions.length > 0 ? `Conditions: ${profileConditions.join(', ')}` : null,
+          profileComorbidities.length > 0 ? `Other listed conditions: ${profileComorbidities.join(', ')}` : null,
+        ].filter(Boolean).join('. '),
+        confidence: 'Self-reported by this member',
+      })
+    }
+
+    const timeline = await getHealthTimeline(ctx, userId, { limit: 8 })
+    if (timeline.stats.total_events > 0) {
+      const latest = timeline.events.slice(0, 5).map((event) => `${event.type}: ${event.title}`).join('; ')
+      sources.push({
+        label: 'Private timeline',
+        source: 'KinSpace timeline',
+        summary: `${timeline.stats.total_events} recent tracked events. Latest: ${latest}`,
+        confidence: 'Private member history',
+      })
+    }
+
+    for (const condition of profileConditions.slice(0, 2)) {
+      const study = await getConditionStudy(ctx, condition)
+      if (!study) continue
+      const treatments = Array.isArray(study.top_treatments)
+        ? study.top_treatments.slice(0, 3).map((item) => String((item as { name?: unknown }).name ?? '').trim()).filter(Boolean)
+        : []
+      sources.push({
+        label: `${String(study.condition?.name ?? condition)} member study`,
+        source: 'KinSpace condition reports',
+        summary: `${study.report_count} member reports. Top treatments: ${treatments.length > 0 ? treatments.join(', ') : 'not enough data yet'}`,
+        confidence: String(study.confidence_label ?? 'Early signal'),
+      })
+    }
+  } catch (error) {
+    console.error('Failed to build Ask structured context:', error)
+  }
+
+  return sources.slice(0, 8)
 }
 
 export async function POST(request: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ ok: false, error: 'OPENAI_API_KEY is not set' }, { status: 500 })
+    return NextResponse.json({ ok: false, error: 'AI is not configured.' }, { status: 500 })
   }
-  if (!isAdminConfigured()) {
+
+  const userId = await getSessionUserId(request)
+  if (!userId) return NextResponse.json({ ok: false, error: 'Please sign in.' }, { status: 401 })
+
+  const limited = await rateLimit(`ask:${userId}`, 20, 60)
+  if (!limited.allowed) return NextResponse.json({ ok: false, error: 'Slow down a moment.' }, { status: 429 })
+
+  const quota = await checkAndConsume(userId, 'ai_ask')
+  if (!quota.allowed) {
     return NextResponse.json(
-      { ok: false, error: 'Firebase Admin not configured — cannot persist answers' },
-      { status: 500 },
+      { ok: false, error: 'You’ve reached your monthly question limit. Upgrade for more.', upgrade: true },
+      { status: 402 },
     )
   }
 
@@ -29,104 +96,72 @@ export async function POST(request: NextRequest) {
   try {
     body = (await request.json()) as RequestBody
   } catch {
-    return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
+    return NextResponse.json({ ok: false, error: 'Invalid request.' }, { status: 400 })
   }
 
-  const question = (body.question ?? '').trim()
-  if (!question) {
-    return NextResponse.json({ ok: false, error: 'question is required' }, { status: 400 })
+  const db = getDb()
+  const questionId = (body.questionId ?? '').trim()
+  const savedQuestion = questionId
+    ? await db.query.askQuestions.findFirst({ where: eq(askQuestions.id, questionId) })
+    : null
+
+  if (questionId && !savedQuestion) {
+    return NextResponse.json({ ok: false, error: 'Question not found.' }, { status: 404 })
   }
-  if (question.length > 1200) {
-    return NextResponse.json({ ok: false, error: 'question too long' }, { status: 400 })
+  if (savedQuestion && savedQuestion.userId !== userId) {
+    return NextResponse.json({ ok: false, error: 'You can only refresh your own Ask answer.' }, { status: 403 })
   }
 
-  const db = getAdminDb()
+  const questionTitle = (savedQuestion?.question ?? body.question ?? '').trim()
+  const questionDetails = (savedQuestion?.body ?? '').trim()
+  const question = questionDetails ? `${questionTitle}\n\nDetails: ${questionDetails}` : questionTitle
+  if (!question) return NextResponse.json({ ok: false, error: 'A question is required.' }, { status: 400 })
+  if (question.length > 2000) return NextResponse.json({ ok: false, error: 'Question is too long.' }, { status: 400 })
 
-  // Build context: the user's profile (if signed in) + related past questions
   const context: AskContext = {
-    conditions: [],
-    medications: [],
-    age: null,
     relatedQuestions: [],
+    structuredSources: await buildStructuredSources(db, userId),
   }
 
-  if (body.userId) {
-    try {
-      const profileSnap = await db.collection('profiles').doc(body.userId).get()
-      const profile = profileSnap.data()
-      if (profile) {
-        context.conditions = Array.isArray(profile.conditions) ? (profile.conditions as string[]) : []
-        context.medications = Array.isArray(profile.medications)
-          ? (profile.medications as string[])
-          : []
-        context.age = (profile.age as number | undefined) ?? null
-      }
-    } catch {
-      // Non-fatal — just answer without profile context.
-    }
-  }
-
-  try {
-    const relatedSnap = await db
-      .collection('ask_questions')
-      .where('scope', '==', 'public')
-      .limit(50)
-      .get()
-    const words = question
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter((word) => word.length > 3)
-      .slice(0, 8)
-
-    if (words.length > 0) {
-      context.relatedQuestions = relatedSnap.docs
-        .map((doc) => {
-          const data = doc.data()
-          const text = `${data.question ?? ''} ${data.body ?? ''}`.toLowerCase()
-          const score = words.reduce((total, word) => (text.includes(word) ? total + 1 : total), 0)
-          return {
-            id: doc.id,
-            question: (data.question as string) ?? '',
-            created_at: data.created_at,
-            score,
-          }
-        })
-        .filter((entry) => entry.score > 0 && entry.id !== body.questionId)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 4)
-        .map((entry) => ({ id: entry.id, question: entry.question, created_at: entry.created_at }))
-    }
-  } catch {
-    // No related questions — fine.
+  const words = question
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 3)
+    .slice(0, 8)
+  if (words.length > 0) {
+    const all = await db.query.askQuestions.findMany({ where: eq(askQuestions.scope, 'public'), limit: 50 })
+    context.relatedQuestions = all
+      .map((q) => {
+        const text = `${q.question ?? ''} ${q.body ?? ''}`.toLowerCase()
+        const score = words.reduce((total, w) => (text.includes(w) ? total + 1 : total), 0)
+        return { id: q.id, question: q.question ?? '', created_at: q.createdAt, score }
+      })
+      .filter((e) => e.score > 0 && e.id !== questionId)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4)
+      .map((e) => ({ id: e.id, question: e.question, created_at: e.created_at }))
   }
 
   const answer = await answerAsk(question, context)
-  if (!answer) {
-    return NextResponse.json(
-      { ok: false, error: 'Could not synthesize an answer' },
-      { status: 502 },
-    )
-  }
+  if (!answer) return NextResponse.json({ ok: false, error: 'Could not synthesize an answer.' }, { status: 502 })
 
-  // Persist onto the question doc so it doesn't need to be regenerated on each view.
-  if (body.questionId && !body.dryRun) {
+  if (questionId && !body.dryRun && savedQuestion) {
     await db
-      .collection('ask_questions')
-      .doc(body.questionId)
-      .update({
-        ai_answer: answer.answer_markdown,
-        ai_plain_summary: answer.plain_language_summary,
-        ai_red_flags: answer.red_flags,
-        ai_self_care: answer.self_care_suggestions,
-        ai_see_professional: answer.when_to_see_a_professional,
+      .update(askQuestions)
+      .set({
+        aiAnswer: answer.answer_markdown,
+        aiPlainSummary: answer.plain_language_summary,
+        aiRedFlags: answer.red_flags,
+        aiSelfCare: answer.self_care_suggestions,
+        aiSeeProfessional: answer.when_to_see_a_professional,
         tags: answer.tags,
-        ai_sources: answer.sources,
-        ai_reddit_threads: answer.reddit_threads,
-        ai_related_questions: context.relatedQuestions,
+        aiSources: answer.sources,
+        aiRedditThreads: answer.reddit_threads,
         status: 'answered',
-        updated_at: new Date(),
+        updatedAt: new Date(),
       })
+      .where(eq(askQuestions.id, questionId))
       .catch((error) => console.error('Failed to persist ask answer:', error))
   }
 

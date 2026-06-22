@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { formatCompactNumber } from '@/lib/platform'
+import { Card, Button, LinkButton, Input, Badge, Skeleton, EmptyState } from '@/components/ui'
+import { cn } from '@/lib/cn'
 
 type Group = Record<string, unknown> & { id: string }
 
@@ -108,150 +109,206 @@ export default function ExplorePage() {
 
   return (
     <PageFrame>
-      <div className="page-grid">
-        <section className="card">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/40">
+      <div className="page-grid space-y-6">
+        <header className="space-y-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <p className="eyebrow">
                 Explore
               </p>
-              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Find the right room to walk into</h1>
-              <p className="mt-2 max-w-2xl text-sm text-[#eedfc8]/60">
-                Every group listed here is coming from the live platform now. Join what fits, skip what does not.
+              <h1 className="text-2xl font-bold text-brand-background sm:text-3xl">
+                Find a room that fits
+              </h1>
+              <p className="max-w-2xl text-sm leading-relaxed text-brand-background/60">
+                These are real, active groups on KinSpace. Join the ones that feel right - you can always leave later.
+                Can&apos;t find your people? Start your own.
               </p>
             </div>
-            <div className="w-full max-w-sm">
-              <div className="relative">
-                <i className="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-[#eedfc8]/35" />
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search groups, topics, or tags"
-                  className="input-field !pl-11"
-                />
-              </div>
-            </div>
+            <LinkButton
+              href="/groups?create=1"
+              className="shrink-0"
+              leadingIcon={<i className="ri-add-line" aria-hidden="true" />}
+            >
+              Create group
+            </LinkButton>
           </div>
 
-          <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => setActiveCategory(category.id)}
-                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all ${
-                  activeCategory === category.id
-                    ? 'bg-[#eedfc8] text-[#2A4A42]'
-                    : 'bg-[#eedfc8]/8 text-[#eedfc8]/65'
-                }`}
-              >
-                {category.label}
-                <span className="rounded-full bg-black/10 px-2 py-0.5 text-[10px]">
-                  {category.count}
-                </span>
-              </button>
-            ))}
+          <div className="relative">
+            <i className="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-brand-background/40" aria-hidden="true" />
+            <Input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search groups, topics, or tags"
+              aria-label="Search groups"
+              className="h-12 pl-11"
+            />
           </div>
-        </section>
 
-        <section className="page-grid">
-          <div className="flex items-center justify-between text-sm text-[#eedfc8]/45">
-            <p>{filteredGroups.length} live group{filteredGroups.length === 1 ? '' : 's'} found</p>
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {categories.map((category) => {
+              const isActive = activeCategory === category.id
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => setActiveCategory(category.id)}
+                  aria-pressed={isActive}
+                  className={cn(
+                    'flex min-w-fit items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40',
+                    isActive
+                      ? 'bg-brand-background text-brand-primary shadow-sm'
+                      : 'bg-brand-background/8 text-brand-background/65 hover:bg-brand-background/15 hover:text-brand-background/90',
+                  )}
+                >
+                  {category.label}
+                  <span
+                    className={cn(
+                      'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                      isActive ? 'bg-brand-primary/15 text-brand-primary' : 'bg-brand-background/10 text-brand-background/60',
+                    )}
+                  >
+                    {category.count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </header>
+
+        <section className="space-y-4">
+          <div className="flex items-center justify-between text-sm text-brand-background/55">
+            <p>
+              {filteredGroups.length} live group{filteredGroups.length === 1 ? '' : 's'}
+            </p>
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="text-[#D19A58]">
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="font-medium text-brand-accent2 transition-colors hover:text-brand-accent2/80"
+              >
                 Clear search
               </button>
             )}
           </div>
 
           {loading ? (
-            <div className="page-card-grid">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="h-56 skeleton rounded-3xl" />
+                <Skeleton key={index} className="h-60 rounded-2xl" />
               ))}
             </div>
           ) : filteredGroups.length > 0 ? (
-            <div className="page-card-grid">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredGroups.map((group) => {
                 const joined = joinedGroupIds.has(group.id)
                 const isOwnGroup = user?.userId === (group.created_by as string | undefined)
                 const groupType = (group.type as string | undefined) || 'virtual'
 
                 return (
-                  <article key={group.id} className="card">
+                  <Card key={group.id} interactive className="flex flex-col">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="text-lg font-semibold text-[#eedfc8] break-words">
+                          <h2 className="break-words text-lg font-semibold text-brand-background">
                             {group.name as string}
                           </h2>
                           {isOwnGroup ? (
-                            <span className="badge bg-[#6B8A83]/20 text-[#6B8A83]">You manage this</span>
+                            <Badge tone="info">You manage this</Badge>
                           ) : joined ? (
-                            <span className="badge bg-[#D19A58]/15 text-[#D19A58]">Joined</span>
+                            <Badge tone="accent">Joined</Badge>
                           ) : null}
                         </div>
-                        <p className="mt-1 text-xs text-[#eedfc8]/45">
+                        <p className="mt-1 text-xs capitalize text-brand-background/45">
                           {(group.category as string | undefined) || 'General'} • {groupType}
                         </p>
                       </div>
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#6B8A83]/16 text-[#6B8A83]">
-                        <i className={`${(group.icon as string | undefined) || 'ri-group-line'} text-xl`} />
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-accent3/16 text-brand-accent3">
+                        <i className={`${typeof group.icon === 'string' && group.icon.startsWith('ri-') ? group.icon : 'ri-group-line'} text-xl`} aria-hidden="true" />
                       </div>
                     </div>
 
-                    <p className="mt-4 text-sm leading-relaxed text-[#eedfc8]/70">
+                    <p className="mt-4 text-sm leading-relaxed text-brand-background/70">
                       {(group.description as string | undefined) || 'A live support group on KinSpace.'}
                     </p>
 
                     {Array.isArray(group.tags) && group.tags.length > 0 && (
                       <div className="mt-4 flex flex-wrap gap-2">
                         {(group.tags as string[]).slice(0, 4).map((tag) => (
-                          <span key={tag} className="badge text-[10px]">
-                            {tag}
-                          </span>
+                          <Badge key={tag}>{tag}</Badge>
                         ))}
                       </div>
                     )}
 
-                    <div className="mt-5 flex flex-wrap items-center justify-between gap-2 text-xs text-[#eedfc8]/45">
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-2 text-xs text-brand-background/45">
                       <span>
                         {formatCompactNumber(group.members_count as number | undefined)}{' '}
                         {(group.members_count as number | undefined) === 1 ? 'member' : 'members'}
                       </span>
-                      {(group.location as string | undefined) && <span>{group.location as string}</span>}
-                    </div>
-
-                    <div className="mt-5 flex gap-2">
-                      {isOwnGroup ? (
-                        <Link
-                          href="/groups"
-                          className="btn-secondary flex-1 rounded-full py-2.5 text-center text-sm font-semibold"
-                        >
-                          Manage in Groups
-                        </Link>
-                      ) : (
-                        <button
-                          onClick={() => handleJoinGroup(group.id)}
-                          disabled={joined}
-                          className={`flex-1 rounded-full py-2.5 text-sm font-semibold transition-all ${
-                            joined
-                              ? 'border border-[#D19A58]/30 bg-[#D19A58]/15 text-[#D19A58]'
-                              : 'btn-primary'
-                          }`}
-                        >
-                          {joined ? 'Already joined' : 'Join group'}
-                        </button>
+                      {(group.location as string | undefined) && (
+                        <span className="inline-flex items-center gap-1">
+                          <i className="ri-map-pin-2-line" aria-hidden="true" />
+                          {group.location as string}
+                        </span>
                       )}
                     </div>
-                  </article>
+
+                    <div className="mt-5 flex gap-2 pt-1">
+                      {isOwnGroup ? (
+                        <LinkButton href="/groups" variant="secondary" fullWidth>
+                          Manage in Groups
+                        </LinkButton>
+                      ) : joined ? (
+                        <Button
+                          variant="secondary"
+                          fullWidth
+                          disabled
+                          leadingIcon={<i className="ri-check-line" aria-hidden="true" />}
+                        >
+                          Already joined
+                        </Button>
+                      ) : (
+                        <Button onClick={() => handleJoinGroup(group.id)} fullWidth>
+                          Join group
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
                 )
               })}
             </div>
           ) : (
-            <div className="card-light text-center">
-              <i className="ri-search-line text-4xl text-[#eedfc8]/25" />
-              <p className="mt-3 text-sm text-[#eedfc8]/60">No groups match that search yet.</p>
-            </div>
+            <EmptyState
+              icon={<i className="ri-search-line text-4xl" aria-hidden="true" />}
+              image="/images/app/empty-search.webp"
+              imageAlt="A person searching with a compass and a map"
+              title={searchQuery || activeCategory !== 'all' ? 'No groups match yet' : 'No groups here yet'}
+              description={
+                searchQuery || activeCategory !== 'all'
+                  ? "Try a different search, or clear the filters to see everything that's active right now."
+                  : 'Be the first to start a space here. Create a group and others who get it will find you.'
+              }
+              action={
+                searchQuery || activeCategory !== 'all' ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setSearchQuery('')
+                      setActiveCategory('all')
+                    }}
+                  >
+                    Reset filters
+                  </Button>
+                ) : (
+                  <LinkButton
+                    href="/groups?create=1"
+                    leadingIcon={<i className="ri-add-line" aria-hidden="true" />}
+                  >
+                    Create the first group
+                  </LinkButton>
+                )
+              }
+            />
           )}
         </section>
       </div>

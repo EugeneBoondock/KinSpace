@@ -26,7 +26,7 @@ export default function PlatformAvatarPicker({
             className={`rounded-2xl border p-2 transition-all ${
               isSelected
                 ? 'border-[#D19A58] bg-[#D19A58]/12 shadow-[0_0_0_1px_rgba(209,154,88,0.25)]'
-                : 'border-[#eedfc8]/10 bg-[#eedfc8]/5 hover:border-[#eedfc8]/20 hover:bg-[#eedfc8]/8'
+                : 'border-brand-background/10 bg-brand-background/5 hover:border-brand-background/20 hover:bg-brand-background/8'
             } disabled:cursor-not-allowed disabled:opacity-60`}
           >
             <img
@@ -34,7 +34,7 @@ export default function PlatformAvatarPicker({
               alt={`${option.label} avatar`}
               className="h-16 w-16 rounded-2xl object-cover"
             />
-            <span className="mt-2 block text-center text-[11px] font-semibold text-[#eedfc8]/75">
+            <span className="mt-2 block text-center text-[11px] font-semibold text-brand-background/75">
               {option.label}
             </span>
           </button>

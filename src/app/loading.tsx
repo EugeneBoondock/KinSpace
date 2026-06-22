@@ -1,10 +1,12 @@
+import { Spinner } from '@/components/ui'
+
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-brand-primary flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-12 h-12 border-3 border-[#eedfc8]/20 border-t-[#eedfc8] rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-[#eedfc8]/60 text-sm">Loading...</p>
+    <main className="page-shell flex items-center justify-center">
+      <div className="flex flex-col items-center text-center" role="status" aria-live="polite">
+        <Spinner className="h-10 w-10" />
+        <p className="mt-4 text-sm text-brand-background/60">Just a moment…</p>
       </div>
-    </div>
+    </main>
   )
 }

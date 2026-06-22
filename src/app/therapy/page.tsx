@@ -4,15 +4,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
+import { SunlitCanopy } from '@/components/SunlitCanopy'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { getCachedProfile, updateCachedProfile } from '@/lib/profile-cache'
 import { detectConcern, toDate } from '@/lib/platform'
+import { cn } from '@/lib/cn'
+import { AmbientEngine, type AmbientPreset } from '@/lib/audio/ambient'
+import { useSpeechInput, useSpeechOutput } from '@/lib/voice/useSpeech'
 import {
   THERAPIST_PERSONAS,
   THERAPY_THEMES,
   MOOD_OPTIONS,
+  STARTER_CHIPS,
   getPersona,
   getTheme,
   type MoodOption,
@@ -27,7 +32,46 @@ type Message = {
   created_at: Date
 }
 
+// Shapes returned by the session-history data methods (snake_cased on the wire).
+type SessionSummaryRow = {
+  id: string
+  persona: string | null
+  theme: string | null
+  mood_at_start: string | null
+  mood_at_end: string | null
+  summary: string | null
+  key_themes: string[]
+  started_at: string | null
+  ended_at: string | null
+  message_count: number
+}
+
+type TranscriptRow = {
+  id: string
+  message: string
+  is_ai: boolean
+  sender_id: string
+  created_at: string | null
+}
+
 type View = 'loading' | 'onboard' | 'empty' | 'chat'
+
+function ambientPresetForTheme(id: string): AmbientPreset {
+  // Every room maps to a NATURAL soundscape (never the synth drone).
+  const map: Record<string, AmbientPreset> = {
+    rainfall: 'rain',
+    cabin: 'fire',
+    sunrise: 'forest',
+    moonlit: 'ocean',
+    dusk: 'wind',
+    default: 'forest',
+  }
+  return map[id] ?? 'forest'
+}
+
+function ambientIntensityForMood(mood: string | null): number {
+  return mood && ['heavy', 'overwhelmed', 'sad', 'numb'].includes(mood) ? 0.7 : 1
+}
 
 function firstNameFrom(profile: Record<string, unknown> | null): string {
   if (!profile) return ''
@@ -57,7 +101,7 @@ function PersonaAvatar({
             theme?.userBubble ?? '#eedfc8'
           })`,
         }}
-        className="flex shrink-0 items-center justify-center rounded-full text-sm font-bold text-[#2A4A42] shadow-md"
+        className="flex shrink-0 items-center justify-center rounded-full text-sm font-bold text-brand-primary shadow-md"
       >
         {persona.avatarFallback}
       </div>
@@ -87,9 +131,19 @@ export default function TherapyPage() {
   const [moodAtStart, setMoodAtStart] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
   const [sending, setSending] = useState(false)
+  const [sessionEnded, setSessionEnded] = useState(false)
   const [showCrisisSheet, setShowCrisisSheet] = useState(false)
   const [showBreathing, setShowBreathing] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+
+  // ── Session history (read-only replay of past sessions) ──────────
+  const [showHistory, setShowHistory] = useState(false)
+  const [sessions, setSessions] = useState<SessionSummaryRow[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [openSession, setOpenSession] = useState<SessionSummaryRow | null>(null)
+  const [sessionMessages, setSessionMessages] = useState<TranscriptRow[]>([])
+  const [loadingTranscript, setLoadingTranscript] = useState(false)
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null)
 
   const [personaId, setPersonaId] = useState<string>('mira')
   const [themeId, setThemeId] = useState<string>('default')
@@ -103,6 +157,61 @@ export default function TherapyPage() {
   const roomId = user ? `guided-support-${user.userId}` : null
   const firstName = useMemo(() => firstNameFrom(profile), [profile])
 
+  const [readAloud, setReadAloud] = useState(false)
+  const [ambientOn, setAmbientOn] = useState(false)
+  const [feedbackByMsg, setFeedbackByMsg] = useState<Record<string, 'up' | 'down'>>({})
+  const [feedbackOpenFor, setFeedbackOpenFor] = useState<string | null>(null)
+  const ambientRef = useRef<AmbientEngine | null>(null)
+  const { speak, cancel: cancelSpeech } = useSpeechOutput()
+  const {
+    supported: micSupported,
+    listening,
+    start: startDictation,
+    stop: stopDictation,
+  } = useSpeechInput((text) => setInputValue((current) => (current ? `${current} ${text}` : text)))
+
+  function toggleAmbient() {
+    if (!ambientRef.current) ambientRef.current = new AmbientEngine()
+    const engine = ambientRef.current
+    if (ambientOn) {
+      engine.stop()
+      setAmbientOn(false)
+    } else {
+      void engine.start(ambientPresetForTheme(themeId), ambientIntensityForMood(moodAtStart))
+      setAmbientOn(true)
+    }
+  }
+
+  async function sendMessageFeedback(messageId: string, content: string, value: 'up' | 'down', reason?: string) {
+    setFeedbackByMsg((current) => ({ ...current, [messageId]: value }))
+    setFeedbackOpenFor(value === 'down' && !reason ? messageId : null)
+    try {
+      await DatabaseService.recordTherapyFeedback({
+        sessionId,
+        value,
+        reason: reason ?? null,
+        snippet: content.slice(0, 300),
+      })
+    } catch {
+      // Best-effort feedback.
+    }
+  }
+
+  useEffect(() => {
+    if (ambientOn && ambientRef.current) {
+      ambientRef.current.setPreset(ambientPresetForTheme(themeId), ambientIntensityForMood(moodAtStart))
+    }
+  }, [themeId, moodAtStart, ambientOn])
+
+  useEffect(
+    () => () => {
+      ambientRef.current?.stop()
+      cancelSpeech()
+    },
+    [cancelSpeech])
+
+  // ── Voice, ambient sound, and per-message feedback ───────────────
+  // Keep the ambient texture in sync with the room theme + mood while it plays.
   // ── Load profile + previous messages + resolve view state ─────────
   useEffect(() => {
     async function load() {
@@ -206,30 +315,46 @@ export default function TherapyPage() {
         console.error('Failed to save persona/theme:', error)
       }
     },
-    [user],
-  )
+    [user])
 
-  // ── Session start (lazy — first time the user actually sends) ────
+  // ── Session start (lazy - first time the user actually sends) ────
+  // Guard against creating duplicate sessions: `sessionId` is React state, so two
+  // messages sent in quick succession both read it as null and each start a new
+  // session (which is why history showed several cards for one conversation). A
+  // ref is updated synchronously, and an in-flight promise dedupes concurrent calls.
+  const sessionIdRef = useRef<string | null>(null)
+  const creatingSessionRef = useRef<Promise<string | null> | null>(null)
+  useEffect(() => {
+    sessionIdRef.current = sessionId
+  }, [sessionId])
+
   const ensureSession = useCallback(
     async (mood: string | null): Promise<string | null> => {
-      if (sessionId) return sessionId
+      if (sessionIdRef.current) return sessionIdRef.current
+      if (creatingSessionRef.current) return creatingSessionRef.current
       if (!user) return null
-      try {
-        const { id } = await DatabaseService.startTherapySession(user.userId, {
-          persona: personaId,
-          theme: themeId,
-          mood,
-        })
-        setSessionId(id)
-        setMoodAtStart(mood)
-        return id
-      } catch (error) {
-        console.error('Failed to start session:', error)
-        return null
-      }
+      const creation = (async () => {
+        try {
+          const { id } = await DatabaseService.startTherapySession(user.userId, {
+            persona: personaId,
+            theme: themeId,
+            mood,
+          })
+          sessionIdRef.current = id
+          setSessionId(id)
+          setMoodAtStart(mood)
+          return id
+        } catch (error) {
+          console.error('Failed to start session:', error)
+          return null
+        } finally {
+          creatingSessionRef.current = null
+        }
+      })()
+      creatingSessionRef.current = creation
+      return creation
     },
-    [personaId, sessionId, themeId, user],
-  )
+    [personaId, themeId, user])
 
   // ── Send ────────────────────────────────────────────────────────
   const sendMessage = useCallback(
@@ -250,11 +375,11 @@ export default function TherapyPage() {
       setMessages((current) => [...current, userMessage])
       setInputValue('')
       setSending(true)
+      setSessionEnded(false)
       setView('chat')
 
-      void DatabaseService.sendMessage(user.userId, null, roomId, userMessage.content, false).catch(
-        (error) => console.error('Failed to save user message:', error),
-      )
+      void DatabaseService.sendMessage(user.userId, null, roomId, userMessage.content, false, sid).catch(
+        (error) => console.error('Failed to save user message:', error))
 
       const history = [...messages, userMessage].map((message) => ({
         role: message.role,
@@ -274,7 +399,7 @@ export default function TherapyPage() {
           }),
         })
         const data = (await response.json().catch(() => null)) as
-          | { ok: boolean; reply?: string; isCrisis?: boolean; error?: string }
+          | { ok: boolean; reply?: string; isCrisis?: boolean; endSession?: boolean; error?: string }
           | null
 
         if (!response.ok || !data?.ok || !data.reply) {
@@ -289,11 +414,30 @@ export default function TherapyPage() {
           content: data.reply,
           created_at: new Date(),
         }
+        const closing = [...messages, userMessage, guideMessage]
         setMessages((current) => [...current, guideMessage])
+        if (readAloud) speak(data.reply, persona.gender)
 
-        void DatabaseService.sendMessage('guided-support', null, roomId, guideMessage.content, true).catch(
-          (error) => console.error('Failed to save guide reply:', error),
-        )
+        void DatabaseService.sendMessage('guided-support', null, roomId, guideMessage.content, true, sid).catch(
+          (error) => console.error('Failed to save guide reply:', error))
+
+        // Either side asked to wrap up: summarise the session and reset so the
+        // next message opens a fresh one. The transcript stays on screen.
+        if (data.endSession && sid) {
+          setSessionEnded(true)
+          setSessionId(null)
+          setMoodAtStart(null)
+          void fetch('/api/therapy/end-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId: sid,
+              personaName: persona.name,
+              moodAtStart,
+              messages: closing.slice(-40).map((message) => ({ role: message.role, content: message.content })),
+            }),
+          }).catch(() => undefined)
+        }
       } catch (error) {
         console.error('Therapy chat error:', error)
         toast('I could not respond just now. Try again?', 'error')
@@ -311,8 +455,44 @@ export default function TherapyPage() {
         setSending(false)
       }
     },
-    [ensureSession, messages, moodAtStart, personaId, profile, roomId, toast, user],
-  )
+    [
+      ensureSession,
+      messages,
+      moodAtStart,
+      persona.gender,
+      persona.name,
+      personaId,
+      profile,
+      readAloud,
+      roomId,
+      speak,
+      toast,
+      user,
+    ])
+
+  // A daily check-in can hand off a contextual opener (stashed in sessionStorage
+  // by the dashboard popup). Consume it once the room is ready and send it so the
+  // Guide opens in context. Guarded so it never fires twice.
+  const starterConsumedRef = useRef(false)
+  useEffect(() => {
+    if (starterConsumedRef.current) return
+    if (view !== 'empty' && view !== 'chat') return
+    if (typeof window === 'undefined') return
+    let starter: string | null = null
+    try {
+      starter = window.sessionStorage.getItem('kinspace:therapy-starter')
+    } catch {
+      starter = null
+    }
+    if (!starter) return
+    starterConsumedRef.current = true
+    try {
+      window.sessionStorage.removeItem('kinspace:therapy-starter')
+    } catch {
+      // ignore
+    }
+    void sendMessage(starter)
+  }, [view, sendMessage])
 
   function handleMoodPick(mood: MoodOption) {
     void sendMessage(mood.starterPhrase, mood.id)
@@ -324,6 +504,72 @@ export default function TherapyPage() {
       void sendMessage(inputValue)
     }
   }
+
+  // ── Session history handlers ────────────────────────────────────
+  const loadHistory = useCallback(async () => {
+    if (!user) return
+    setLoadingHistory(true)
+    try {
+      const rows = (await DatabaseService.getTherapySessionHistory(user.userId)) as SessionSummaryRow[]
+      setSessions(Array.isArray(rows) ? rows : [])
+    } catch {
+      toast('Could not load your session history.', 'error')
+    } finally {
+      setLoadingHistory(false)
+    }
+  }, [toast, user])
+
+  function openHistory() {
+    setShowHistory(true)
+    void loadHistory()
+  }
+
+  // Load history on mount too, so the empty-state can offer a "pick up where we
+  // left off" recap from the most recent session (continuity is the #1 ask).
+  useEffect(() => {
+    if (user) void loadHistory()
+  }, [user, loadHistory])
+
+  const lastSession = sessions[0]
+  const lastTheme = lastSession?.key_themes?.[0] ?? null
+
+  const openSessionTranscript = useCallback(
+    async (session: SessionSummaryRow) => {
+      setOpenSession(session)
+      setSessionMessages([])
+      setLoadingTranscript(true)
+      try {
+        const rows = (await DatabaseService.getTherapySessionMessages(session.id)) as TranscriptRow[]
+        setSessionMessages(Array.isArray(rows) ? rows : [])
+      } catch {
+        toast('Could not open that session.', 'error')
+      } finally {
+        setLoadingTranscript(false)
+      }
+    },
+    [toast])
+
+  const deleteSessionMessage = useCallback(
+    async (messageId: string) => {
+      setDeletingMessageId(messageId)
+      try {
+        const response = await fetch('/api/therapy/message/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messageId }),
+        })
+        const data = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null
+        if (!response.ok || !data?.ok) throw new Error(data?.error ?? 'Delete failed')
+        setSessionMessages((current) => current.filter((row) => row.id !== messageId))
+        void loadHistory()
+        toast('Deleted, and erased from your Guide’s memory.', 'success')
+      } catch {
+        toast('Could not delete that message.', 'error')
+      } finally {
+        setDeletingMessageId(null)
+      }
+    },
+    [loadHistory, toast])
 
   // ── Render ──────────────────────────────────────────────────────
   const pageStyle: React.CSSProperties = {
@@ -375,8 +621,10 @@ export default function TherapyPage() {
               return (
                 <button
                   key={option.id}
+                  type="button"
                   onClick={() => setPersonaId(option.id)}
-                  className="rounded-3xl border-2 p-4 text-left transition-all"
+                  aria-pressed={selected}
+                  className="rounded-3xl border-2 p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                   style={{
                     borderColor: selected ? theme.accent : 'rgba(238,223,200,0.1)',
                     background: selected ? theme.accentSoft : theme.cardBackground,
@@ -430,8 +678,10 @@ export default function TherapyPage() {
                 return (
                   <button
                     key={option.id}
+                    type="button"
                     onClick={() => setThemeId(option.id)}
-                    className="rounded-2xl border-2 p-3 text-left transition-all"
+                    aria-pressed={selected}
+                    className="rounded-2xl border-2 p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                     style={{
                       borderColor: selected ? option.accent : 'rgba(238,223,200,0.1)',
                       background: option.pageBackground,
@@ -451,11 +701,12 @@ export default function TherapyPage() {
 
           <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
             <button
+              type="button"
               onClick={async () => {
                 await chooseAndPersist(personaId, themeId)
                 setView('empty')
               }}
-              className="rounded-2xl px-5 py-3 text-sm font-semibold shadow-md transition-transform hover:scale-[1.01]"
+              className="rounded-2xl px-5 py-3 text-sm font-semibold shadow-md transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
               style={{ background: theme.accent, color: theme.userBubbleText }}
             >
               Step into the room →
@@ -491,6 +742,20 @@ export default function TherapyPage() {
             </div>
           </div>
 
+          {/* Continuity: pick up the most recent session's theme */}
+          {lastTheme && (
+            <button
+              type="button"
+              onClick={() => void sendMessage(`Last time we talked about ${lastTheme}. Can we pick that up?`)}
+              disabled={sending}
+              className="flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-all hover:scale-[1.02] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+              style={{ borderColor: 'rgba(238,223,200,0.2)', background: theme.cardBackground, color: theme.bodyColor }}
+            >
+              <i className="ri-history-line" style={{ color: theme.accent }} aria-hidden="true" />
+              Pick up where we left off, {lastTheme}
+            </button>
+          )}
+
           {/* Mood picker */}
           <div className="w-full">
             <p
@@ -503,9 +768,10 @@ export default function TherapyPage() {
               {MOOD_OPTIONS.map((mood) => (
                 <button
                   key={mood.id}
+                  type="button"
                   onClick={() => handleMoodPick(mood)}
                   disabled={sending}
-                  className="flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-center transition-all hover:scale-[1.03] disabled:opacity-50"
+                  className="flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-center transition-all hover:scale-[1.03] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                   style={{
                     borderColor: 'rgba(238,223,200,0.12)',
                     background: theme.cardBackground,
@@ -519,35 +785,62 @@ export default function TherapyPage() {
               ))}
             </div>
             <p className="mt-3 text-center text-xs" style={{ color: theme.mutedColor }}>
-              or just start typing below — no mood required.
+              or just start typing below - no mood required.
             </p>
+          </div>
+
+          {/* Starter chips - lower the blank-page barrier, steer the kind of support wanted */}
+          <div className="w-full">
+            <p
+              className="text-center text-xs font-semibold uppercase tracking-[0.18em]"
+              style={{ color: theme.mutedColor }}
+            >
+              Or start with
+            </p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              {STARTER_CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => void sendMessage(chip)}
+                  disabled={sending}
+                  className="rounded-full px-3.5 py-2 text-sm font-medium transition-all hover:scale-[1.03] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                  style={{ background: theme.accentSoft, color: theme.accent }}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Action strip: breathe / crisis / settings */}
           <div className="flex flex-wrap items-center justify-center gap-2">
             <button
+              type="button"
               onClick={() => setShowBreathing(true)}
-              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
               style={{ background: theme.accentSoft, color: theme.accent }}
             >
-              <i className="ri-leaf-line" /> Breathe
+              <i className="ri-leaf-line" aria-hidden="true" /> Breathe
             </button>
             <button
+              type="button"
               onClick={() => setShowCrisisSheet(true)}
-              className="flex items-center gap-1.5 rounded-full bg-[#B85C3A]/18 px-3 py-1.5 text-xs font-medium text-[#f0b59c] hover:bg-[#B85C3A]/30"
+              className="flex items-center gap-1.5 rounded-full bg-brand-accent1/20 px-3 py-1.5 text-xs font-medium text-brand-accent1 transition-colors hover:bg-brand-accent1/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
             >
-              <i className="ri-heart-3-line" /> Need a human?
+              <i className="ri-heart-3-line" aria-hidden="true" /> Need a human?
             </button>
             <button
+              type="button"
               onClick={() => setShowSettings(true)}
-              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
               style={{ background: 'rgba(238,223,200,0.08)', color: theme.bodyColor }}
             >
-              <i className="ri-settings-3-line" /> Guide &amp; scenery
+              <i className="ri-settings-3-line" aria-hidden="true" /> Guide &amp; scenery
             </button>
           </div>
 
-          {/* Inline composer — shown from the jump, no scrolling required */}
+          {/* Inline composer - shown from the jump, no scrolling required */}
           <form
             onSubmit={(event) => {
               event.preventDefault()
@@ -574,10 +867,27 @@ export default function TherapyPage() {
                 className="max-h-60 flex-1 resize-none bg-transparent py-1.5 text-[15px] leading-relaxed focus:outline-none disabled:opacity-50"
                 style={{ color: theme.headingColor }}
               />
+              {micSupported && (
+                <button
+                  type="button"
+                  onClick={() => (listening ? stopDictation() : startDictation())}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                  style={{
+                    borderColor: 'rgba(238,223,200,0.25)',
+                    background: listening ? theme.accent : 'transparent',
+                    color: listening ? theme.userBubbleText : theme.bodyColor,
+                  }}
+                  aria-label={listening ? 'Stop voice input' : 'Speak your message'}
+                  aria-pressed={listening}
+                  title="Voice input"
+                >
+                  <i className={listening ? 'ri-mic-fill animate-pulse' : 'ri-mic-line'} aria-hidden="true" />
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={!inputValue.trim() || sending}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-md transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-md transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                 style={{ background: theme.accent, color: theme.userBubbleText }}
                 aria-label="Send"
               >
@@ -599,10 +909,36 @@ export default function TherapyPage() {
 
   // ── Full chat view ─────────────────────────────────────────────
   return (
-    <div style={pageStyle} className="px-3 pb-28 pt-6 sm:px-4 md:pb-24">
-      <div className="mx-auto flex max-w-3xl flex-col gap-3">
-        {/* Header strip — icons on mobile, pills on desktop */}
-        <div className="flex items-center justify-between gap-2">
+    <div
+      className="fixed inset-0 z-0 overflow-hidden pt-3 sm:pt-6"
+      style={{ height: '100dvh' }}
+    >
+      {/* Ambient scenery: an optional background image, softly tinted by the active
+          theme. If the image is absent the theme gradient is the built-in fallback,
+          so the room still feels calm and intentional. Drop a PNG at the path below
+          (per theme: ambient-<themeId>.png) and it lights up automatically. */}
+      <div
+        className="pointer-events-none fixed inset-0"
+        style={{
+          background: `url('/images/therapy/ambient-${theme.id}.png') center / cover no-repeat, url('/images/therapy/ambient-default.png') center / cover no-repeat, ${theme.pageBackground}`,
+        }}
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none fixed inset-0"
+        style={{ background: theme.pageBackground, opacity: 0.5 }}
+        aria-hidden="true"
+      />
+      {/* Living light: animated window-blind shadows + wind-swayed leaf shadows,
+          layered on top of the ambient image so the still scenery breathes. */}
+      <SunlitCanopy />
+      {/* Full-width column so the scroll container's scrollbar sits at the screen
+          edge. Offset by the sidebar on desktop; each row centers its own content
+          at max-w-6xl. */}
+      <div className="relative z-10 flex h-full flex-col gap-3 pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:pb-4 md:pl-64">
+        {/* Header strip - icons on mobile, pills on desktop. shrink-0 keeps the
+            therapist name pinned at the top; it never scrolls away. */}
+        <div className="mx-auto flex w-full max-w-6xl shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-3">
             <PersonaAvatar persona={persona} size={40} theme={theme} />
             <div className="min-w-0">
@@ -619,42 +955,85 @@ export default function TherapyPage() {
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             <button
+              type="button"
+              onClick={toggleAmbient}
+              className="flex h-9 w-9 items-center justify-center rounded-full border shadow-sm backdrop-blur-md transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+              style={{
+                background: ambientOn ? theme.accentSoft : 'rgba(20,28,24,0.55)',
+                borderColor: 'rgba(238,223,200,0.2)',
+                color: ambientOn ? theme.accent : theme.headingColor,
+              }}
+              aria-label={ambientOn ? 'Turn off ambient sound' : 'Turn on ambient sound'}
+              aria-pressed={ambientOn}
+              title="Ambient sound"
+            >
+              <i className={ambientOn ? 'ri-volume-up-line' : 'ri-volume-mute-line'} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (readAloud) cancelSpeech()
+                setReadAloud((on) => !on)
+              }}
+              className="flex h-9 w-9 items-center justify-center rounded-full border shadow-sm backdrop-blur-md transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+              style={{
+                background: readAloud ? theme.accentSoft : 'rgba(20,28,24,0.55)',
+                borderColor: 'rgba(238,223,200,0.2)',
+                color: readAloud ? theme.accent : theme.headingColor,
+              }}
+              aria-label={readAloud ? 'Turn off read aloud' : 'Read replies aloud'}
+              aria-pressed={readAloud}
+              title="Read replies aloud"
+            >
+              <i className="ri-speak-line" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
               onClick={() => setShowBreathing(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-full sm:h-auto sm:w-auto sm:gap-1 sm:px-3 sm:py-1.5 text-xs font-medium"
-              style={{ background: theme.accentSoft, color: theme.accent }}
+              className="flex h-9 w-9 items-center justify-center rounded-full border shadow-sm backdrop-blur-md transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 sm:h-auto sm:w-auto sm:gap-1 sm:px-3 sm:py-1.5 text-xs font-semibold"
+              style={{ background: 'rgba(20,28,24,0.55)', borderColor: 'rgba(238,223,200,0.24)', color: theme.accent }}
               aria-label="Breathe"
             >
-              <i className="ri-leaf-line" />
+              <i className="ri-leaf-line" aria-hidden="true" />
               <span className="hidden sm:inline">Breathe</span>
             </button>
             <button
+              type="button"
               onClick={() => setShowCrisisSheet(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-[#B85C3A]/18 text-[#f0b59c] sm:h-auto sm:w-auto sm:gap-1 sm:px-3 sm:py-1.5 text-xs font-medium"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-accent1 text-white shadow-md transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 sm:h-auto sm:w-auto sm:gap-1 sm:px-3 sm:py-1.5 text-xs font-semibold"
               aria-label="Need a human?"
             >
-              <i className="ri-heart-3-line" />
+              <i className="ri-heart-3-line" aria-hidden="true" />
               <span className="hidden sm:inline">Human?</span>
             </button>
             <button
+              type="button"
+              onClick={openHistory}
+              className="flex h-9 w-9 items-center justify-center rounded-full border shadow-sm backdrop-blur-md transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 sm:h-auto sm:w-auto sm:gap-1 sm:px-3 sm:py-1.5 text-xs font-semibold"
+              style={{ background: 'rgba(20,28,24,0.55)', borderColor: 'rgba(238,223,200,0.2)', color: theme.headingColor }}
+              aria-label="Past sessions"
+            >
+              <i className="ri-history-line" aria-hidden="true" />
+              <span className="hidden sm:inline">History</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setShowSettings(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-full"
-              style={{ background: 'rgba(238,223,200,0.08)', color: theme.bodyColor }}
+              className="flex h-9 w-9 items-center justify-center rounded-full border shadow-sm backdrop-blur-md transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+              style={{ background: 'rgba(20,28,24,0.55)', borderColor: 'rgba(238,223,200,0.2)', color: theme.headingColor }}
               aria-label="Guide & scenery"
             >
-              <i className="ri-settings-3-line" />
+              <i className="ri-settings-3-line" aria-hidden="true" />
             </button>
           </div>
         </div>
 
-        {/* Chat card */}
-        <section
-          className="flex min-h-[calc(100dvh-16rem)] flex-col overflow-hidden rounded-[1.75rem] border"
-          style={{
-            borderColor: 'rgba(238,223,200,0.08)',
-            background: theme.cardBackground,
-          }}
-        >
-          <div className="flex-1 space-y-5 overflow-y-auto px-4 py-6 md:px-6">
+        {/* Open room: no container card. The conversation flows directly over the
+            ambient scenery; each message carries its own frosted card so the room
+            stays visible behind. */}
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-6xl space-y-5 px-3 py-2 sm:px-4">
             {messages.map((message, index) => {
               const prev = messages[index - 1]
               const showAvatar = message.role === 'assistant' && (!prev || prev.role !== 'assistant')
@@ -669,23 +1048,72 @@ export default function TherapyPage() {
                     )}
                     {message.role === 'assistant' && !showAvatar && <div className="h-8 w-8 shrink-0" />}
                     <div
-                      className="rounded-[1.5rem] px-4 py-3 text-[15px] leading-relaxed"
+                      className="rounded-[1.5rem] border px-4 py-3 text-[15px] leading-relaxed shadow-lg backdrop-blur-md"
                       style={
                         message.role === 'user'
                           ? {
                               background: theme.userBubble,
                               color: theme.userBubbleText,
+                              borderColor: 'rgba(0,0,0,0.08)',
                               borderBottomRightRadius: '0.5rem',
                             }
                           : {
-                              background: theme.accentSoft,
+                              background: theme.cardBackground,
                               color: theme.headingColor,
+                              borderColor: 'rgba(238,223,200,0.16)',
                               borderBottomLeftRadius: '0.5rem',
                             }
                       }
                     >
                       <p className="whitespace-pre-line">{message.content}</p>
                     </div>
+                    {message.role === 'assistant' && (
+                      <div className="flex flex-col items-start gap-1 self-end">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => sendMessageFeedback(message.id, message.content, 'up')}
+                            aria-label="Helpful"
+                            className="rounded-full p-1 transition hover:brightness-125"
+                            style={{ color: feedbackByMsg[message.id] === 'up' ? theme.accent : theme.mutedColor }}
+                          >
+                            <i
+                              className={feedbackByMsg[message.id] === 'up' ? 'ri-thumb-up-fill' : 'ri-thumb-up-line'}
+                              aria-hidden="true"
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => sendMessageFeedback(message.id, message.content, 'down')}
+                            aria-label="Not helpful"
+                            className="rounded-full p-1 transition hover:brightness-125"
+                            style={{ color: feedbackByMsg[message.id] === 'down' ? theme.accent : theme.mutedColor }}
+                          >
+                            <i
+                              className={
+                                feedbackByMsg[message.id] === 'down' ? 'ri-thumb-down-fill' : 'ri-thumb-down-line'
+                              }
+                              aria-hidden="true"
+                            />
+                          </button>
+                        </div>
+                        {feedbackOpenFor === message.id && (
+                          <div className="flex flex-wrap gap-1">
+                            {['Not helpful', 'Felt off', 'Wrong'].map((reason) => (
+                              <button
+                                key={reason}
+                                type="button"
+                                onClick={() => sendMessageFeedback(message.id, message.content, 'down', reason)}
+                                className="rounded-full px-2 py-0.5 text-[10px]"
+                                style={{ background: theme.accentSoft, color: theme.bodyColor }}
+                              >
+                                {reason}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -695,8 +1123,8 @@ export default function TherapyPage() {
               <div className="message-fade flex items-end gap-2">
                 <PersonaAvatar persona={persona} size={32} theme={theme} />
                 <div
-                  className="rounded-[1.5rem] rounded-bl-md px-4 py-3"
-                  style={{ background: theme.accentSoft }}
+                  className="rounded-[1.5rem] rounded-bl-md border px-4 py-3 shadow-lg backdrop-blur-md"
+                  style={{ background: theme.cardBackground, borderColor: 'rgba(238,223,200,0.16)' }}
                 >
                   <div className="flex gap-1.5">
                     <div
@@ -716,8 +1144,23 @@ export default function TherapyPage() {
               </div>
             )}
 
-            <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} />
+            </div>
           </div>
+
+          {sessionEnded && (
+            <div
+              className="mx-auto mb-1 flex w-full max-w-6xl items-center gap-1.5 rounded-2xl border px-3 py-2 text-xs sm:px-4"
+              style={{
+                borderColor: 'rgba(238,223,200,0.16)',
+                background: theme.accentSoft,
+                color: theme.bodyColor,
+              }}
+            >
+              <i className="ri-checkbox-circle-line" aria-hidden="true" style={{ color: theme.accent }} />
+              Session ended and saved to your history. Send a message whenever you want to start a new one.
+            </div>
+          )}
 
           {/* Composer */}
           <form
@@ -725,12 +1168,11 @@ export default function TherapyPage() {
               event.preventDefault()
               void sendMessage(inputValue)
             }}
-            className="border-t px-3 pb-3 pt-3 md:px-4"
-            style={{ borderColor: 'rgba(238,223,200,0.08)', background: 'rgba(238,223,200,0.03)' }}
+            className="mx-auto w-full max-w-6xl px-3 pb-1 pt-3 sm:px-4"
           >
             <div
-              className="flex items-end gap-2 rounded-3xl border px-3 py-2"
-              style={{ borderColor: 'rgba(238,223,200,0.12)', background: 'rgba(238,223,200,0.04)' }}
+              className="flex items-end gap-2 rounded-3xl border px-3 py-2 shadow-lg backdrop-blur-md"
+              style={{ borderColor: 'rgba(238,223,200,0.18)', background: theme.cardBackground }}
             >
               <textarea
                 ref={textareaRef}
@@ -744,10 +1186,27 @@ export default function TherapyPage() {
                 className="max-h-60 flex-1 resize-none bg-transparent py-1.5 text-[15px] leading-relaxed focus:outline-none disabled:opacity-50"
                 style={{ color: theme.headingColor }}
               />
+              {micSupported && (
+                <button
+                  type="button"
+                  onClick={() => (listening ? stopDictation() : startDictation())}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                  style={{
+                    borderColor: 'rgba(238,223,200,0.25)',
+                    background: listening ? theme.accent : 'transparent',
+                    color: listening ? theme.userBubbleText : theme.bodyColor,
+                  }}
+                  aria-label={listening ? 'Stop voice input' : 'Speak your message'}
+                  aria-pressed={listening}
+                  title="Voice input"
+                >
+                  <i className={listening ? 'ri-mic-fill animate-pulse' : 'ri-mic-line'} aria-hidden="true" />
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={!inputValue.trim() || sending}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-md transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-md transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                 style={{ background: theme.accent, color: theme.userBubbleText }}
                 aria-label="Send"
               >
@@ -766,8 +1225,8 @@ export default function TherapyPage() {
           </form>
         </section>
 
-        <p className="text-center text-[10px]" style={{ color: theme.mutedColor }}>
-          Peer-support AI —{' '}
+        <p className="mx-auto w-full max-w-6xl shrink-0 px-3 text-center text-[10px] sm:px-4" style={{ color: theme.mutedColor }}>
+          Peer-support AI -{' '}
           <Link href="/settings" className="underline" style={{ color: theme.accent }}>
             your profile
           </Link>{' '}
@@ -786,76 +1245,80 @@ export default function TherapyPage() {
         {/* Crisis bottom sheet */}
         {showCrisisSheet && (
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Crisis support lines"
             className="fixed inset-0 z-[90] flex items-end bg-black/55 backdrop-blur-sm md:items-center md:justify-center"
             onClick={() => setShowCrisisSheet(false)}
           >
             <div
-              className="w-full rounded-t-[2rem] border-t border-[#eedfc8]/12 bg-[#244039] p-6 shadow-[0_-24px_60px_rgba(16,28,24,0.5)] md:max-w-lg md:rounded-[2rem] md:border"
+              className="w-full rounded-t-[2rem] border-t border-brand-background/12 bg-brand-dark p-6 shadow-[0_-24px_60px_rgba(16,28,24,0.5)] md:max-w-lg md:rounded-[2rem] md:border"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[#eedfc8]/20 md:hidden" />
+              <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-brand-background/20 md:hidden" />
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#B85C3A]/20 text-xl text-[#B85C3A]">
-                  <i className="ri-hand-heart-line" />
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-accent1/20 text-xl text-brand-accent1">
+                  <i className="ri-hand-heart-line" aria-hidden="true" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-lg font-semibold text-[#eedfc8]">
+                  <h2 className="text-lg font-semibold text-brand-background">
                     You deserve a human right now
                   </h2>
-                  <p className="mt-1 text-sm text-[#eedfc8]/65">
+                  <p className="mt-1 text-sm text-brand-background/65">
                     {persona.name} is here but is not a clinician. These lines answer 24/7.
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setShowCrisisSheet(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#eedfc8]/6 text-[#eedfc8]/55 hover:bg-[#eedfc8]/12"
+                  className="flex h-9 w-9 items-center justify-center rounded-2xl bg-brand-background/[0.06] text-brand-background/55 transition-colors hover:bg-brand-background/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                   aria-label="Close"
                 >
-                  <i className="ri-close-line" />
+                  <i className="ri-close-line" aria-hidden="true" />
                 </button>
               </div>
               <div className="mt-5 space-y-2">
                 <a
-                  href="tel:988"
-                  className="flex items-center justify-between rounded-2xl bg-[#eedfc8]/6 px-4 py-3 text-sm text-[#eedfc8] hover:bg-[#eedfc8]/10"
+                  href="tel:0800567567"
+                  className="flex items-center justify-between rounded-2xl bg-brand-background/[0.06] px-4 py-3 text-sm text-brand-background transition-colors hover:bg-brand-background/10"
                 >
                   <span>
-                    <span className="font-semibold">988</span>
-                    <span className="ml-2 text-[#eedfc8]/55">US &amp; Canada — call or text</span>
+                    <span className="font-semibold">0800 567 567</span>
+                    <span className="ml-2 text-brand-background/55">SADAG mental health, 24/7 (SMS 31393)</span>
                   </span>
-                  <i className="ri-phone-line text-[#D19A58]" />
+                  <i className="ri-phone-line text-brand-accent2" aria-hidden="true" />
                 </a>
                 <a
-                  href="tel:111"
-                  className="flex items-center justify-between rounded-2xl bg-[#eedfc8]/6 px-4 py-3 text-sm text-[#eedfc8] hover:bg-[#eedfc8]/10"
+                  href="tel:0800121314"
+                  className="flex items-center justify-between rounded-2xl bg-brand-background/[0.06] px-4 py-3 text-sm text-brand-background transition-colors hover:bg-brand-background/10"
                 >
                   <span>
-                    <span className="font-semibold">111 option 2</span>
-                    <span className="ml-2 text-[#eedfc8]/55">UK NHS mental health</span>
+                    <span className="font-semibold">0800 12 13 14</span>
+                    <span className="ml-2 text-brand-background/55">SA Suicide Crisis Helpline, 24/7</span>
                   </span>
-                  <i className="ri-phone-line text-[#D19A58]" />
+                  <i className="ri-phone-line text-brand-accent2" aria-hidden="true" />
                 </a>
                 <a
-                  href="tel:116123"
-                  className="flex items-center justify-between rounded-2xl bg-[#eedfc8]/6 px-4 py-3 text-sm text-[#eedfc8] hover:bg-[#eedfc8]/10"
+                  href="tel:10111"
+                  className="flex items-center justify-between rounded-2xl bg-brand-background/[0.06] px-4 py-3 text-sm text-brand-background transition-colors hover:bg-brand-background/10"
                 >
                   <span>
-                    <span className="font-semibold">116 123</span>
-                    <span className="ml-2 text-[#eedfc8]/55">Samaritans — UK &amp; Ireland</span>
+                    <span className="font-semibold">10111</span>
+                    <span className="ml-2 text-brand-background/55">SA emergency (112 from a cellphone)</span>
                   </span>
-                  <i className="ri-phone-line text-[#D19A58]" />
+                  <i className="ri-phone-line text-brand-accent2" aria-hidden="true" />
                 </a>
                 <a
                   href="https://findahelpline.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between rounded-2xl bg-[#eedfc8]/6 px-4 py-3 text-sm text-[#eedfc8] hover:bg-[#eedfc8]/10"
+                  className="flex items-center justify-between rounded-2xl bg-brand-background/[0.06] px-4 py-3 text-sm text-brand-background transition-colors hover:bg-brand-background/10"
                 >
                   <span>
                     <span className="font-semibold">findahelpline.com</span>
-                    <span className="ml-2 text-[#eedfc8]/55">Anywhere in the world</span>
+                    <span className="ml-2 text-brand-background/55">Outside South Africa</span>
                   </span>
-                  <i className="ri-external-link-line text-[#D19A58]" />
+                  <i className="ri-external-link-line text-brand-accent2" aria-hidden="true" />
                 </a>
               </div>
             </div>
@@ -865,15 +1328,19 @@ export default function TherapyPage() {
         {/* Breathing overlay */}
         {showBreathing && (
           <div
-            className="fixed inset-0 z-[95] flex flex-col items-center justify-center bg-[#1a2d28]/95 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Breathing exercise"
+            className="fixed inset-0 z-[95] flex flex-col items-center justify-center bg-brand-dark/95 backdrop-blur-sm"
             onClick={() => setShowBreathing(false)}
           >
             <button
+              type="button"
               onClick={() => setShowBreathing(false)}
-              className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-[#eedfc8]/10 text-[#eedfc8]/70 hover:bg-[#eedfc8]/18"
+              className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-brand-background/10 text-brand-background/70 transition-colors hover:bg-brand-background/[0.18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
               aria-label="Close"
             >
-              <i className="ri-close-line text-xl" />
+              <i className="ri-close-line text-xl" aria-hidden="true" />
             </button>
             <div className="relative mb-8 h-64 w-64">
               <div
@@ -891,7 +1358,7 @@ export default function TherapyPage() {
                 </span>
               </div>
             </div>
-            <p className="max-w-xs text-center text-sm leading-relaxed text-[#eedfc8]/80">
+            <p className="max-w-xs text-center text-sm leading-relaxed text-brand-background/80">
               In for 4 · hold for 4 · out for 8. Tap anywhere when you&apos;re ready.
             </p>
           </div>
@@ -900,51 +1367,56 @@ export default function TherapyPage() {
         {/* Guide & scenery settings sheet */}
         {showSettings && (
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Guide and scenery settings"
             className="fixed inset-0 z-[92] flex items-end bg-black/55 backdrop-blur-sm md:items-center md:justify-center"
             onClick={() => setShowSettings(false)}
           >
             <div
-              className="max-h-[85dvh] w-full overflow-y-auto rounded-t-[2rem] border border-[#eedfc8]/10 bg-[#244039] p-6 shadow-[0_-24px_60px_rgba(16,28,24,0.5)] md:max-w-2xl md:rounded-[2rem]"
+              className="max-h-[85dvh] w-full overflow-y-auto rounded-t-[2rem] border border-brand-background/10 bg-brand-dark p-6 shadow-[0_-24px_60px_rgba(16,28,24,0.5)] md:max-w-2xl md:rounded-[2rem]"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[#eedfc8]/20 md:hidden" />
+              <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-brand-background/20 md:hidden" />
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/45">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-background/45">
                     Guide &amp; scenery
                   </p>
-                  <h2 className="mt-1 text-lg font-semibold text-[#eedfc8]">Tune your room</h2>
+                  <h2 className="mt-1 text-lg font-semibold text-brand-background">Tune your room</h2>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setShowSettings(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#eedfc8]/6 text-[#eedfc8]/55 hover:bg-[#eedfc8]/12"
+                  className="flex h-9 w-9 items-center justify-center rounded-2xl bg-brand-background/[0.06] text-brand-background/55 transition-colors hover:bg-brand-background/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                   aria-label="Close"
                 >
-                  <i className="ri-close-line" />
+                  <i className="ri-close-line" aria-hidden="true" />
                 </button>
               </div>
 
               <div className="mt-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/45">Guide</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-background/45">Guide</p>
                 <div className="mt-2 grid gap-2 md:grid-cols-2">
                   {THERAPIST_PERSONAS.map((option) => {
                     const selected = option.id === personaId
                     return (
                       <button
                         key={option.id}
+                        type="button"
                         onClick={() => setPersonaId(option.id)}
-                        className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
+                        className={cn(
+                          'flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40',
                           selected
-                            ? 'border-[#D19A58] bg-[#D19A58]/10'
-                            : 'border-[#eedfc8]/8 bg-[#eedfc8]/4 hover:bg-[#eedfc8]/8'
-                        }`}
+                            ? 'border-brand-accent2 bg-brand-accent2/10'
+                            : 'border-brand-background/[0.08] bg-brand-background/[0.04] hover:bg-brand-background/[0.08]')}
                       >
                         <PersonaAvatar persona={option} size={40} theme={theme} />
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-[#eedfc8]">{option.name}</p>
-                          <p className="truncate text-xs text-[#eedfc8]/55">{option.tagline}</p>
+                          <p className="font-semibold text-brand-background">{option.name}</p>
+                          <p className="truncate text-xs text-brand-background/55">{option.tagline}</p>
                         </div>
-                        {selected && <i className="ri-check-line text-[#D19A58]" />}
+                        {selected && <i className="ri-check-line text-brand-accent2" aria-hidden="true" />}
                       </button>
                     )
                   })}
@@ -952,15 +1424,16 @@ export default function TherapyPage() {
               </div>
 
               <div className="mt-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/45">Scenery</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-background/45">Scenery</p>
                 <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
                   {THERAPY_THEMES.map((option) => {
                     const selected = option.id === themeId
                     return (
                       <button
                         key={option.id}
+                        type="button"
                         onClick={() => setThemeId(option.id)}
-                        className="rounded-2xl border-2 p-3 text-left transition-all"
+                        className="rounded-2xl border-2 p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                         style={{
                           borderColor: selected ? option.accent : 'rgba(238,223,200,0.1)',
                           background: option.pageBackground,
@@ -980,22 +1453,237 @@ export default function TherapyPage() {
 
               <div className="mt-5 flex justify-end gap-2">
                 <button
+                  type="button"
                   onClick={() => setShowSettings(false)}
-                  className="rounded-2xl bg-[#eedfc8]/8 px-4 py-2.5 text-sm text-[#eedfc8]/65"
+                  className="rounded-2xl bg-brand-background/[0.08] px-4 py-2.5 text-sm text-brand-background/65 transition-colors hover:bg-brand-background/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={async () => {
                     await chooseAndPersist(personaId, themeId)
                     setShowSettings(false)
                     toast('Room updated', 'success')
                   }}
-                  className="rounded-2xl px-4 py-2.5 text-sm font-semibold"
+                  className="rounded-2xl px-4 py-2.5 text-sm font-semibold transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                   style={{ background: theme.accent, color: theme.userBubbleText }}
                 >
                   Save
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Session history list */}
+        {showHistory && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Past sessions"
+            className="fixed inset-0 z-[93] flex items-end bg-black/55 backdrop-blur-sm md:items-center md:justify-center"
+            onClick={() => setShowHistory(false)}
+          >
+            <div
+              className="max-h-[85dvh] w-full overflow-y-auto rounded-t-[2rem] border border-brand-background/10 bg-brand-dark p-6 shadow-[0_-24px_60px_rgba(16,28,24,0.5)] md:max-w-2xl md:rounded-[2rem]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-brand-background/20 md:hidden" />
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-background/45">
+                    Your sessions
+                  </p>
+                  <h2 className="mt-1 text-lg font-semibold text-brand-background">Past conversations</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowHistory(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-2xl bg-brand-background/[0.06] text-brand-background/55 transition-colors hover:bg-brand-background/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                  aria-label="Close"
+                >
+                  <i className="ri-close-line" aria-hidden="true" />
+                </button>
+              </div>
+
+              <p className="mt-2 text-xs leading-relaxed text-brand-background/55">
+                These are read only. Open one to revisit it, or delete any of your own messages to erase them
+                from {persona.name}’s memory.
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {loadingHistory ? (
+                  <div className="rounded-2xl bg-brand-background/[0.05] p-4 text-sm text-brand-background/60">
+                    Loading your sessions...
+                  </div>
+                ) : sessions.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-brand-background/15 p-6 text-center">
+                    <i className="ri-chat-history-line text-2xl text-brand-background/40" aria-hidden="true" />
+                    <p className="mt-2 text-sm font-semibold text-brand-background">No past sessions yet</p>
+                    <p className="mt-1 text-xs text-brand-background/55">
+                      Your conversations show up here once you have talked a little.
+                    </p>
+                  </div>
+                ) : (
+                  sessions.map((session) => {
+                    const sessionPersona = getPersona(session.persona)
+                    const started = session.started_at ? new Date(session.started_at) : null
+                    return (
+                      <button
+                        key={session.id}
+                        type="button"
+                        onClick={() => openSessionTranscript(session)}
+                        className="flex w-full items-start gap-3 rounded-2xl border border-brand-background/[0.08] bg-brand-background/[0.04] p-3 text-left transition-colors hover:bg-brand-background/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                      >
+                        <PersonaAvatar persona={sessionPersona} size={36} theme={theme} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="truncate text-sm font-semibold text-brand-background">
+                              {started
+                                ? started.toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                  })
+                                : 'Session'}
+                            </p>
+                            <span className="shrink-0 text-[11px] text-brand-background/45">
+                              {session.message_count} msg{session.message_count === 1 ? '' : 's'}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-brand-background/60">
+                            {session.summary || 'No summary saved for this session.'}
+                          </p>
+                          {session.key_themes && session.key_themes.length > 0 && (
+                            <div className="mt-1.5 flex flex-wrap gap-1">
+                              {session.key_themes.slice(0, 4).map((themeTag) => (
+                                <span
+                                  key={themeTag}
+                                  className="rounded-full bg-brand-background/[0.08] px-2 py-0.5 text-[10px] text-brand-background/60"
+                                >
+                                  {themeTag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <i className="ri-arrow-right-s-line mt-1 shrink-0 text-brand-background/40" aria-hidden="true" />
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Read-only transcript for one past session */}
+        {openSession && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Session transcript"
+            className="fixed inset-0 z-[94] flex items-end bg-black/60 backdrop-blur-sm md:items-center md:justify-center"
+            onClick={() => setOpenSession(null)}
+          >
+            <div
+              className="flex max-h-[88dvh] w-full flex-col rounded-t-[2rem] border border-brand-background/10 bg-brand-dark shadow-[0_-24px_60px_rgba(16,28,24,0.5)] md:max-w-2xl md:rounded-[2rem]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-brand-background/10 p-5">
+                <button
+                  type="button"
+                  onClick={() => setOpenSession(null)}
+                  className="flex h-9 w-9 items-center justify-center rounded-2xl bg-brand-background/[0.06] text-brand-background/65 transition-colors hover:bg-brand-background/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                  aria-label="Back to sessions"
+                >
+                  <i className="ri-arrow-left-line" aria-hidden="true" />
+                </button>
+                <div className="min-w-0 flex-1 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-background/45">
+                    Read only
+                  </p>
+                  <p className="truncate text-sm font-semibold text-brand-background">
+                    {openSession.started_at
+                      ? new Date(openSession.started_at).toLocaleDateString(undefined, {
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })
+                      : 'Session'}
+                  </p>
+                </div>
+                <div className="h-9 w-9" />
+              </div>
+
+              <div className="flex-1 space-y-3 overflow-y-auto p-5">
+                {loadingTranscript ? (
+                  <div className="rounded-2xl bg-brand-background/[0.05] p-4 text-sm text-brand-background/60">
+                    Loading the conversation...
+                  </div>
+                ) : sessionMessages.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-brand-background/15 p-6 text-center">
+                    <p className="text-sm font-semibold text-brand-background">No replayable messages</p>
+                    <p className="mt-1 text-xs text-brand-background/55">
+                      {openSession.summary
+                        ? `Here is what ${persona.name} remembers from this session:`
+                        : 'This session has no saved transcript.'}
+                    </p>
+                    {openSession.summary && (
+                      <p className="mt-3 rounded-2xl bg-brand-background/[0.05] p-3 text-left text-xs leading-relaxed text-brand-background/75">
+                        {openSession.summary}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  sessionMessages.map((row) => {
+                    const isUser = !row.is_ai
+                    return (
+                      <div key={row.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                        <div className="flex max-w-[88%] items-end gap-2">
+                          {!isUser && (
+                            <PersonaAvatar persona={getPersona(openSession.persona)} size={28} theme={theme} />
+                          )}
+                          <div
+                            className="rounded-[1.25rem] px-3.5 py-2.5 text-sm leading-relaxed"
+                            style={
+                              isUser
+                                ? { background: theme.userBubble, color: theme.userBubbleText }
+                                : { background: 'rgba(238,223,200,0.08)', color: theme.headingColor }
+                            }
+                          >
+                            <p className="whitespace-pre-line">{row.message}</p>
+                          </div>
+                          {isUser && (
+                            <button
+                              type="button"
+                              onClick={() => deleteSessionMessage(row.id)}
+                              disabled={deletingMessageId === row.id}
+                              aria-label="Delete this message"
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-accent1/15 text-brand-accent1 transition hover:bg-brand-accent1/25 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                            >
+                              <i
+                                className={
+                                  deletingMessageId === row.id
+                                    ? 'ri-loader-4-line animate-spin'
+                                    : 'ri-delete-bin-line'
+                                }
+                                aria-hidden="true"
+                              />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              <div className="shrink-0 border-t border-brand-background/10 p-4">
+                <p className="text-center text-[11px] leading-relaxed text-brand-background/45">
+                  <i className="ri-shield-keyhole-line" aria-hidden="true" /> Deleting your message erases it
+                  here and from {persona.name}’s memory.
+                </p>
               </div>
             </div>
           </div>

@@ -132,7 +132,7 @@ export async function getNearbyFallbackPlaces(
 
   const response = await fetch(`/api/map/places?${search.toString()}`)
   if (!response.ok) {
-    throw new Error('Unable to load nearby places')
+    return []
   }
 
   const payload = await response.json()

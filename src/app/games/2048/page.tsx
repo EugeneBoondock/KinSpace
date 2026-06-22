@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
+import { playSfx } from '@/lib/audio/sfx'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import {
@@ -31,9 +32,19 @@ const TILE_COLORS: Record<number, string> = {
   2048: 'bg-gradient-to-br from-[#D19A58] to-[#B85C3A] text-[#eedfc8]',
 }
 
+function firstRenderGrid(): Grid {
+  const grid: Grid = [
+    [0, 0, 0, 0],
+    [0, 2, 0, 0],
+    [0, 0, 2, 0],
+    [0, 0, 0, 0],
+  ]
+  return grid.map((row) => [...row])
+}
+
 export default function Game2048Page() {
   const { user } = useAuth()
-  const [grid, setGrid] = useState<Grid>(initialGrid)
+  const [grid, setGrid] = useState<Grid>(() => firstRenderGrid())
   const [score, setScore] = useState(0)
   const [best, setBest] = useState(0)
   const [status, setStatus] = useState<'playing' | 'won' | 'lost'>('playing')
@@ -62,8 +73,15 @@ export default function Game2048Page() {
         if (!didMove) return current
         const next = addRandomTile(moved)
         setScore((value) => value + gained)
-        if (hasWon(next) && status === 'playing') setStatus('won')
-        else if (isGameOver(next)) setStatus('lost')
+        if (hasWon(next) && status === 'playing') {
+          setStatus('won')
+          playSfx('win')
+        } else if (isGameOver(next)) {
+          setStatus('lost')
+          playSfx('lose')
+        } else {
+          playSfx(gained > 0 ? 'pop' : 'move')
+        }
         return next
       })
     },
@@ -104,7 +122,7 @@ export default function Game2048Page() {
           <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#eedfc8]/45">2048</p>
-              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">Merge to 2048</h1>
+              <h1 className="mt-2 text-3xl font-bold text-[#eedfc8]">2048</h1>
               <p className="mt-2 max-w-xl text-sm text-[#eedfc8]/60">
                 Arrow keys to slide tiles. Matching tiles combine. Reach 2048 to win.
               </p>

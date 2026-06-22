@@ -7,6 +7,9 @@
 
 import OpenAI from 'openai'
 import { fetchPage, searchWeb, type WebPage } from './web-research'
+import { searchLiterature } from './literature'
+
+type PromptSource = { title: string; domain: string; url: string; excerpt: string; kind: string }
 
 export type RedditHit = {
   title: string
@@ -22,17 +25,15 @@ export type AskAnswer = {
   self_care_suggestions: string[]
   when_to_see_a_professional: string[]
   tags: string[]
-  sources: Array<{ index: number; title: string; url: string; domain: string }>
+  sources: Array<{ index: number; title: string; url: string; domain: string; kind?: string }>
   reddit_threads: RedditHit[]
 }
 
 export type AskContext = {
   /** The user's self-reported profile, if they are signed in. May be empty. */
-  conditions: string[]
-  medications: string[]
-  age?: number | null
   /** Past questions on KinSpace that look similar — used for "others asked" UI. */
   relatedQuestions: Array<{ id: string; question: string; created_at?: unknown }>
+  structuredSources?: Array<{ label: string; source: string; summary: string; confidence?: string }>
 }
 
 let client: OpenAI | null = null
@@ -64,6 +65,22 @@ export async function searchReddit(question: string, max = 4): Promise<RedditHit
     }))
 }
 
+export function isUsableAskSource(page: Pick<WebPage, 'title' | 'snippet' | 'excerpt'>): boolean {
+  const text = `${page.title} ${page.snippet} ${page.excerpt}`.toLowerCase()
+  const blockedPatterns = [
+    /sorry,?\s+you have been blocked/,
+    /access denied/,
+    /request blocked/,
+    /verify (that )?you are human/,
+    /checking if the site connection is secure/,
+    /captcha/,
+    /enable javascript/,
+    /bot detection/,
+    /\bforbidden\b/,
+  ]
+  return !blockedPatterns.some((pattern) => pattern.test(text))
+}
+
 async function gatherWebSources(question: string, max = 4): Promise<WebPage[]> {
   const results = await searchWeb(question, max + 4)
   const pages: WebPage[] = []
@@ -73,7 +90,7 @@ async function gatherWebSources(question: string, max = 4): Promise<WebPage[]> {
     if (seen.has(result.url)) continue
     seen.add(result.url)
     const page = await fetchPage(result.url)
-    if (page) {
+    if (page && isUsableAskSource(page)) {
       pages.push(page)
       if (pages.length >= max) break
     }
@@ -83,14 +100,15 @@ async function gatherWebSources(question: string, max = 4): Promise<WebPage[]> {
 
 const SYSTEM_PROMPT = `You are KinSpace Ask — a warm, careful health companion that helps people make sense of symptoms and health questions WITHOUT replacing a clinician.
 
-Your job: take the user's question, any prior context about them, and the web sources we collected, and respond with a steady, plain-language answer.
+Your job: take the member's question, the details they typed, public KinSpace questions that look similar, labeled KinSpace structured data we pass in, and the web sources we collected, then respond with a steady, plain-language answer.
 
 Absolute rules:
 - Never diagnose. Never prescribe.
 - Always name uncertainty. Real symptoms have many possible causes.
 - Always include red-flag warnings that mean "seek urgent care".
-- Treat every source as provisional. Prefer clinical sources (Mayo Clinic, NHS, NIH, CDC, UpToDate, Cleveland Clinic, WHO, peer-reviewed journals) over random blogs.
-- If the user profile includes conditions or medications that change the interpretation, say so explicitly.
+- Treat every source as provisional. Each source is tagged PEER-REVIEWED, PREPRINT, CLINICAL TRIAL, or WEB. Weight PEER-REVIEWED and CLINICAL TRIAL sources highest; prefer clinical sites (Mayo Clinic, NHS, NIH, CDC, Cleveland Clinic, WHO) over random blogs; and NEVER present a PREPRINT as established fact (note it is not yet peer-reviewed).
+- Use only the question text, details the member typed, public related questions, labeled KinSpace structured data listed in this request, and numbered sources. Never use, infer, or reveal data that is not listed.
+- Treat KinSpace structured data as self-reported member data, not clinical proof.
 - If this looks like a medical emergency (chest pain + breathlessness, suicidal ideation, severe bleeding, stroke signs, anaphylaxis, etc.), say so first — "This sounds like something to get checked right now" — and give the best next step.
 - Cite sources with [1], [2] etc. matching the numbered sources we pass you.
 - Tone: warmth without cheerfulness. Honest. Brief.
@@ -105,11 +123,18 @@ Return STRICT JSON matching:
   "tags": string[]                          // 3-6 short lowercase tags for search (e.g. "swollen-elbow", "joint-pain")
 }`
 
-function formatSourcesForPrompt(pages: WebPage[]): string {
-  return pages
-    .map((page, index) => {
-      const body = page.excerpt.slice(0, 2000)
-      return `[${index + 1}] ${page.title} — ${page.domain}\nURL: ${page.url}\n---\n${body}\n`
+function sourceLabel(kind: string): string {
+  if (kind === 'journal') return 'PEER-REVIEWED'
+  if (kind === 'preprint') return 'PREPRINT (not yet peer-reviewed)'
+  if (kind === 'trial') return 'CLINICAL TRIAL'
+  return 'WEB'
+}
+
+function formatSourcesForPrompt(sources: PromptSource[]): string {
+  return sources
+    .map((source, index) => {
+      const body = source.excerpt.slice(0, 2000)
+      return `[${index + 1}] (${sourceLabel(source.kind)}) ${source.title} — ${source.domain}\nURL: ${source.url}\n---\n${body}\n`
     })
     .join('\n\n')
 }
@@ -121,11 +146,18 @@ function formatRedditForPrompt(hits: RedditHit[]): string {
     .join('\n\n')
 }
 
-function formatContextForPrompt(context: AskContext): string {
+export function formatAskContextForPrompt(context: AskContext): string {
   const parts: string[] = []
-  if (context.age) parts.push(`Age: ${context.age}`)
-  if (context.conditions.length > 0) parts.push(`Conditions: ${context.conditions.join(', ')}`)
-  if (context.medications.length > 0) parts.push(`Medications: ${context.medications.join(', ')}`)
+  if (context.structuredSources && context.structuredSources.length > 0) {
+    const structured = context.structuredSources
+      .slice(0, 8)
+      .map((source) => {
+        const confidence = source.confidence ? ` Confidence: ${source.confidence}.` : ''
+        return `- ${source.label} (${source.source}): ${source.summary}${confidence}`
+      })
+      .join('\n')
+    parts.push(`KinSpace structured data for this signed-in member:\n${structured}`)
+  }
   if (context.relatedQuestions.length > 0) {
     const preview = context.relatedQuestions
       .slice(0, 4)
@@ -133,17 +165,37 @@ function formatContextForPrompt(context: AskContext): string {
       .join('\n')
     parts.push(`KinSpace members previously asked:\n${preview}`)
   }
-  return parts.length > 0 ? parts.join('\n') : '(no profile context provided)'
+  return parts.length > 0 ? parts.join('\n') : '(no related KinSpace questions found)'
 }
 
 export async function answerAsk(
   question: string,
   context: AskContext,
 ): Promise<AskAnswer | null> {
-  const [redditHits, webPages] = await Promise.all([
+  const [redditHits, webPages, literature] = await Promise.all([
     searchReddit(question, 4),
     gatherWebSources(question, 4),
+    searchLiterature(question, { journals: 3, trials: 2 }),
   ])
+
+  // Authoritative literature first, then general web — numbered together so the
+  // model cites [1]..[n] across all of them, weighting peer-reviewed highest.
+  const unifiedSources: PromptSource[] = [
+    ...literature.map((item) => ({
+      title: item.title,
+      domain: item.domain,
+      url: item.url,
+      excerpt: item.snippet,
+      kind: item.kind,
+    })),
+    ...webPages.map((page) => ({
+      title: page.title,
+      domain: page.domain,
+      url: page.url,
+      excerpt: page.excerpt,
+      kind: 'web',
+    })),
+  ]
 
   const model = process.env.OPENAI_MODEL || 'gpt-5.4-mini'
   const openai = getClient()
@@ -151,10 +203,10 @@ export async function answerAsk(
   const userPrompt = `User's question: ${question}
 
 Context about the user:
-${formatContextForPrompt(context)}
+${formatAskContextForPrompt(context)}
 
 Clinical / web sources we retrieved:
-${formatSourcesForPrompt(webPages)}
+${formatSourcesForPrompt(unifiedSources)}
 
 Reddit discussions we found:
 ${formatRedditForPrompt(redditHits)}
@@ -191,11 +243,12 @@ Respond with strict JSON only.`
       tags: Array.isArray(parsed.tags)
         ? parsed.tags.map((tag) => String(tag).toLowerCase().trim()).slice(0, 6)
         : [],
-      sources: webPages.map((page, index) => ({
+      sources: unifiedSources.map((source, index) => ({
         index: index + 1,
-        title: page.title,
-        url: page.url,
-        domain: page.domain,
+        title: source.title,
+        url: source.url,
+        domain: source.domain,
+        kind: source.kind,
       })),
       reddit_threads: redditHits,
     }

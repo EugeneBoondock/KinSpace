@@ -1,3 +1,5 @@
+import { isCrisisText, SA_CRISIS_REPLY } from './crisis-detect'
+
 export type TimestampLike =
   | Date
   | string
@@ -114,7 +116,8 @@ interface SupportReply {
 export function detectConcern(message: string) {
   const lower = message.toLowerCase()
 
-  if (/(suicide|kill myself|self harm|hurt myself|end it all|overdose)/.test(lower)) {
+  // Crisis detection (incl. passive ideation) lives in one shared module.
+  if (isCrisisText(message)) {
     return 'crisis'
   }
   if (/(panic|anxious|anxiety|nervous|overwhelmed)/.test(lower)) {
@@ -139,8 +142,7 @@ export function buildGuidedSupportReply(message: string, historyLength = 0): Sup
   if (concern === 'crisis') {
     return {
       mood: 'urgent',
-      text:
-        'I am really glad you said that out loud. If you might act on these thoughts, call emergency services now or contact a crisis line like 988 if you are in the US. If you can, move toward another person and tell them you need immediate help.',
+      text: SA_CRISIS_REPLY,
     }
   }
 

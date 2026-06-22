@@ -25,6 +25,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/strands', priority: 0.6, changeFrequency: 'daily' as const },
     { path: '/games', priority: 0.4, changeFrequency: 'monthly' as const },
     { path: '/search', priority: 0.4, changeFrequency: 'weekly' as const },
+    { path: '/symptom-checker', priority: 0.8, changeFrequency: 'monthly' as const },
+    { path: '/pricing', priority: 0.6, changeFrequency: 'monthly' as const },
+    { path: '/crisis', priority: 0.6, changeFrequency: 'monthly' as const },
+    { path: '/community-guidelines', priority: 0.4, changeFrequency: 'monthly' as const },
+    { path: '/terms', priority: 0.3, changeFrequency: 'yearly' as const },
+    { path: '/privacy', priority: 0.3, changeFrequency: 'yearly' as const },
   ]
 
   return publicRoutes.map((route) => ({

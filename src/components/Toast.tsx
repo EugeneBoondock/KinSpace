@@ -56,10 +56,10 @@ function ToastBubble({ toast }: { toast: Toast }) {
 
   const color =
     toast.kind === 'success'
-      ? 'bg-[#6B8A83]/95 text-[#eedfc8]'
+      ? 'bg-brand-accent3/95 text-brand-surface'
       : toast.kind === 'error'
-        ? 'bg-[#B85C3A]/95 text-[#eedfc8]'
-        : 'bg-[#2A4A42]/95 text-[#eedfc8] border border-[#eedfc8]/15'
+        ? 'bg-brand-accent1/95 text-brand-surface'
+        : 'bg-brand-surface/95 text-brand-ink border border-brand-line'
 
   const icon =
     toast.kind === 'success' ? 'ri-check-line' : toast.kind === 'error' ? 'ri-error-warning-line' : 'ri-information-line'

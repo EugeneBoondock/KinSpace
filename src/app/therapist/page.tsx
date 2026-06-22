@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Card, Spinner } from '@/components/ui'
 
 export default function TherapistRedirectPage() {
   const router = useRouter()
@@ -11,13 +12,15 @@ export default function TherapistRedirectPage() {
   }, [router])
 
   return (
-    <div className="page-shell">
+    <main className="page-shell">
       <div className="page-container flex min-h-[60vh] items-center justify-center">
-        <div className="card text-center">
-          <i className="ri-loader-4-line animate-spin text-3xl text-[#D19A58]" />
-          <p className="mt-3 text-sm text-[#eedfc8]/60">Opening your guided support room...</p>
-        </div>
+        <Card className="flex flex-col items-center text-center" role="status" aria-live="polite">
+          <Spinner className="h-8 w-8 text-brand-accent2" />
+          <p className="mt-3 text-sm text-brand-background/60">
+            Opening your guided support room…
+          </p>
+        </Card>
       </div>
-    </div>
+    </main>
   )
 }

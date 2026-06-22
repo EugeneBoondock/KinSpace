@@ -1,0 +1,4025 @@
+{
+  "newTreatments": [
+    {
+      "slug": "art-tld",
+      "name": "Antiretroviral Therapy (TLD - Tenofovir/Lamivudine/Dolutegravir)",
+      "kind": "medication",
+      "summary": "The standard first-line single-pill HIV regimen in South Africa, combining two NRTIs (tenofovir, lamivudine) with the integrase inhibitor dolutegravir. Taken once daily, it suppresses the virus to undetectable levels so it can't be transmitted (U=U) and keeps the immune system healthy."
+    },
+    {
+      "slug": "dolutegravir",
+      "name": "Dolutegravir (Integrase Inhibitor)",
+      "kind": "medication",
+      "summary": "A potent, well-tolerated HIV integrase inhibitor that blocks the virus from inserting its genes into your cells. It's the backbone of modern antiretroviral therapy, has a high barrier to resistance, and is the preferred third agent in first-line treatment."
+    },
+    {
+      "slug": "tenofovir-emtricitabine-prep",
+      "name": "PrEP (Tenofovir/Emtricitabine)",
+      "kind": "medication",
+      "summary": "Pre-exposure prophylaxis: a daily pill taken by HIV-negative people at risk to prevent infection. Highly effective when taken consistently, it's a cornerstone of HIV prevention alongside condoms and testing."
+    },
+    {
+      "slug": "cotrimoxazole",
+      "name": "Co-trimoxazole (Prophylactic Antibiotic)",
+      "kind": "medication",
+      "summary": "A combination antibiotic (sulfamethoxazole/trimethoprim) given to people with HIV and low immunity to prevent opportunistic infections like PCP pneumonia. Also used to treat a range of bacterial infections."
+    },
+    {
+      "slug": "tb-rhze-regimen",
+      "name": "Anti-TB Combination Therapy (Rifampicin/Isoniazid/Pyrazinamide/Ethambutol)",
+      "kind": "medication",
+      "summary": "The standard curative regimen for drug-sensitive tuberculosis: four antibiotics taken together for an intensive phase, then two for continuation. Completing the full course (usually 6 months) is essential to cure TB and prevent drug-resistant strains."
+    },
+    {
+      "slug": "isoniazid-preventive-therapy",
+      "name": "TB Preventive Therapy (Isoniazid)",
+      "kind": "medication",
+      "summary": "Isoniazid taken on its own (or with rifapentine) to stop latent TB infection from becoming active disease. Especially important for people living with HIV and close contacts of TB patients."
+    },
+    {
+      "slug": "bedaquiline",
+      "name": "Bedaquiline (Anti-TB, Drug-Resistant)",
+      "kind": "medication",
+      "summary": "A newer oral medication central to treating multidrug-resistant TB. It blocks the energy-producing machinery of the TB bacterium and has transformed DR-TB into a largely curable, injection-free, oral treatment."
+    },
+    {
+      "slug": "ace-inhibitor",
+      "name": "ACE Inhibitors (e.g. Enalapril, Lisinopril)",
+      "kind": "medication",
+      "summary": "Blood-pressure medications that relax blood vessels by blocking the angiotensin-converting enzyme. They protect the heart and kidneys and are first-line for hypertension, heart failure, and kidney disease, especially with diabetes."
+    },
+    {
+      "slug": "arb",
+      "name": "ARBs (e.g. Losartan, Telmisartan)",
+      "kind": "medication",
+      "summary": "Angiotensin receptor blockers lower blood pressure and protect the kidneys, similar to ACE inhibitors but without the common dry cough. Used for hypertension, heart failure, and to slow chronic kidney disease."
+    },
+    {
+      "slug": "calcium-channel-blocker",
+      "name": "Calcium Channel Blockers (e.g. Amlodipine)",
+      "kind": "medication",
+      "summary": "Blood-pressure medications that relax and widen arteries by blocking calcium entry into vessel walls. Amlodipine is a widely used, effective first-line option, particularly suited to many people of African ancestry."
+    },
+    {
+      "slug": "thiazide-diuretic",
+      "name": "Thiazide Diuretics (e.g. Hydrochlorothiazide)",
+      "kind": "medication",
+      "summary": "Water pills that help the kidneys remove excess salt and fluid, lowering blood pressure. They're an inexpensive, effective first-line antihypertensive often combined with other classes."
+    },
+    {
+      "slug": "loop-diuretic",
+      "name": "Loop Diuretics (e.g. Furosemide)",
+      "kind": "medication",
+      "summary": "Powerful water pills that clear fluid overload, easing breathlessness and swelling in heart failure and advanced kidney disease. They act quickly on the kidneys to remove excess salt and water."
+    },
+    {
+      "slug": "beta-blocker",
+      "name": "Beta-Blockers (e.g. Bisoprolol, Carvedilol)",
+      "kind": "medication",
+      "summary": "Medications that slow the heart and reduce its workload. They're a core part of heart-failure therapy that improves survival, and are also used for high blood pressure and certain abnormal heart rhythms."
+    },
+    {
+      "slug": "inhaled-corticosteroid",
+      "name": "Inhaled Corticosteroid (Controller Inhaler)",
+      "kind": "medication",
+      "summary": "The cornerstone preventer inhaler for asthma, taken daily to calm airway inflammation and prevent attacks. Used consistently it dramatically reduces symptoms, flare-ups, and the need for reliever inhalers."
+    },
+    {
+      "slug": "saba-reliever",
+      "name": "Reliever Inhaler (Short-Acting Beta-Agonist, e.g. Salbutamol)",
+      "kind": "medication",
+      "summary": "A quick-acting rescue inhaler that opens tight airways within minutes during an asthma or COPD flare. It relieves wheezing and breathlessness but is not a substitute for a daily controller inhaler."
+    },
+    {
+      "slug": "ics-laba-inhaler",
+      "name": "Combination Inhaler (Steroid + Long-Acting Bronchodilator)",
+      "kind": "medication",
+      "summary": "A single inhaler pairing an inhaled steroid with a long-acting bronchodilator for sustained control of asthma and COPD. It both reduces inflammation and keeps airways open over many hours."
+    },
+    {
+      "slug": "laba-lama-inhaler",
+      "name": "Long-Acting Bronchodilator Inhaler (LABA/LAMA)",
+      "kind": "medication",
+      "summary": "Maintenance inhalers for COPD that keep airways relaxed and open for 12-24 hours, easing breathlessness and reducing flare-ups. Often combined as a dual bronchodilator for moderate to severe disease."
+    },
+    {
+      "slug": "antiseizure-medication",
+      "name": "Antiseizure Medication (e.g. Carbamazepine, Valproate, Levetiracetam)",
+      "kind": "medication",
+      "summary": "Daily medications that stabilise electrical activity in the brain to prevent seizures. Most people with epilepsy achieve good seizure control on a single well-chosen drug, allowing a normal, safe daily life."
+    },
+    {
+      "slug": "hydroxyurea",
+      "name": "Hydroxyurea (for Sickle Cell)",
+      "kind": "medication",
+      "summary": "A foundational sickle cell medication that boosts protective fetal haemoglobin, reducing painful crises, acute chest episodes, and the need for transfusions. Taken daily, it can substantially improve quality and length of life."
+    },
+    {
+      "slug": "penicillin-prophylaxis",
+      "name": "Penicillin Prophylaxis (Sickle Cell)",
+      "kind": "medication",
+      "summary": "Daily preventive penicillin given to young children with sickle cell disease to guard against life-threatening pneumococcal infections, to which they are especially vulnerable. A simple, life-saving measure paired with vaccination."
+    },
+    {
+      "slug": "folic-acid",
+      "name": "Folic Acid",
+      "kind": "supplement",
+      "summary": "A B-vitamin supplement that supports the rapid production of red blood cells. It's routinely given in sickle cell disease and other chronic anaemias, and before/during pregnancy to prevent birth defects."
+    },
+    {
+      "slug": "tenofovir-hbv",
+      "name": "Tenofovir (Hepatitis B Antiviral)",
+      "kind": "medication",
+      "summary": "A once-daily antiviral that powerfully suppresses the hepatitis B virus, halting liver damage and lowering the risk of cirrhosis and liver cancer. Treatment is usually long-term and well tolerated."
+    },
+    {
+      "slug": "entecavir",
+      "name": "Entecavir (Hepatitis B Antiviral)",
+      "kind": "medication",
+      "summary": "A potent oral antiviral for chronic hepatitis B that keeps the virus suppressed with a high barrier to resistance. Taken daily, it protects the liver from ongoing inflammation and scarring."
+    },
+    {
+      "slug": "hepatitis-b-vaccine",
+      "name": "Hepatitis B Vaccine",
+      "kind": "medication",
+      "summary": "A safe, highly effective vaccine that prevents hepatitis B infection and the liver disease and cancer it can cause. Given as a routine infant series and to at-risk adults."
+    },
+    {
+      "slug": "praziquantel",
+      "name": "Praziquantel (for Schistosomiasis)",
+      "kind": "medication",
+      "summary": "The curative single-course treatment for schistosomiasis (bilharzia), a parasitic infection from contaminated freshwater. It clears the worms quickly and is also used in community deworming campaigns."
+    },
+    {
+      "slug": "act-antimalarial",
+      "name": "Artemisinin-Based Combination Therapy (Antimalarial)",
+      "kind": "medication",
+      "summary": "The fast, curative first-line treatment for uncomplicated malaria, pairing artemisinin with a partner drug to wipe out the parasite and prevent resistance. Prompt treatment is critical to avoid severe, life-threatening disease."
+    },
+    {
+      "slug": "malaria-prophylaxis",
+      "name": "Malaria Prophylaxis (Preventive Antimalarials)",
+      "kind": "medication",
+      "summary": "Preventive antimalarial tablets taken by travellers and some residents in high-risk areas to stop infection before it starts. Used alongside bed nets and insect repellent for layered protection."
+    },
+    {
+      "slug": "methotrexate",
+      "name": "Methotrexate (DMARD)",
+      "kind": "medication",
+      "summary": "The anchor disease-modifying drug for rheumatoid arthritis, taken weekly to calm the overactive immune system and prevent joint destruction. Starting it early changes the course of the disease and preserves function."
+    },
+    {
+      "slug": "sulfasalazine",
+      "name": "Sulfasalazine (DMARD)",
+      "kind": "medication",
+      "summary": "A disease-modifying antirheumatic drug used alone or with methotrexate to reduce joint inflammation and slow damage in rheumatoid arthritis. An affordable, well-established option."
+    },
+    {
+      "slug": "biologic-dmard",
+      "name": "Biologic DMARDs (e.g. TNF Inhibitors)",
+      "kind": "medication",
+      "summary": "Injectable targeted therapies that block specific immune signals driving rheumatoid arthritis and other autoimmune diseases. Used when standard DMARDs aren't enough, they can bring inflammation under tight control."
+    },
+    {
+      "slug": "hydroxychloroquine",
+      "name": "Hydroxychloroquine (for Lupus & RA)",
+      "kind": "medication",
+      "summary": "A foundational antimalarial-derived drug used long-term in lupus and rheumatoid arthritis to reduce flares, protect organs, and improve survival. It's gentle on the immune system and a cornerstone of lupus care."
+    },
+    {
+      "slug": "corticosteroid-oral",
+      "name": "Oral Corticosteroids (e.g. Prednisone)",
+      "kind": "medication",
+      "summary": "Powerful anti-inflammatory tablets used in short bursts or low doses to control flares of autoimmune disease, asthma, and other inflammatory conditions. Effective and fast-acting, they're used carefully to limit side effects."
+    },
+    {
+      "slug": "immunosuppressant",
+      "name": "Immunosuppressants (e.g. Azathioprine, Mycophenolate)",
+      "kind": "medication",
+      "summary": "Medications that dampen an overactive immune system to protect organs in lupus and other autoimmune diseases, particularly when the kidneys or other organs are involved. Used to induce and maintain remission."
+    },
+    {
+      "slug": "allopurinol",
+      "name": "Allopurinol (Urate-Lowering Therapy)",
+      "kind": "medication",
+      "summary": "The mainstay long-term medication for gout, taken daily to lower uric acid levels and dissolve the crystals that cause attacks. Consistent use prevents future flares and joint damage."
+    },
+    {
+      "slug": "colchicine",
+      "name": "Colchicine (Anti-Inflammatory for Gout)",
+      "kind": "medication",
+      "summary": "An anti-inflammatory used to settle acute gout flares and to prevent them when starting urate-lowering therapy. It targets the specific inflammation triggered by urate crystals."
+    },
+    {
+      "slug": "nsaid",
+      "name": "NSAIDs (Anti-Inflammatory Painkillers, e.g. Ibuprofen)",
+      "kind": "medication",
+      "summary": "Common anti-inflammatory painkillers used for gout flares, osteoarthritis, and other painful inflammatory conditions. They relieve pain and swelling but are used cautiously in people with kidney, heart, or stomach concerns."
+    },
+    {
+      "slug": "oral-iron",
+      "name": "Oral Iron Supplements (e.g. Ferrous Sulfate)",
+      "kind": "supplement",
+      "summary": "Iron tablets that replenish the body's stores to correct iron-deficiency anaemia, restoring energy and healthy red blood cells. Treating the underlying cause of the iron loss is just as important as the supplement."
+    },
+    {
+      "slug": "iv-iron",
+      "name": "Intravenous Iron",
+      "kind": "procedure",
+      "summary": "Iron given directly into a vein to rapidly correct iron-deficiency anaemia when oral iron isn't tolerated, isn't working, or stores need replenishing quickly. Often used in kidney disease and heavy menstrual blood loss."
+    },
+    {
+      "slug": "antipsychotic",
+      "name": "Antipsychotic Medication (e.g. Risperidone, Olanzapine)",
+      "kind": "medication",
+      "summary": "The mainstay treatment for schizophrenia, helping to reduce hallucinations, delusions, and disordered thinking. Taken consistently alongside psychosocial support, they help people stay well and engaged in daily life."
+    },
+    {
+      "slug": "long-acting-antipsychotic",
+      "name": "Long-Acting Injectable Antipsychotic",
+      "kind": "medication",
+      "summary": "An antipsychotic given as an injection every few weeks instead of daily pills, helping maintain steady treatment for schizophrenia. It eases the burden of remembering daily doses and reduces relapse."
+    },
+    {
+      "slug": "statin",
+      "name": "Statins (Cholesterol-Lowering, e.g. Atorvastatin)",
+      "kind": "medication",
+      "summary": "Daily medications that lower cholesterol and stabilise artery plaque, cutting the risk of heart attack and stroke. They're a key part of secondary prevention after a stroke or heart disease."
+    },
+    {
+      "slug": "antiplatelet",
+      "name": "Antiplatelet Therapy (e.g. Aspirin, Clopidogrel)",
+      "kind": "medication",
+      "summary": "Medications that make blood platelets less sticky to prevent clots, central to stopping a second stroke or heart attack. Low-dose aspirin or clopidogrel is a cornerstone of secondary prevention."
+    },
+    {
+      "slug": "anticoagulant",
+      "name": "Anticoagulants (Blood Thinners, e.g. Warfarin, DOACs)",
+      "kind": "medication",
+      "summary": "Blood thinners that prevent dangerous clots, used to reduce stroke risk in conditions like atrial fibrillation and to treat clots. They require attention to dosing and, for some, regular monitoring."
+    },
+    {
+      "slug": "thrombolysis",
+      "name": "Clot-Busting Therapy (Thrombolysis)",
+      "kind": "procedure",
+      "summary": "An emergency treatment for acute ischaemic stroke that dissolves the blocking clot if given within a few hours of symptoms. Fast treatment can dramatically reduce long-term disability."
+    },
+    {
+      "slug": "naltrexone-aud",
+      "name": "Naltrexone (for Alcohol Use Disorder)",
+      "kind": "medication",
+      "summary": "A medication that reduces alcohol cravings and the pleasurable 'reward' from drinking, supporting people in cutting down or staying abstinent. Used alongside counselling and support groups."
+    },
+    {
+      "slug": "acamprosate",
+      "name": "Acamprosate (for Alcohol Use Disorder)",
+      "kind": "medication",
+      "summary": "A relapse-prevention medication that helps stabilise brain chemistry disrupted by long-term drinking, easing the urge to drink during recovery. Best combined with psychosocial support."
+    },
+    {
+      "slug": "disulfiram",
+      "name": "Disulfiram (for Alcohol Use Disorder)",
+      "kind": "medication",
+      "summary": "A medication that causes an unpleasant reaction if alcohol is consumed, acting as a deterrent to support abstinence. Used in motivated people as part of a structured recovery plan."
+    },
+    {
+      "slug": "thiamine",
+      "name": "Thiamine (Vitamin B1)",
+      "kind": "supplement",
+      "summary": "An essential B-vitamin given to people with alcohol use disorder to prevent serious brain damage (Wernicke's encephalopathy) caused by deficiency. A simple, protective supplement during recovery."
+    },
+    {
+      "slug": "hpv-vaccine",
+      "name": "HPV Vaccine",
+      "kind": "medication",
+      "summary": "A vaccine that protects against the human papillomavirus strains that cause most cervical cancer. Given to adolescents before exposure, it is one of the most effective tools for preventing cervical cancer."
+    },
+    {
+      "slug": "cervical-screening",
+      "name": "Cervical Screening (Pap Smear / HPV Test)",
+      "kind": "procedure",
+      "summary": "A simple screening test that detects precancerous changes or HPV on the cervix before cancer develops, allowing early treatment. Regular screening is one of the most powerful ways to prevent cervical cancer deaths."
+    },
+    {
+      "slug": "chemotherapy",
+      "name": "Chemotherapy",
+      "kind": "medication",
+      "summary": "Anti-cancer drugs that kill or slow rapidly dividing cancer cells, used to treat cervical and other cancers, sometimes alongside radiation or surgery. Treatment plans are tailored to the cancer type and stage."
+    },
+    {
+      "slug": "radiotherapy",
+      "name": "Radiation Therapy",
+      "kind": "procedure",
+      "summary": "Targeted high-energy radiation that destroys cancer cells, a key treatment for cervical cancer often combined with chemotherapy. It can be curative or used to relieve symptoms in advanced disease."
+    },
+    {
+      "slug": "hemodialysis",
+      "name": "Dialysis (Haemodialysis / Peritoneal)",
+      "kind": "procedure",
+      "summary": "A life-sustaining treatment for advanced kidney failure that filters waste and excess fluid from the blood when the kidneys can no longer do so. It is done regularly at a centre or at home while awaiting transplant."
+    },
+    {
+      "slug": "kidney-transplant",
+      "name": "Kidney Transplant",
+      "kind": "procedure",
+      "summary": "Surgical replacement of failed kidneys with a healthy donor kidney, offering the best quality and length of life for many people with end-stage kidney disease. It requires lifelong anti-rejection medication."
+    },
+    {
+      "slug": "sglt2-inhibitor",
+      "name": "SGLT2 Inhibitors (Kidney & Heart Protective)",
+      "kind": "medication",
+      "summary": "Once-daily tablets originally for diabetes that are now proven to slow chronic kidney disease and improve heart-failure outcomes, even without diabetes. They protect the kidneys and heart beyond their glucose-lowering effect."
+    },
+    {
+      "slug": "erythropoietin",
+      "name": "Erythropoietin (Anaemia of Kidney Disease)",
+      "kind": "medication",
+      "summary": "An injectable hormone that stimulates the bone marrow to make red blood cells, treating the anaemia that often comes with advanced kidney disease. It restores energy and reduces the need for transfusions."
+    },
+    {
+      "slug": "physiotherapy",
+      "name": "Physiotherapy",
+      "kind": "therapy",
+      "summary": "Hands-on and exercise-based rehabilitation to restore movement, strength, and function after stroke, surgery, or injury, and to manage arthritis and chronic pain. A physiotherapist tailors a programme to your goals."
+    },
+    {
+      "slug": "stroke-rehabilitation",
+      "name": "Stroke Rehabilitation",
+      "kind": "therapy",
+      "summary": "A coordinated programme of physical, occupational, and speech therapy that helps people regain independence and skills after a stroke. Starting early and continuing consistently leads to the best recovery."
+    },
+    {
+      "slug": "occupational-therapy",
+      "name": "Occupational Therapy",
+      "kind": "therapy",
+      "summary": "Therapy that helps people regain or adapt the everyday skills needed for daily living and work, whether after a stroke, with arthritis, or with a developmental condition. Focuses on practical independence and meaningful activity."
+    },
+    {
+      "slug": "speech-therapy",
+      "name": "Speech and Language Therapy",
+      "kind": "therapy",
+      "summary": "Therapy to rebuild communication and safe swallowing after a stroke or brain injury, and to support children with developmental and language difficulties. A speech therapist tailors exercises to each person's needs."
+    },
+    {
+      "slug": "pulmonary-rehabilitation",
+      "name": "Pulmonary Rehabilitation",
+      "kind": "therapy",
+      "summary": "A structured programme of supervised exercise, breathing techniques, and education for people with COPD and other lung diseases. It improves breathlessness, stamina, and confidence in daily activities."
+    },
+    {
+      "slug": "smoking-cessation",
+      "name": "Smoking Cessation Support",
+      "kind": "therapy",
+      "summary": "Counselling and structured support to help people quit smoking, the single most important step in slowing COPD and reducing heart and cancer risk. Often combined with nicotine replacement or medication."
+    },
+    {
+      "slug": "nicotine-replacement",
+      "name": "Nicotine Replacement Therapy",
+      "kind": "medication",
+      "summary": "Patches, gum, or lozenges that supply controlled nicotine to ease cravings and withdrawal while quitting smoking. They roughly double the chance of quitting successfully when paired with support."
+    },
+    {
+      "slug": "support-group",
+      "name": "Peer Support Groups (e.g. 12-Step / SMART Recovery)",
+      "kind": "therapy",
+      "summary": "Facilitated peer groups where people facing the same condition share experience, accountability, and encouragement. Particularly valuable in alcohol and substance recovery, and for chronic illness coping."
+    },
+    {
+      "slug": "joint-replacement",
+      "name": "Joint Replacement Surgery",
+      "kind": "procedure",
+      "summary": "Surgical replacement of a severely damaged hip or knee joint with an artificial one, used for advanced osteoarthritis when other treatments no longer control pain. It can dramatically restore mobility and quality of life."
+    },
+    {
+      "slug": "weight-management",
+      "name": "Weight Management",
+      "kind": "lifestyle",
+      "summary": "Achieving and maintaining a healthier weight through diet and activity, which reduces load on arthritic joints, lowers blood pressure, and improves outcomes across many chronic conditions. First-line and often highly effective."
+    },
+    {
+      "slug": "dash-diet",
+      "name": "DASH / Low-Salt Diet",
+      "kind": "lifestyle",
+      "summary": "An eating pattern rich in fruit, vegetables, and wholegrains and low in salt, proven to lower blood pressure. A central lifestyle measure for hypertension that also benefits the heart and kidneys."
+    },
+    {
+      "slug": "blood-transfusion",
+      "name": "Blood Transfusion",
+      "kind": "procedure",
+      "summary": "Giving donor red blood cells to rapidly treat severe anaemia or blood loss, and used in sickle cell disease to prevent or manage complications. A life-saving measure in acute crises."
+    },
+    {
+      "slug": "early-intervention-fasd",
+      "name": "Early Developmental Intervention (FASD)",
+      "kind": "therapy",
+      "summary": "Coordinated early therapies, structured routines, and educational and family support for children with fetal alcohol spectrum disorder. Early, consistent intervention improves learning, behaviour, and long-term outcomes."
+    },
+    {
+      "slug": "ras-inhibitor-heart-failure",
+      "name": "ARNI (Sacubitril/Valsartan, Heart Failure)",
+      "kind": "medication",
+      "summary": "A modern heart-failure medication combining two actions to relax blood vessels and reduce strain on the heart. As part of guideline-directed therapy it improves survival and reduces hospital admissions."
+    },
+    {
+      "slug": "mra",
+      "name": "Mineralocorticoid Receptor Antagonists (e.g. Spironolactone)",
+      "kind": "medication",
+      "summary": "Medications that block a hormone driving fluid retention and heart strain, improving survival in heart failure and helping control resistant high blood pressure. A key pillar of guideline-directed heart-failure therapy."
+    },
+    {
+      "slug": "long-acting-pain-management",
+      "name": "Pain Management Program",
+      "kind": "therapy",
+      "summary": "A structured, multidisciplinary approach combining medication, physical therapy, and coping strategies to manage chronic and crisis pain, such as in sickle cell disease and severe arthritis. Aims to restore function and quality of life."
+    },
+    {
+      "slug": "art-adherence-counseling",
+      "name": "ART Adherence Counselling and Support",
+      "kind": "therapy",
+      "summary": "Structured counselling, education, and reminder support that helps people take their antiretroviral therapy consistently every day. Good adherence is what keeps the virus suppressed, protects the immune system, and makes HIV untransmittable, so this support is essential to treatment success rather than optional."
+    },
+    {
+      "slug": "pyridoxine-b6",
+      "name": "Pyridoxine (Vitamin B6)",
+      "kind": "supplement",
+      "summary": "Taken alongside isoniazid during TB treatment to prevent the nerve tingling and numbness (peripheral neuropathy) that isoniazid can cause. Routinely co-prescribed, especially for people with HIV, diabetes, malnutrition, or in pregnancy."
+    },
+    {
+      "slug": "nutritional-support",
+      "name": "Nutritional Support",
+      "kind": "lifestyle",
+      "summary": "Adequate protein and calorie intake, plus correcting deficiencies, to help the body recover from the weight loss and wasting that TB causes. An adjunct that supports recovery and improves treatment outcomes, never a replacement for TB antibiotics."
+    },
+    {
+      "slug": "montelukast",
+      "name": "Montelukast (Leukotriene Receptor Antagonist)",
+      "kind": "medication",
+      "summary": "A daily anti-inflammatory tablet used as an add-on or alternative controller, particularly helpful for allergy-related and exercise-induced asthma. It is an add-on, not a replacement for a steroid inhaler."
+    },
+    {
+      "slug": "asthma-biologic",
+      "name": "Biologic Therapy for Severe Asthma (e.g. Omalizumab, Mepolizumab)",
+      "kind": "medication",
+      "summary": "Injectable targeted antibodies for severe, hard-to-control asthma that reduce flare-ups by blocking specific inflammatory pathways such as IgE or eosinophils. Reserved for severe disease that remains uncontrolled on inhalers."
+    },
+    {
+      "slug": "asthma-action-plan",
+      "name": "Written Asthma Action Plan",
+      "kind": "therapy",
+      "summary": "A personalised, clinician-written plan that guides daily inhaler use and how to step up treatment early during a flare, helping reduce emergency visits and hospital admissions."
+    },
+    {
+      "slug": "epilepsy-surgery",
+      "name": "Epilepsy Surgery",
+      "kind": "procedure",
+      "summary": "Surgical removal or disconnection of the seizure-generating brain area, considered for drug-resistant focal epilepsy and potentially curative when a single seizure focus is identified."
+    },
+    {
+      "slug": "ketogenic-diet",
+      "name": "Ketogenic Diet",
+      "kind": "lifestyle",
+      "summary": "A high-fat, low-carbohydrate medically supervised diet used as an adjunct for drug-resistant epilepsy, especially in children, to reduce seizure frequency. It does not replace antiseizure medication."
+    },
+    {
+      "slug": "vagus-nerve-stimulation",
+      "name": "Vagus Nerve Stimulation (VNS)",
+      "kind": "device",
+      "summary": "An implanted device that sends regular mild electrical pulses to the vagus nerve, used as an add-on therapy to reduce seizure frequency in drug-resistant epilepsy."
+    },
+    {
+      "slug": "hydration-therapy",
+      "name": "Hydration (oral and IV fluids)",
+      "kind": "lifestyle",
+      "summary": "Keeping well hydrated with fluids, and IV fluids during a crisis, helps prevent and ease vaso-occlusive pain episodes in sickle cell disease. A simple, central part of everyday self-care and acute management, used alongside (not instead of) hydroxyurea and infection prevention."
+    },
+    {
+      "slug": "l-glutamine-scd",
+      "name": "L-glutamine (Endari)",
+      "kind": "supplement",
+      "summary": "An oral amino acid therapy shown to modestly reduce the frequency of pain crises in sickle cell disease. Used as an add-on to hydroxyurea where available, not as a replacement for it."
+    },
+    {
+      "slug": "pneumococcal-vaccination",
+      "name": "Pneumococcal vaccination (plus meningococcal, Hib, influenza)",
+      "kind": "procedure",
+      "summary": "People with sickle cell disease have a damaged or absent spleen and are at high risk of life-threatening infection from pneumococcus and other bacteria. Pneumococcal vaccines (PCV and PPSV23), along with Hib, meningococcal and yearly flu vaccines, are a core preventive measure given alongside daily penicillin in young children."
+    },
+    {
+      "slug": "thrombectomy",
+      "name": "Mechanical Thrombectomy (Endovascular Clot Removal)",
+      "kind": "procedure",
+      "summary": "An emergency procedure for ischaemic (clot) stroke in which a catheter is threaded into the blocked brain artery and the clot is physically removed, restoring blood flow. For eligible large-vessel-occlusion strokes it is one of the most effective acute treatments for reducing long-term disability, generally within about 6 hours (sometimes up to 24 hours in selected patients)."
+    },
+    {
+      "slug": "vaccination-flu-pneumococcal",
+      "name": "Flu and Pneumococcal Vaccination",
+      "kind": "procedure",
+      "summary": "Yearly influenza vaccination and pneumococcal vaccination are recommended for people with COPD to lower the risk of chest infections that trigger dangerous flare-ups and hospital admissions."
+    },
+    {
+      "slug": "long-term-oxygen-therapy",
+      "name": "Long-Term Oxygen Therapy",
+      "kind": "device",
+      "summary": "For people with severe COPD and persistently low blood oxygen, breathing extra oxygen for at least 15 hours a day eases breathlessness and is one of the few treatments shown to help people live longer. Oxygen levels must be confirmed by testing first."
+    },
+    {
+      "slug": "iv-artesunate",
+      "name": "Intravenous Artesunate (Severe Malaria)",
+      "kind": "medication",
+      "summary": "The WHO first-line, life-saving treatment for severe or complicated malaria, given by injection in hospital. Large trials showed it lowers death rates compared with older quinine treatment, especially in African children."
+    },
+    {
+      "slug": "insecticide-treated-nets",
+      "name": "Insecticide-Treated Bed Nets",
+      "kind": "device",
+      "summary": "Long-lasting insecticidal nets that protect people from mosquito bites while they sleep. A cornerstone of malaria prevention that has substantially reduced infections and deaths across endemic regions."
+    },
+    {
+      "slug": "malaria-vaccine",
+      "name": "Malaria Vaccine (RTS,S / R21)",
+      "kind": "medication",
+      "summary": "WHO-recommended vaccines that give children partial protection against malaria and reduce severe disease and deaths. Used alongside nets and prompt treatment rather than as a replacement for them."
+    },
+    {
+      "slug": "peginterferon-alfa",
+      "name": "Pegylated Interferon Alfa",
+      "kind": "medication",
+      "summary": "A weekly injection given for a fixed course (usually 48 weeks) that boosts the immune system to control hepatitis B. It can lead to a finite, off-treatment response in carefully selected patients but has more side effects than oral antivirals and is not suitable for advanced liver disease."
+    },
+    {
+      "slug": "hbv-birth-dose-vaccine",
+      "name": "Hepatitis B Birth-Dose Vaccine",
+      "kind": "procedure",
+      "summary": "A hepatitis B vaccine dose given within 24 hours of birth, which is the single most effective step to prevent mother-to-child transmission. It is a WHO-recommended cornerstone of eliminating hepatitis B in high-prevalence regions like Africa."
+    },
+    {
+      "slug": "hepatitis-b-immunoglobulin",
+      "name": "Hepatitis B Immunoglobulin (HBIG)",
+      "kind": "medication",
+      "summary": "Ready-made antibodies given for rapid, short-term protection after exposure to hepatitis B, such as a newborn of an infected mother or after a needlestick injury. It is given alongside the vaccine to provide immediate cover while the vaccine builds lasting immunity."
+    },
+    {
+      "slug": "liver-transplant-hbv",
+      "name": "Liver Transplant",
+      "kind": "procedure",
+      "summary": "Replacement of a failing liver in people who develop end-stage liver disease or liver cancer from chronic hepatitis B. With antiviral medication and immunoglobulin to prevent reinfection of the new liver, long-term outcomes are very good."
+    },
+    {
+      "slug": "praziquantel-repeat-dose",
+      "name": "Praziquantel repeat dose (4-6 weeks later)",
+      "kind": "medication",
+      "summary": "A second course of praziquantel given a few weeks after the first, because the drug does not kill immature worms; repeating the dose catches parasites that have since matured and raises cure rates."
+    },
+    {
+      "slug": "praziquantel-preventive-chemotherapy",
+      "name": "Praziquantel mass drug administration (preventive chemotherapy)",
+      "kind": "medication",
+      "summary": "WHO-recommended community-wide deworming with praziquantel, especially for school-age children in endemic areas, to reduce worm burden, prevent complications, and lower transmission across the population."
+    },
+    {
+      "slug": "oxamniquine",
+      "name": "Oxamniquine",
+      "kind": "medication",
+      "summary": "An older oral antiparasitic effective only against Schistosoma mansoni (intestinal bilharzia). Now rarely used and of limited availability since praziquantel covers all species, but a historical/backup option where praziquantel resistance or intolerance is a concern."
+    },
+    {
+      "slug": "artesunate-adjunct",
+      "name": "Artemisinin derivatives (artesunate) as adjunct",
+      "kind": "medication",
+      "summary": "Antimalarial drugs that also kill young, immature schistosome worms which praziquantel misses. Used in some settings alongside praziquantel or for prevention, complementing rather than replacing the standard cure."
+    },
+    {
+      "slug": "safe-water-sanitation",
+      "name": "Safe water access and improved sanitation",
+      "kind": "lifestyle",
+      "summary": "Avoiding contact with potentially infested fresh water and using safe water plus proper toilets/latrines to prevent egg-contaminated urine and stool from reaching snail habitats. A key prevention and transmission-control measure, not a cure for existing infection."
+    },
+    {
+      "slug": "snail-control",
+      "name": "Snail control (molluscicides and habitat management)",
+      "kind": "lifestyle",
+      "summary": "Reducing the freshwater snails that host the parasite, through molluscicides or environmental management, to interrupt the transmission cycle at the community level. A public-health prevention measure that complements drug treatment, not an individual cure."
+    },
+    {
+      "slug": "leflunomide",
+      "name": "Leflunomide (DMARD)",
+      "kind": "medication",
+      "summary": "A conventional synthetic DMARD that suppresses overactive immune cells, used alone or alongside methotrexate to control rheumatoid arthritis when methotrexate isn't suitable or isn't enough."
+    },
+    {
+      "slug": "intra-articular-corticosteroid",
+      "name": "Intra-articular Corticosteroid Injection",
+      "kind": "procedure",
+      "summary": "A steroid injected directly into the affected joint to reduce inflammation and provide short-term pain relief during flares; benefit typically lasts weeks to a few months and injections are limited per year."
+    },
+    {
+      "slug": "belimumab",
+      "name": "Belimumab (Biologic for Lupus)",
+      "kind": "medication",
+      "summary": "A targeted biologic (B-lymphocyte stimulator inhibitor) approved for systemic lupus, used as add-on therapy to reduce flares and steroid dependence in active disease, including lupus nephritis."
+    },
+    {
+      "slug": "sun-protection",
+      "name": "Sun Protection (UV Avoidance & Sunscreen)",
+      "kind": "lifestyle",
+      "summary": "Daily broad-spectrum sunscreen, protective clothing, and avoiding peak UV are important in lupus because sunlight commonly triggers skin and systemic flares. A core preventive measure alongside medication, not a replacement for it."
+    },
+    {
+      "slug": "febuxostat",
+      "name": "Febuxostat (Urate-Lowering Therapy)",
+      "kind": "medication",
+      "summary": "A xanthine-oxidase inhibitor that lowers uric acid, used as an alternative urate-lowering therapy when allopurinol is not tolerated or fails to reach the target urate level."
+    },
+    {
+      "slug": "low-purine-diet",
+      "name": "Low-Purine Diet",
+      "kind": "lifestyle",
+      "summary": "Reducing high-purine foods such as red and organ meats, shellfish, and sugary drinks to help lower uric acid as an adjunct to medication, not a replacement for it."
+    },
+    {
+      "slug": "alcohol-reduction",
+      "name": "Alcohol Reduction",
+      "kind": "lifestyle",
+      "summary": "Cutting back on alcohol, especially beer and spirits, to reduce uric-acid spikes and lower the frequency of gout flares alongside medical treatment."
+    },
+    {
+      "slug": "vitamin-c",
+      "name": "Vitamin C Supplement",
+      "kind": "supplement",
+      "summary": "Vitamin C may modestly lower serum uric acid; an emerging-evidence adjunct only, not a substitute for urate-lowering medication."
+    },
+    {
+      "slug": "deworming-therapy",
+      "name": "Deworming Therapy (e.g. Albendazole/Mebendazole)",
+      "kind": "medication",
+      "summary": "Antiparasitic tablets that clear intestinal worms such as hookworm, a major and treatable cause of iron-deficiency anaemia in Africa. Used alongside iron replacement to stop ongoing blood and iron loss when worms are the cause."
+    },
+    {
+      "slug": "vitamin-c-cofactor",
+      "name": "Vitamin C (with iron)",
+      "kind": "supplement",
+      "summary": "Taking vitamin C, or eating vitamin-C-rich foods, with iron tablets boosts how much iron the gut absorbs. An inexpensive adjunct that makes iron repletion more effective, not a stand-alone treatment."
+    },
+    {
+      "slug": "iron-rich-diet",
+      "name": "Iron-Rich Diet",
+      "kind": "lifestyle",
+      "summary": "Eating more iron-rich foods like red meat, liver, beans, lentils, and dark leafy greens helps maintain iron levels and prevent relapse. A supportive measure that complements, but cannot replace, medical iron treatment in established anaemia."
+    },
+    {
+      "slug": "clozapine",
+      "name": "Clozapine",
+      "kind": "medication",
+      "summary": "The most effective antipsychotic for treatment-resistant schizophrenia, used when two other antipsychotics have not worked. It requires regular blood monitoring because of a rare risk to white blood cells, but can be life-changing for symptoms that have not responded to other medicines."
+    },
+    {
+      "slug": "motivational-interviewing",
+      "name": "Motivational Interviewing / Enhancement Therapy",
+      "kind": "therapy",
+      "summary": "A collaborative, non-judgemental counselling style that strengthens a person's own motivation to change drinking. Strong evidence in alcohol use disorder, especially as a brief intervention and to engage people in further treatment."
+    },
+    {
+      "slug": "exercise-program",
+      "name": "Structured Exercise Program",
+      "kind": "lifestyle",
+      "summary": "Regular aerobic and strength activity used as an adjunct in recovery to reduce cravings, improve mood and sleep, and support overall health. Helpful alongside — never instead of — counselling and relapse-prevention medication."
+    },
+    {
+      "slug": "radical-hysterectomy",
+      "name": "Surgery (Radical Hysterectomy / Conization)",
+      "kind": "procedure",
+      "summary": "Surgical removal of the cancer, ranging from a cone biopsy or trachelectomy for very early disease to a radical hysterectomy removing the cervix, uterus, and nearby tissue. Often curative for early-stage cervical cancer."
+    },
+    {
+      "slug": "chemoradiation",
+      "name": "Concurrent Chemoradiation (with Brachytherapy)",
+      "kind": "procedure",
+      "summary": "The standard curative treatment for locally advanced cervical cancer: cisplatin-based chemotherapy given alongside external-beam radiation plus internal radiation (brachytherapy) to maximise tumour control."
+    }
+  ],
+  "conditions": [
+    {
+      "slug": "hiv",
+      "name": "HIV",
+      "category": "infectious",
+      "aliases": [
+        "HIV/AIDS",
+        "Human Immunodeficiency Virus"
+      ],
+      "summary": "HIV is a virus that gradually weakens the immune system, but it is now a manageable lifelong condition, not a death sentence. With daily antiretroviral therapy taken consistently, people live long, healthy lives and the virus becomes undetectable and untransmittable to others (U=U).",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "art-tld",
+            "effectiveness": 4.7,
+            "tier": "strong"
+          },
+          {
+            "slug": "dolutegravir",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "art-adherence-counseling",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "cotrimoxazole",
+            "effectiveness": 3.7,
+            "tier": "strong"
+          },
+          {
+            "slug": "tenofovir-emtricitabine-prep",
+            "effectiveness": 3.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "isoniazid-preventive-therapy",
+            "effectiveness": 3.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "support-group",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "vitamin-d",
+            "effectiveness": 2.6,
+            "tier": "emerging"
+          },
+          {
+            "slug": "omega-3",
+            "effectiveness": 2.5,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "No symptoms (often symptom-free for years)",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Flu-like illness shortly after infection (seroconversion)",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Fatigue and low energy",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Swollen lymph nodes",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Recurrent fevers or night sweats",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Unintentional weight loss",
+            "prevalence": 0.35
+          },
+          {
+            "name": "Frequent or persistent infections (e.g. thrush, shingles, TB)",
+            "prevalence": 0.35
+          },
+          {
+            "name": "Skin rashes or sores",
+            "prevalence": 0.25
+          },
+          {
+            "name": "Persistent diarrhoea",
+            "prevalence": 0.2
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Condomless sex with a partner whose status or viral load is unknown",
+            "prevalence": 0.75
+          },
+          {
+            "name": "Missed antiretroviral doses (poor adherence, leading to viral rebound)",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Untreated other sexually transmitted infections",
+            "prevalence": 0.35
+          },
+          {
+            "name": "Sharing needles or injecting equipment",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Mother-to-child transmission during pregnancy, birth, or breastfeeding",
+            "prevalence": 0.2
+          }
+        ],
+        "tests": [
+          {
+            "name": "HIV antibody/antigen rapid or blood test",
+            "prevalence": 0.98
+          },
+          {
+            "name": "Viral load (HIV RNA) test",
+            "prevalence": 0.9
+          },
+          {
+            "name": "CD4 count",
+            "prevalence": 0.85
+          },
+          {
+            "name": "HIV RNA PCR (early detection / infant diagnosis)",
+            "prevalence": 0.4
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "art-adherence-counseling",
+          "name": "ART Adherence Counselling and Support",
+          "kind": "therapy",
+          "summary": "Structured counselling, education, and reminder support that helps people take their antiretroviral therapy consistently every day. Good adherence is what keeps the virus suppressed, protects the immune system, and makes HIV untransmittable, so this support is essential to treatment success rather than optional."
+        }
+      ]
+    },
+    {
+      "slug": "tuberculosis",
+      "name": "Tuberculosis",
+      "category": "infectious",
+      "aliases": [
+        "TB",
+        "Pulmonary TB"
+      ],
+      "summary": "Tuberculosis is a bacterial infection, usually of the lungs, caused by Mycobacterium tuberculosis and spread through the air when someone coughs. The good news is that it is curable: a full course of TB antibiotics taken every day for the whole treatment period clears the infection, and finishing every dose is what stops the disease from coming back or becoming drug-resistant.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "tb-rhze-regimen",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "art-tld",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "isoniazid-preventive-therapy",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "bedaquiline",
+            "effectiveness": 4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "cotrimoxazole",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "pyridoxine-b6",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "nutritional-support",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "smoking-cessation",
+            "effectiveness": 2.8,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Persistent cough (often 2+ weeks)",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Unintentional weight loss",
+            "prevalence": 0.72
+          },
+          {
+            "name": "Fatigue and weakness",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Night sweats",
+            "prevalence": 0.68
+          },
+          {
+            "name": "Fever",
+            "prevalence": 0.66
+          },
+          {
+            "name": "Coughing up phlegm or blood",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Loss of appetite",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Chest pain when breathing or coughing",
+            "prevalence": 0.45
+          }
+        ],
+        "triggers": [
+          {
+            "name": "HIV co-infection (weakened immunity)",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Close-contact exposure to an active TB case",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Crowded or poorly ventilated living conditions",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Undernutrition",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Smoking, diabetes, or alcohol use",
+            "prevalence": 0.35
+          }
+        ],
+        "tests": [
+          {
+            "name": "Sputum GeneXpert MTB/RIF (molecular test)",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Chest X-ray",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Sputum smear microscopy",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Sputum culture and drug-susceptibility testing",
+            "prevalence": 0.5
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "pyridoxine-b6",
+          "name": "Pyridoxine (Vitamin B6)",
+          "kind": "supplement",
+          "summary": "Taken alongside isoniazid during TB treatment to prevent the nerve tingling and numbness (peripheral neuropathy) that isoniazid can cause. Routinely co-prescribed, especially for people with HIV, diabetes, malnutrition, or in pregnancy."
+        },
+        {
+          "slug": "nutritional-support",
+          "name": "Nutritional Support",
+          "kind": "lifestyle",
+          "summary": "Adequate protein and calorie intake, plus correcting deficiencies, to help the body recover from the weight loss and wasting that TB causes. An adjunct that supports recovery and improves treatment outcomes, never a replacement for TB antibiotics."
+        }
+      ]
+    },
+    {
+      "slug": "hypertension",
+      "name": "Hypertension",
+      "category": "cardiovascular",
+      "aliases": [
+        "High Blood Pressure",
+        "HTN"
+      ],
+      "summary": "Hypertension means your blood pressure stays higher than healthy over time, which quietly strains your heart, brain, and kidneys long before you feel anything. The good news is that it is very manageable: daily blood-pressure medication together with small lifestyle changes like cutting salt, moving more, and losing a little weight keeps it well controlled and dramatically lowers your risk of stroke and heart disease.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "calcium-channel-blocker",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "thiazide-diuretic",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "arb",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "ace-inhibitor",
+            "effectiveness": 4.3,
+            "tier": "strong"
+          },
+          {
+            "slug": "beta-blocker",
+            "effectiveness": 3.7,
+            "tier": "moderate"
+          },
+          {
+            "slug": "dash-diet",
+            "effectiveness": 3.3,
+            "tier": "strong"
+          },
+          {
+            "slug": "weight-management",
+            "effectiveness": 3.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "walking",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "statin",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "meditation",
+            "effectiveness": 2.6,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Usually no symptoms (silent)",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Headaches",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Dizziness or lightheadedness",
+            "prevalence": 0.32
+          },
+          {
+            "name": "Fatigue",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Palpitations",
+            "prevalence": 0.24
+          },
+          {
+            "name": "Blurred vision",
+            "prevalence": 0.18
+          },
+          {
+            "name": "Shortness of breath",
+            "prevalence": 0.16
+          },
+          {
+            "name": "Nosebleeds",
+            "prevalence": 0.1
+          }
+        ],
+        "triggers": [
+          {
+            "name": "High-salt diet",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Excess body weight",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Physical inactivity",
+            "prevalence": 0.58
+          },
+          {
+            "name": "Chronic stress",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Excess alcohol",
+            "prevalence": 0.38
+          }
+        ],
+        "tests": [
+          {
+            "name": "Office blood pressure measurement",
+            "prevalence": 0.95
+          },
+          {
+            "name": "Home or ambulatory BP monitoring",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Kidney function and electrolytes (U&E)",
+            "prevalence": 0.55
+          },
+          {
+            "name": "ECG / cardiovascular risk workup",
+            "prevalence": 0.48
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "asthma",
+      "name": "Asthma",
+      "category": "respiratory",
+      "aliases": [
+        "Bronchial Asthma"
+      ],
+      "summary": "Asthma is a common long-term condition where the airways become inflamed and tighten, causing wheezing, coughing, chest tightness, and breathlessness that come and go. With a daily preventer (steroid) inhaler and a reliever inhaler on hand, most people control their symptoms well and live full, active lives.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "ics-laba-inhaler",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "inhaled-corticosteroid",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "asthma-biologic",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "corticosteroid-oral",
+            "effectiveness": 3.6,
+            "tier": "moderate"
+          },
+          {
+            "slug": "saba-reliever",
+            "effectiveness": 3.3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "laba-lama-inhaler",
+            "effectiveness": 3.3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "montelukast",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "asthma-action-plan",
+            "effectiveness": 3.5,
+            "tier": "moderate"
+          },
+          {
+            "slug": "smoking-cessation",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "weight-management",
+            "effectiveness": 2.8,
+            "tier": "moderate"
+          },
+          {
+            "slug": "pulmonary-rehabilitation",
+            "effectiveness": 2.8,
+            "tier": "moderate"
+          },
+          {
+            "slug": "vitamin-d",
+            "effectiveness": 2.5,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Wheezing",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Shortness of breath",
+            "prevalence": 0.88
+          },
+          {
+            "name": "Cough (often worse at night)",
+            "prevalence": 0.84
+          },
+          {
+            "name": "Chest tightness",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Difficulty breathing on exertion",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Frequent reliever inhaler use",
+            "prevalence": 0.58
+          },
+          {
+            "name": "Trouble sleeping due to breathing",
+            "prevalence": 0.56
+          },
+          {
+            "name": "Fatigue during flare-ups",
+            "prevalence": 0.5
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Respiratory infections (colds/flu)",
+            "prevalence": 0.74
+          },
+          {
+            "name": "Allergens (dust mites, pollen, pets, mould)",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Smoke and air pollution",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Cold air or weather changes",
+            "prevalence": 0.54
+          },
+          {
+            "name": "Exercise",
+            "prevalence": 0.5
+          }
+        ],
+        "tests": [
+          {
+            "name": "Spirometry (with bronchodilator reversibility)",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Peak expiratory flow (PEF) monitoring",
+            "prevalence": 0.66
+          },
+          {
+            "name": "Allergy testing",
+            "prevalence": 0.4
+          },
+          {
+            "name": "FeNO (exhaled nitric oxide) test",
+            "prevalence": 0.34
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "montelukast",
+          "name": "Montelukast (Leukotriene Receptor Antagonist)",
+          "kind": "medication",
+          "summary": "A daily anti-inflammatory tablet used as an add-on or alternative controller, particularly helpful for allergy-related and exercise-induced asthma. It is an add-on, not a replacement for a steroid inhaler."
+        },
+        {
+          "slug": "asthma-biologic",
+          "name": "Biologic Therapy for Severe Asthma (e.g. Omalizumab, Mepolizumab)",
+          "kind": "medication",
+          "summary": "Injectable targeted antibodies for severe, hard-to-control asthma that reduce flare-ups by blocking specific inflammatory pathways such as IgE or eosinophils. Reserved for severe disease that remains uncontrolled on inhalers."
+        },
+        {
+          "slug": "asthma-action-plan",
+          "name": "Written Asthma Action Plan",
+          "kind": "therapy",
+          "summary": "A personalised, clinician-written plan that guides daily inhaler use and how to step up treatment early during a flare, helping reduce emergency visits and hospital admissions."
+        }
+      ]
+    },
+    {
+      "slug": "epilepsy",
+      "name": "Epilepsy",
+      "category": "neurological",
+      "aliases": [
+        "Seizure Disorder"
+      ],
+      "summary": "Epilepsy is a condition where the brain produces recurring seizures, and although it carries a heavy burden in Africa with many people still untreated, it is very manageable. With the right daily antiseizure medication, most people gain good seizure control and live full, active lives.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "antiseizure-medication",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "epilepsy-surgery",
+            "effectiveness": 4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "lamotrigine",
+            "effectiveness": 3.8,
+            "tier": "moderate"
+          },
+          {
+            "slug": "ketogenic-diet",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "vagus-nerve-stimulation",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "sleep-hygiene",
+            "effectiveness": 2.6,
+            "tier": "emerging"
+          },
+          {
+            "slug": "yoga",
+            "effectiveness": 2.6,
+            "tier": "emerging"
+          },
+          {
+            "slug": "folic-acid",
+            "effectiveness": 2.4,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Recurrent seizures",
+            "prevalence": 1
+          },
+          {
+            "name": "Confusion and drowsiness after a seizure (postictal state)",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Loss of awareness or staring spells",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Uncontrolled jerking or convulsions of arms and legs",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Aura or warning sensation before a seizure",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Temporary loss of consciousness",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Memory, mood, or concentration difficulties between seizures",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Tongue biting or loss of bladder control during seizures",
+            "prevalence": 0.35
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Missed or skipped antiseizure medication doses",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Sleep deprivation or poor sleep",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Alcohol use or withdrawal",
+            "prevalence": 0.35
+          },
+          {
+            "name": "Emotional stress",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Fever or infection",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Flashing or flickering lights (photosensitivity)",
+            "prevalence": 0.05
+          }
+        ],
+        "tests": [
+          {
+            "name": "Detailed seizure history and clinical examination",
+            "prevalence": 0.95
+          },
+          {
+            "name": "Electroencephalogram (EEG)",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Brain MRI or CT scan",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Blood tests (drug levels, glucose, electrolytes)",
+            "prevalence": 0.5
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "epilepsy-surgery",
+          "name": "Epilepsy Surgery",
+          "kind": "procedure",
+          "summary": "Surgical removal or disconnection of the seizure-generating brain area, considered for drug-resistant focal epilepsy and potentially curative when a single seizure focus is identified."
+        },
+        {
+          "slug": "ketogenic-diet",
+          "name": "Ketogenic Diet",
+          "kind": "lifestyle",
+          "summary": "A high-fat, low-carbohydrate medically supervised diet used as an adjunct for drug-resistant epilepsy, especially in children, to reduce seizure frequency. It does not replace antiseizure medication."
+        },
+        {
+          "slug": "vagus-nerve-stimulation",
+          "name": "Vagus Nerve Stimulation (VNS)",
+          "kind": "device",
+          "summary": "An implanted device that sends regular mild electrical pulses to the vagus nerve, used as an add-on therapy to reduce seizure frequency in drug-resistant epilepsy."
+        }
+      ]
+    },
+    {
+      "slug": "sickle-cell",
+      "name": "Sickle Cell Disease",
+      "category": "blood",
+      "aliases": [
+        "Sickle Cell Anaemia",
+        "SCD",
+        "HbSS"
+      ],
+      "summary": "Sickle Cell Disease is an inherited blood condition where red blood cells take on a rigid, sickle shape, blocking blood flow and causing episodes of severe pain, anaemia, and a higher risk of infection. With the right care, hydroxyurea, vaccines and daily antibiotics to prevent infection, staying well hydrated, and good pain management, most people can live full lives and have fewer crises.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "hydroxyurea",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "penicillin-prophylaxis",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "pneumococcal-vaccination",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "blood-transfusion",
+            "effectiveness": 4.3,
+            "tier": "strong"
+          },
+          {
+            "slug": "malaria-prophylaxis",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "long-acting-pain-management",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "nsaid",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "hydration-therapy",
+            "effectiveness": 3.1,
+            "tier": "moderate"
+          },
+          {
+            "slug": "l-glutamine-scd",
+            "effectiveness": 3,
+            "tier": "emerging"
+          },
+          {
+            "slug": "folic-acid",
+            "effectiveness": 2.8,
+            "tier": "moderate"
+          },
+          {
+            "slug": "pacing",
+            "effectiveness": 2.6,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Episodes of severe pain (vaso-occlusive crisis)",
+            "prevalence": 0.92
+          },
+          {
+            "name": "Chronic anaemia",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Fatigue and weakness",
+            "prevalence": 0.86
+          },
+          {
+            "name": "Swelling of hands and feet (dactylitis)",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Frequent or serious infections",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Jaundice (yellowing of eyes or skin)",
+            "prevalence": 0.58
+          },
+          {
+            "name": "Shortness of breath",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Delayed growth or puberty",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Leg ulcers",
+            "prevalence": 0.2
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Infection or fever",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Dehydration",
+            "prevalence": 0.72
+          },
+          {
+            "name": "Cold weather or sudden temperature change",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Physical overexertion or stress",
+            "prevalence": 0.56
+          },
+          {
+            "name": "Low oxygen (high altitude or flying)",
+            "prevalence": 0.34
+          }
+        ],
+        "tests": [
+          {
+            "name": "Haemoglobin electrophoresis (or HPLC)",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Full blood count with reticulocytes and blood film",
+            "prevalence": 0.86
+          },
+          {
+            "name": "Newborn screening (heel-prick)",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Transcranial Doppler ultrasound (stroke risk)",
+            "prevalence": 0.4
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "hydration-therapy",
+          "name": "Hydration (oral and IV fluids)",
+          "kind": "lifestyle",
+          "summary": "Keeping well hydrated with fluids, and IV fluids during a crisis, helps prevent and ease vaso-occlusive pain episodes in sickle cell disease. A simple, central part of everyday self-care and acute management, used alongside (not instead of) hydroxyurea and infection prevention."
+        },
+        {
+          "slug": "l-glutamine-scd",
+          "name": "L-glutamine (Endari)",
+          "kind": "supplement",
+          "summary": "An oral amino acid therapy shown to modestly reduce the frequency of pain crises in sickle cell disease. Used as an add-on to hydroxyurea where available, not as a replacement for it."
+        },
+        {
+          "slug": "pneumococcal-vaccination",
+          "name": "Pneumococcal vaccination (plus meningococcal, Hib, influenza)",
+          "kind": "procedure",
+          "summary": "People with sickle cell disease have a damaged or absent spleen and are at high risk of life-threatening infection from pneumococcus and other bacteria. Pneumococcal vaccines (PCV and PPSV23), along with Hib, meningococcal and yearly flu vaccines, are a core preventive measure given alongside daily penicillin in young children."
+        }
+      ]
+    },
+    {
+      "slug": "chronic-kidney-disease",
+      "name": "Chronic Kidney Disease",
+      "category": "chronic",
+      "aliases": [
+        "CKD",
+        "Kidney Disease",
+        "Chronic Renal Failure",
+        "Chronic Renal Disease"
+      ],
+      "summary": "Chronic kidney disease means your kidneys are slowly losing their ability to filter waste and extra fluid from your blood, most often because of long-standing high blood pressure, diabetes, or HIV. The encouraging news is that controlling blood pressure and blood sugar, treating HIV, and newer kidney-protecting medicines can slow it down a lot, and even when the kidneys fail, dialysis or a transplant can keep you living well.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "ace-inhibitor",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "arb",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "sglt2-inhibitor",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "kidney-transplant",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "hemodialysis",
+            "effectiveness": 4.3,
+            "tier": "strong"
+          },
+          {
+            "slug": "art-tld",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "calcium-channel-blocker",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "statin",
+            "effectiveness": 3.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "erythropoietin",
+            "effectiveness": 3.7,
+            "tier": "moderate"
+          },
+          {
+            "slug": "mra",
+            "effectiveness": 3.6,
+            "tier": "moderate"
+          },
+          {
+            "slug": "dash-diet",
+            "effectiveness": 3,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Fatigue and low energy",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Swelling in legs, ankles, or face (oedema)",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Frothy or foamy urine (protein in urine)",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Reduced or changed urination",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Poor appetite, nausea, or a metallic taste",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Shortness of breath",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Itchy skin",
+            "prevalence": 0.35
+          },
+          {
+            "name": "Trouble concentrating or sleeping",
+            "prevalence": 0.3
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Poorly controlled high blood pressure",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Poorly controlled diabetes (high blood sugar)",
+            "prevalence": 0.5
+          },
+          {
+            "name": "NSAID painkillers and nephrotoxic medicines or herbal remedies",
+            "prevalence": 0.35
+          },
+          {
+            "name": "Dehydration or acute infections",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Untreated or advanced HIV",
+            "prevalence": 0.25
+          }
+        ],
+        "tests": [
+          {
+            "name": "Blood test for creatinine and estimated GFR (eGFR)",
+            "prevalence": 0.95
+          },
+          {
+            "name": "Blood pressure measurement",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Urine albumin-to-creatinine ratio (uACR / dipstick for protein)",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Kidney ultrasound",
+            "prevalence": 0.45
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "stroke",
+      "name": "Stroke",
+      "category": "cardiovascular",
+      "aliases": [
+        "Cerebrovascular Accident",
+        "CVA",
+        "Brain Attack"
+      ],
+      "summary": "A stroke happens when blood flow to part of the brain is suddenly interrupted, either by a clot blocking a vessel (ischaemic) or by a bleed (haemorrhagic), so brain cells begin to die within minutes. Getting to hospital fast is critical, and for clot strokes clot-busting or clot-removal treatment can save brain tissue; with rehabilitation and steady control of blood pressure, many people recover function and lower their risk of another stroke.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "stroke-rehabilitation",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "thrombectomy",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "antiplatelet",
+            "effectiveness": 4.3,
+            "tier": "strong"
+          },
+          {
+            "slug": "thrombolysis",
+            "effectiveness": 4.3,
+            "tier": "strong"
+          },
+          {
+            "slug": "physiotherapy",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "occupational-therapy",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "anticoagulant",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "speech-therapy",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "ace-inhibitor",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "statin",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "smoking-cessation",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "dash-diet",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "weight-management",
+            "effectiveness": 2.8,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Sudden weakness or numbness on one side of the body (arm, leg, or face)",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Facial droop on one side",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Slurred speech or difficulty speaking or understanding words",
+            "prevalence": 0.65
+          },
+          {
+            "name": "Sudden confusion or trouble understanding",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Loss of balance, dizziness, or trouble walking",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Difficulty swallowing",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Sudden vision loss or double vision in one or both eyes",
+            "prevalence": 0.35
+          },
+          {
+            "name": "Sudden severe headache with no known cause",
+            "prevalence": 0.2
+          }
+        ],
+        "triggers": [
+          {
+            "name": "High blood pressure (hypertension)",
+            "prevalence": 0.75
+          },
+          {
+            "name": "Smoking",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Diabetes",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Previous stroke or transient ischaemic attack (mini-stroke)",
+            "prevalence": 0.25
+          },
+          {
+            "name": "Atrial fibrillation (irregular heartbeat)",
+            "prevalence": 0.2
+          },
+          {
+            "name": "High cholesterol",
+            "prevalence": 0.3
+          }
+        ],
+        "tests": [
+          {
+            "name": "CT scan of the brain (to distinguish clot from bleed)",
+            "prevalence": 0.95
+          },
+          {
+            "name": "Blood pressure, blood glucose, and cholesterol testing",
+            "prevalence": 0.9
+          },
+          {
+            "name": "ECG (to check for atrial fibrillation)",
+            "prevalence": 0.8
+          },
+          {
+            "name": "MRI of the brain",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Carotid ultrasound (to check neck arteries)",
+            "prevalence": 0.4
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "thrombectomy",
+          "name": "Mechanical Thrombectomy (Endovascular Clot Removal)",
+          "kind": "procedure",
+          "summary": "An emergency procedure for ischaemic (clot) stroke in which a catheter is threaded into the blocked brain artery and the clot is physically removed, restoring blood flow. For eligible large-vessel-occlusion strokes it is one of the most effective acute treatments for reducing long-term disability, generally within about 6 hours (sometimes up to 24 hours in selected patients)."
+        }
+      ]
+    },
+    {
+      "slug": "copd",
+      "name": "COPD",
+      "category": "respiratory",
+      "aliases": [
+        "Chronic Obstructive Pulmonary Disease",
+        "Emphysema",
+        "Chronic Bronchitis"
+      ],
+      "summary": "COPD is a long-term lung condition where the airways narrow and become inflamed, making it harder to breathe out fully — most often from smoking, but also from cooking-fire smoke and other indoor air pollution common across Africa. It can't be reversed, but stopping smoking, inhalers, pulmonary rehab, and vaccinations can ease breathlessness, cut down flare-ups, and help you stay active and well for years.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "smoking-cessation",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "laba-lama-inhaler",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "pulmonary-rehabilitation",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "ics-laba-inhaler",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "saba-reliever",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "nicotine-replacement",
+            "effectiveness": 3.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "long-term-oxygen-therapy",
+            "effectiveness": 3.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "vaccination-flu-pneumococcal",
+            "effectiveness": 3.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "inhaled-corticosteroid",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "corticosteroid-oral",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "walking",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "strength-training",
+            "effectiveness": 3,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Breathlessness",
+            "prevalence": 0.95
+          },
+          {
+            "name": "Chronic cough",
+            "prevalence": 0.84
+          },
+          {
+            "name": "Excess phlegm or mucus",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Reduced exercise tolerance",
+            "prevalence": 0.74
+          },
+          {
+            "name": "Wheezing",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Fatigue",
+            "prevalence": 0.66
+          },
+          {
+            "name": "Chest tightness",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Frequent chest infections",
+            "prevalence": 0.58
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Cigarette smoke",
+            "prevalence": 0.82
+          },
+          {
+            "name": "Chest infections",
+            "prevalence": 0.66
+          },
+          {
+            "name": "Indoor air pollution (cooking smoke)",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Air pollution and dust",
+            "prevalence": 0.56
+          },
+          {
+            "name": "Cold air or weather changes",
+            "prevalence": 0.52
+          }
+        ],
+        "tests": [
+          {
+            "name": "Spirometry (lung function test)",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Chest X-ray",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Pulse oximetry (oxygen levels)",
+            "prevalence": 0.58
+          },
+          {
+            "name": "Alpha-1 antitrypsin blood test",
+            "prevalence": 0.2
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "vaccination-flu-pneumococcal",
+          "name": "Flu and Pneumococcal Vaccination",
+          "kind": "procedure",
+          "summary": "Yearly influenza vaccination and pneumococcal vaccination are recommended for people with COPD to lower the risk of chest infections that trigger dangerous flare-ups and hospital admissions."
+        },
+        {
+          "slug": "long-term-oxygen-therapy",
+          "name": "Long-Term Oxygen Therapy",
+          "kind": "device",
+          "summary": "For people with severe COPD and persistently low blood oxygen, breathing extra oxygen for at least 15 hours a day eases breathlessness and is one of the few treatments shown to help people live longer. Oxygen levels must be confirmed by testing first."
+        }
+      ]
+    },
+    {
+      "slug": "malaria",
+      "name": "Malaria",
+      "category": "infectious",
+      "aliases": [
+        "Plasmodium infection"
+      ],
+      "summary": "Malaria is an infection caused by Plasmodium parasites spread through the bite of an infected mosquito, and it is very common across much of sub-Saharan Africa. The good news is that it is curable: when treatment is started quickly with the right antimalarial medicines (artemisinin-based combination therapy), most people recover fully, and simple steps like sleeping under a treated net help keep you safe.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "act-antimalarial",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "iv-artesunate",
+            "effectiveness": 4.7,
+            "tier": "strong"
+          },
+          {
+            "slug": "malaria-prophylaxis",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "insecticide-treated-nets",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "malaria-vaccine",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "blood-transfusion",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "nsaid",
+            "effectiveness": 2.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "folic-acid",
+            "effectiveness": 2,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Fever",
+            "prevalence": 0.95
+          },
+          {
+            "name": "Chills and sweats",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Headache",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Body aches and muscle pain",
+            "prevalence": 0.72
+          },
+          {
+            "name": "Fatigue and weakness",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Nausea or vomiting",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Anaemia (low blood count)",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Enlarged spleen",
+            "prevalence": 0.3
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Mosquito bites in endemic areas",
+            "prevalence": 0.95
+          },
+          {
+            "name": "Sleeping without an insecticide-treated net",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Rainy season (peak transmission)",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Travel to a high-transmission region without prophylaxis",
+            "prevalence": 0.25
+          },
+          {
+            "name": "Pregnancy (higher risk and severity)",
+            "prevalence": 0.2
+          }
+        ],
+        "tests": [
+          {
+            "name": "Rapid diagnostic test (RDT)",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Blood smear microscopy",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Full blood count (checks anaemia and platelets)",
+            "prevalence": 0.6
+          },
+          {
+            "name": "PCR (parasite confirmation/species)",
+            "prevalence": 0.15
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "iv-artesunate",
+          "name": "Intravenous Artesunate (Severe Malaria)",
+          "kind": "medication",
+          "summary": "The WHO first-line, life-saving treatment for severe or complicated malaria, given by injection in hospital. Large trials showed it lowers death rates compared with older quinine treatment, especially in African children."
+        },
+        {
+          "slug": "insecticide-treated-nets",
+          "name": "Insecticide-Treated Bed Nets",
+          "kind": "device",
+          "summary": "Long-lasting insecticidal nets that protect people from mosquito bites while they sleep. A cornerstone of malaria prevention that has substantially reduced infections and deaths across endemic regions."
+        },
+        {
+          "slug": "malaria-vaccine",
+          "name": "Malaria Vaccine (RTS,S / R21)",
+          "kind": "medication",
+          "summary": "WHO-recommended vaccines that give children partial protection against malaria and reduce severe disease and deaths. Used alongside nets and prompt treatment rather than as a replacement for them."
+        }
+      ]
+    },
+    {
+      "slug": "hepatitis-b",
+      "name": "Hepatitis B",
+      "category": "infectious",
+      "aliases": [
+        "HBV",
+        "Chronic Hepatitis B"
+      ],
+      "summary": "Hepatitis B is a liver infection caused by the hepatitis B virus, which is common across Africa and is often carried for years without any symptoms. The good news is that a safe vaccine can prevent it, and daily antiviral tablets can keep the virus under control and protect your liver, even though they don't fully cure it.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "tenofovir-hbv",
+            "effectiveness": 4.7,
+            "tier": "strong"
+          },
+          {
+            "slug": "entecavir",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "hepatitis-b-vaccine",
+            "effectiveness": 4.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "hbv-birth-dose-vaccine",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "liver-transplant-hbv",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "hepatitis-b-immunoglobulin",
+            "effectiveness": 3.8,
+            "tier": "moderate"
+          },
+          {
+            "slug": "peginterferon-alfa",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "weight-management",
+            "effectiveness": 2.4,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "No symptoms (asymptomatic infection)",
+            "prevalence": 0.65
+          },
+          {
+            "name": "Fatigue and low energy",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Loss of appetite",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Pain or discomfort over the liver (right upper abdomen)",
+            "prevalence": 0.25
+          },
+          {
+            "name": "Nausea",
+            "prevalence": 0.22
+          },
+          {
+            "name": "Jaundice (yellowing of eyes and skin)",
+            "prevalence": 0.18
+          },
+          {
+            "name": "Dark urine",
+            "prevalence": 0.15
+          },
+          {
+            "name": "Joint aches",
+            "prevalence": 0.12
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Mother-to-child transmission at birth",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Unprotected sex or contact with infected blood",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Sharing needles, razors, or unsterile medical/tattoo equipment",
+            "prevalence": 0.2
+          },
+          {
+            "name": "Heavy alcohol use accelerating liver damage",
+            "prevalence": 0.25
+          },
+          {
+            "name": "Co-infection with HIV or hepatitis C",
+            "prevalence": 0.15
+          }
+        ],
+        "tests": [
+          {
+            "name": "Hepatitis B surface antigen (HBsAg) blood test",
+            "prevalence": 0.98
+          },
+          {
+            "name": "Liver function tests (ALT/AST)",
+            "prevalence": 0.9
+          },
+          {
+            "name": "HBV DNA viral load (PCR)",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Liver ultrasound / FibroScan and HBeAg testing",
+            "prevalence": 0.55
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "peginterferon-alfa",
+          "name": "Pegylated Interferon Alfa",
+          "kind": "medication",
+          "summary": "A weekly injection given for a fixed course (usually 48 weeks) that boosts the immune system to control hepatitis B. It can lead to a finite, off-treatment response in carefully selected patients but has more side effects than oral antivirals and is not suitable for advanced liver disease."
+        },
+        {
+          "slug": "hbv-birth-dose-vaccine",
+          "name": "Hepatitis B Birth-Dose Vaccine",
+          "kind": "procedure",
+          "summary": "A hepatitis B vaccine dose given within 24 hours of birth, which is the single most effective step to prevent mother-to-child transmission. It is a WHO-recommended cornerstone of eliminating hepatitis B in high-prevalence regions like Africa."
+        },
+        {
+          "slug": "hepatitis-b-immunoglobulin",
+          "name": "Hepatitis B Immunoglobulin (HBIG)",
+          "kind": "medication",
+          "summary": "Ready-made antibodies given for rapid, short-term protection after exposure to hepatitis B, such as a newborn of an infected mother or after a needlestick injury. It is given alongside the vaccine to provide immediate cover while the vaccine builds lasting immunity."
+        },
+        {
+          "slug": "liver-transplant-hbv",
+          "name": "Liver Transplant",
+          "kind": "procedure",
+          "summary": "Replacement of a failing liver in people who develop end-stage liver disease or liver cancer from chronic hepatitis B. With antiviral medication and immunoglobulin to prevent reinfection of the new liver, long-term outcomes are very good."
+        }
+      ]
+    },
+    {
+      "slug": "schistosomiasis",
+      "name": "Schistosomiasis",
+      "category": "infectious",
+      "aliases": [
+        "Bilharzia",
+        "Snail Fever"
+      ],
+      "summary": "Schistosomiasis (also called bilharzia or snail fever) is a parasitic infection caught from freshwater where certain snails live, common in parts of South Africa and across Africa. The good news is that a single course of the tablet praziquantel cures most people, and getting treated early prevents long-term damage to the bladder, bowel, and liver.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "praziquantel",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "praziquantel-repeat-dose",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "praziquantel-preventive-chemotherapy",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "oxamniquine",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "artesunate-adjunct",
+            "effectiveness": 3,
+            "tier": "emerging"
+          },
+          {
+            "slug": "safe-water-sanitation",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "snail-control",
+            "effectiveness": 2.9,
+            "tier": "moderate"
+          },
+          {
+            "slug": "corticosteroid-oral",
+            "effectiveness": 2.8,
+            "tier": "moderate"
+          },
+          {
+            "slug": "oral-iron",
+            "effectiveness": 2.6,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Blood in urine (haematuria)",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Abdominal pain or cramping",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Painful or frequent urination",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Bloody or loose stools (diarrhoea)",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Fatigue and weakness (from anaemia)",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Itchy rash at site of water contact (swimmer's itch)",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Fever, chills and muscle aches (acute Katayama)",
+            "prevalence": 0.25
+          },
+          {
+            "name": "Enlarged liver or spleen",
+            "prevalence": 0.2
+          },
+          {
+            "name": "Genital sores or discharge (female/male genital schistosomiasis)",
+            "prevalence": 0.18
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Swimming, wading or bathing in infested fresh water (lakes, rivers, dams)",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Living in or travelling to an endemic rural area",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Occupational water contact (farming, fishing, washing clothes)",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Poor sanitation and contaminated water sources near snail habitats",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Childhood exposure and repeated re-infection without treatment",
+            "prevalence": 0.45
+          }
+        ],
+        "tests": [
+          {
+            "name": "Urine microscopy for parasite eggs (S. haematobium)",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Stool microscopy for parasite eggs (S. mansoni / Kato-Katz)",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Urine dipstick for blood (haematuria screening)",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Antibody/antigen serology or ultrasound for organ involvement",
+            "prevalence": 0.35
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "praziquantel-repeat-dose",
+          "name": "Praziquantel repeat dose (4-6 weeks later)",
+          "kind": "medication",
+          "summary": "A second course of praziquantel given a few weeks after the first, because the drug does not kill immature worms; repeating the dose catches parasites that have since matured and raises cure rates."
+        },
+        {
+          "slug": "praziquantel-preventive-chemotherapy",
+          "name": "Praziquantel mass drug administration (preventive chemotherapy)",
+          "kind": "medication",
+          "summary": "WHO-recommended community-wide deworming with praziquantel, especially for school-age children in endemic areas, to reduce worm burden, prevent complications, and lower transmission across the population."
+        },
+        {
+          "slug": "oxamniquine",
+          "name": "Oxamniquine",
+          "kind": "medication",
+          "summary": "An older oral antiparasitic effective only against Schistosoma mansoni (intestinal bilharzia). Now rarely used and of limited availability since praziquantel covers all species, but a historical/backup option where praziquantel resistance or intolerance is a concern."
+        },
+        {
+          "slug": "artesunate-adjunct",
+          "name": "Artemisinin derivatives (artesunate) as adjunct",
+          "kind": "medication",
+          "summary": "Antimalarial drugs that also kill young, immature schistosome worms which praziquantel misses. Used in some settings alongside praziquantel or for prevention, complementing rather than replacing the standard cure."
+        },
+        {
+          "slug": "safe-water-sanitation",
+          "name": "Safe water access and improved sanitation",
+          "kind": "lifestyle",
+          "summary": "Avoiding contact with potentially infested fresh water and using safe water plus proper toilets/latrines to prevent egg-contaminated urine and stool from reaching snail habitats. A key prevention and transmission-control measure, not a cure for existing infection."
+        },
+        {
+          "slug": "snail-control",
+          "name": "Snail control (molluscicides and habitat management)",
+          "kind": "lifestyle",
+          "summary": "Reducing the freshwater snails that host the parasite, through molluscicides or environmental management, to interrupt the transmission cycle at the community level. A public-health prevention measure that complements drug treatment, not an individual cure."
+        }
+      ]
+    },
+    {
+      "slug": "rheumatoid-arthritis",
+      "name": "Rheumatoid Arthritis",
+      "category": "autoimmune",
+      "aliases": [
+        "RA"
+      ],
+      "summary": "Rheumatoid arthritis is an autoimmune condition where your immune system attacks the lining of your joints, causing pain, swelling, and stiffness that's often worst in the morning. Starting DMARD medication like methotrexate early can calm the inflammation, protect your joints from lasting damage, and help many people reach low disease activity or remission.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "methotrexate",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "biologic-dmard",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "leflunomide",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "sulfasalazine",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "corticosteroid-oral",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "hydroxychloroquine",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "physiotherapy",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "nsaid",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "strength-training",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "omega-3",
+            "effectiveness": 2.7,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Joint pain",
+            "prevalence": 0.94
+          },
+          {
+            "name": "Morning stiffness (over 30 minutes)",
+            "prevalence": 0.88
+          },
+          {
+            "name": "Swollen joints",
+            "prevalence": 0.84
+          },
+          {
+            "name": "Fatigue",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Symmetrical hand and wrist involvement",
+            "prevalence": 0.74
+          },
+          {
+            "name": "Reduced grip strength",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Low-grade fever or malaise",
+            "prevalence": 0.34
+          },
+          {
+            "name": "Rheumatoid nodules",
+            "prevalence": 0.22
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Stress",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Missed or stopped medication",
+            "prevalence": 0.46
+          },
+          {
+            "name": "Infections",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Smoking",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Cold or damp weather",
+            "prevalence": 0.36
+          }
+        ],
+        "tests": [
+          {
+            "name": "Inflammatory markers (ESR/CRP)",
+            "prevalence": 0.82
+          },
+          {
+            "name": "Anti-CCP antibody",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Rheumatoid factor (RF)",
+            "prevalence": 0.74
+          },
+          {
+            "name": "Joint X-ray or ultrasound",
+            "prevalence": 0.56
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "leflunomide",
+          "name": "Leflunomide (DMARD)",
+          "kind": "medication",
+          "summary": "A conventional synthetic DMARD that suppresses overactive immune cells, used alone or alongside methotrexate to control rheumatoid arthritis when methotrexate isn't suitable or isn't enough."
+        }
+      ]
+    },
+    {
+      "slug": "osteoarthritis",
+      "name": "Osteoarthritis",
+      "category": "musculoskeletal",
+      "aliases": [
+        "OA",
+        "Degenerative Joint Disease"
+      ],
+      "summary": "Osteoarthritis is the most common form of arthritis, where the smooth cartilage that cushions a joint gradually wears down, leading to pain, stiffness, and reduced movement, most often in the knees, hips, hands, and spine. The good news is that staying active, keeping to a healthy weight, and good pain control help most people stay mobile, and for badly worn joints, replacement surgery can dramatically restore comfort and function.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "joint-replacement",
+            "effectiveness": 4.7,
+            "tier": "strong"
+          },
+          {
+            "slug": "strength-training",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "physiotherapy",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "weight-management",
+            "effectiveness": 3.7,
+            "tier": "strong"
+          },
+          {
+            "slug": "nsaid",
+            "effectiveness": 3.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "intra-articular-corticosteroid",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "walking",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "snri-duloxetine",
+            "effectiveness": 2.9,
+            "tier": "moderate"
+          },
+          {
+            "slug": "tens",
+            "effectiveness": 2.4,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Joint pain that worsens with activity and eases with rest",
+            "prevalence": 0.95
+          },
+          {
+            "name": "Joint stiffness, especially in the morning or after resting (typically under 30 minutes)",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Reduced range of motion and difficulty moving the joint",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Grating or crackling sensation (crepitus) when the joint moves",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Joint tenderness when pressed",
+            "prevalence": 0.65
+          },
+          {
+            "name": "Bony swelling or enlargement around the joint (e.g. finger nodes)",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Muscle weakness around the affected joint",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Joint instability or a feeling the joint may give way",
+            "prevalence": 0.35
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Increasing age",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Excess body weight (extra load on knees and hips)",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Previous joint injury or repetitive overuse",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Overexertion or sudden increase in physical activity",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Family history of osteoarthritis",
+            "prevalence": 0.35
+          }
+        ],
+        "tests": [
+          {
+            "name": "Clinical examination and history (the primary basis for diagnosis)",
+            "prevalence": 0.98
+          },
+          {
+            "name": "X-ray of the affected joint (shows joint-space narrowing, osteophytes)",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Blood tests to rule out inflammatory arthritis (e.g. RA, gout)",
+            "prevalence": 0.3
+          },
+          {
+            "name": "MRI scan (when diagnosis is unclear or for detailed assessment)",
+            "prevalence": 0.2
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "intra-articular-corticosteroid",
+          "name": "Intra-articular Corticosteroid Injection",
+          "kind": "procedure",
+          "summary": "A steroid injected directly into the affected joint to reduce inflammation and provide short-term pain relief during flares; benefit typically lasts weeks to a few months and injections are limited per year."
+        }
+      ]
+    },
+    {
+      "slug": "lupus",
+      "name": "Lupus (SLE)",
+      "category": "autoimmune",
+      "aliases": [
+        "SLE",
+        "Systemic Lupus Erythematosus"
+      ],
+      "summary": "Lupus is an autoimmune condition where the immune system mistakenly attacks the body's own tissues, causing inflammation that can affect the skin, joints, kidneys, blood, and other organs, often with flares and quieter periods. It tends to be more common and more severe in people of African ancestry, but with the right long-term medication, most people can control their symptoms and protect their organs.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "hydroxychloroquine",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "corticosteroid-oral",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "immunosuppressant",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "belimumab",
+            "effectiveness": 3.7,
+            "tier": "strong"
+          },
+          {
+            "slug": "nsaid",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "sun-protection",
+            "effectiveness": 3.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "vitamin-d",
+            "effectiveness": 2.7,
+            "tier": "emerging"
+          },
+          {
+            "slug": "pacing",
+            "effectiveness": 2.8,
+            "tier": "emerging"
+          },
+          {
+            "slug": "omega-3",
+            "effectiveness": 2.6,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Fatigue",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Joint pain and swelling",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Skin rash (including butterfly/malar rash)",
+            "prevalence": 0.65
+          },
+          {
+            "name": "Photosensitivity (sun-triggered flares)",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Mouth or nose ulcers",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Hair loss",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Fever during flares",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Kidney involvement (lupus nephritis)",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Raynaud's (cold, colour-changing fingers)",
+            "prevalence": 0.3
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Sun and UV exposure",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Stress",
+            "prevalence": 0.58
+          },
+          {
+            "name": "Infections",
+            "prevalence": 0.48
+          },
+          {
+            "name": "Missed or stopped medication",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Pregnancy and hormonal changes",
+            "prevalence": 0.3
+          }
+        ],
+        "tests": [
+          {
+            "name": "ANA (antinuclear antibody) blood test",
+            "prevalence": 0.95
+          },
+          {
+            "name": "Anti-dsDNA and anti-Smith antibodies",
+            "prevalence": 0.65
+          },
+          {
+            "name": "Complement levels (C3, C4) and full blood count",
+            "prevalence": 0.72
+          },
+          {
+            "name": "Urine test and kidney biopsy (for nephritis)",
+            "prevalence": 0.45
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "belimumab",
+          "name": "Belimumab (Biologic for Lupus)",
+          "kind": "medication",
+          "summary": "A targeted biologic (B-lymphocyte stimulator inhibitor) approved for systemic lupus, used as add-on therapy to reduce flares and steroid dependence in active disease, including lupus nephritis."
+        },
+        {
+          "slug": "sun-protection",
+          "name": "Sun Protection (UV Avoidance & Sunscreen)",
+          "kind": "lifestyle",
+          "summary": "Daily broad-spectrum sunscreen, protective clothing, and avoiding peak UV are important in lupus because sunlight commonly triggers skin and systemic flares. A core preventive measure alongside medication, not a replacement for it."
+        }
+      ]
+    },
+    {
+      "slug": "gout",
+      "name": "Gout",
+      "category": "musculoskeletal",
+      "aliases": [
+        "Gouty Arthritis",
+        "Crystal Arthritis",
+        "Urate Arthropathy"
+      ],
+      "summary": "Gout is a form of inflammatory arthritis caused by sharp uric-acid crystals building up in a joint, often triggering sudden, intensely painful attacks that frequently start in the big toe. The good news is that it is very treatable: daily urate-lowering medication like allopurinol can prevent future attacks for most people, while anti-inflammatories settle a flare when one strikes.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "allopurinol",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "nsaid",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "colchicine",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "corticosteroid-oral",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "febuxostat",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "weight-management",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "alcohol-reduction",
+            "effectiveness": 2.9,
+            "tier": "moderate"
+          },
+          {
+            "slug": "low-purine-diet",
+            "effectiveness": 2.8,
+            "tier": "moderate"
+          },
+          {
+            "slug": "vitamin-c",
+            "effectiveness": 2.3,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Sudden, severe joint pain (often the big toe)",
+            "prevalence": 0.95
+          },
+          {
+            "name": "Joint swelling",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Redness over the affected joint",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Warmth and tenderness in the joint",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Extreme sensitivity (even a bedsheet hurts)",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Limited range of motion in the joint",
+            "prevalence": 0.65
+          },
+          {
+            "name": "Peeling, itchy skin as the flare settles",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Tophi (hard urate lumps under the skin)",
+            "prevalence": 0.25
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Alcohol, especially beer and spirits",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Purine-rich foods (red meat, organ meat, shellfish)",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Sugary or fructose-sweetened drinks",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Dehydration",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Diuretics or sudden changes in urate-lowering medication",
+            "prevalence": 0.35
+          }
+        ],
+        "tests": [
+          {
+            "name": "Serum uric acid blood test",
+            "prevalence": 0.95
+          },
+          {
+            "name": "Joint fluid analysis for urate crystals",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Kidney function and metabolic blood panel",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Ultrasound or dual-energy CT of the joint",
+            "prevalence": 0.3
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "febuxostat",
+          "name": "Febuxostat (Urate-Lowering Therapy)",
+          "kind": "medication",
+          "summary": "A xanthine-oxidase inhibitor that lowers uric acid, used as an alternative urate-lowering therapy when allopurinol is not tolerated or fails to reach the target urate level."
+        },
+        {
+          "slug": "low-purine-diet",
+          "name": "Low-Purine Diet",
+          "kind": "lifestyle",
+          "summary": "Reducing high-purine foods such as red and organ meats, shellfish, and sugary drinks to help lower uric acid as an adjunct to medication, not a replacement for it."
+        },
+        {
+          "slug": "alcohol-reduction",
+          "name": "Alcohol Reduction",
+          "kind": "lifestyle",
+          "summary": "Cutting back on alcohol, especially beer and spirits, to reduce uric-acid spikes and lower the frequency of gout flares alongside medical treatment."
+        },
+        {
+          "slug": "vitamin-c",
+          "name": "Vitamin C Supplement",
+          "kind": "supplement",
+          "summary": "Vitamin C may modestly lower serum uric acid; an emerging-evidence adjunct only, not a substitute for urate-lowering medication."
+        }
+      ]
+    },
+    {
+      "slug": "iron-deficiency-anemia",
+      "name": "Iron-Deficiency Anaemia",
+      "category": "blood",
+      "aliases": [
+        "Anaemia",
+        "Anemia",
+        "IDA"
+      ],
+      "summary": "Iron-deficiency anaemia happens when your body doesn't have enough iron to make healthy red blood cells, which can leave you tired, pale, and short of breath. The good news is that it's very treatable: replacing the iron and finding and fixing the cause of the loss almost always brings your blood count and energy back to normal.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "oral-iron",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "iv-iron",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "blood-transfusion",
+            "effectiveness": 4.3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "deworming-therapy",
+            "effectiveness": 3.5,
+            "tier": "moderate"
+          },
+          {
+            "slug": "praziquantel",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "vitamin-c-cofactor",
+            "effectiveness": 2.8,
+            "tier": "moderate"
+          },
+          {
+            "slug": "iron-rich-diet",
+            "effectiveness": 2.7,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Fatigue and low energy",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Pallor (pale skin, lips, and inner eyelids)",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Shortness of breath on exertion",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Dizziness or light-headedness",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Heart palpitations or fast heartbeat",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Headaches",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Brittle or spoon-shaped nails",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Pica (craving ice, soil, or starch)",
+            "prevalence": 0.2
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Heavy menstrual bleeding",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Pregnancy and breastfeeding (increased iron demand)",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Parasitic infections (hookworm, schistosomiasis)",
+            "prevalence": 0.35
+          },
+          {
+            "name": "Poor dietary iron intake or low-iron diet",
+            "prevalence": 0.35
+          },
+          {
+            "name": "Chronic gastrointestinal blood loss (ulcers, cancer)",
+            "prevalence": 0.2
+          }
+        ],
+        "tests": [
+          {
+            "name": "Full blood count (haemoglobin, MCV)",
+            "prevalence": 0.98
+          },
+          {
+            "name": "Serum ferritin",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Iron studies (serum iron, TIBC, transferrin saturation)",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Stool test for parasites or occult blood",
+            "prevalence": 0.4
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "deworming-therapy",
+          "name": "Deworming Therapy (e.g. Albendazole/Mebendazole)",
+          "kind": "medication",
+          "summary": "Antiparasitic tablets that clear intestinal worms such as hookworm, a major and treatable cause of iron-deficiency anaemia in Africa. Used alongside iron replacement to stop ongoing blood and iron loss when worms are the cause."
+        },
+        {
+          "slug": "vitamin-c-cofactor",
+          "name": "Vitamin C (with iron)",
+          "kind": "supplement",
+          "summary": "Taking vitamin C, or eating vitamin-C-rich foods, with iron tablets boosts how much iron the gut absorbs. An inexpensive adjunct that makes iron repletion more effective, not a stand-alone treatment."
+        },
+        {
+          "slug": "iron-rich-diet",
+          "name": "Iron-Rich Diet",
+          "kind": "lifestyle",
+          "summary": "Eating more iron-rich foods like red meat, liver, beans, lentils, and dark leafy greens helps maintain iron levels and prevent relapse. A supportive measure that complements, but cannot replace, medical iron treatment in established anaemia."
+        }
+      ]
+    },
+    {
+      "slug": "schizophrenia",
+      "name": "Schizophrenia",
+      "category": "mental",
+      "aliases": [
+        "Psychosis",
+        "Schizophrenia spectrum"
+      ],
+      "summary": "Schizophrenia is a serious but treatable mental illness that can affect how a person thinks, feels, and tells apart what is real, often bringing hallucinations, strong beliefs others do not share, and changes in motivation or emotion. With steady antipsychotic medication and good support from family and a care team, many people manage their symptoms well and live full, meaningful lives.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "antipsychotic",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "long-acting-antipsychotic",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "clozapine",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "cbt",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "support-group",
+            "effectiveness": 3.1,
+            "tier": "moderate"
+          },
+          {
+            "slug": "occupational-therapy",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "walking",
+            "effectiveness": 2.9,
+            "tier": "emerging"
+          },
+          {
+            "slug": "omega-3",
+            "effectiveness": 2.4,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Delusions (fixed false beliefs)",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Hallucinations (often hearing voices)",
+            "prevalence": 0.74
+          },
+          {
+            "name": "Social withdrawal",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Reduced motivation and flat emotion",
+            "prevalence": 0.68
+          },
+          {
+            "name": "Trouble concentrating and remembering",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Disorganised thinking or speech",
+            "prevalence": 0.58
+          },
+          {
+            "name": "Lack of insight into being unwell",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Sleep disturbance",
+            "prevalence": 0.5
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Stopping or missing medication",
+            "prevalence": 0.72
+          },
+          {
+            "name": "Cannabis and other substance use",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Major life stress or trauma",
+            "prevalence": 0.52
+          },
+          {
+            "name": "Sleep deprivation",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Social isolation",
+            "prevalence": 0.4
+          }
+        ],
+        "tests": [
+          {
+            "name": "Psychiatric clinical interview",
+            "prevalence": 0.92
+          },
+          {
+            "name": "Mental state examination",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Bloods and brain imaging to exclude other causes",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Urine drug screen",
+            "prevalence": 0.48
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "clozapine",
+          "name": "Clozapine",
+          "kind": "medication",
+          "summary": "The most effective antipsychotic for treatment-resistant schizophrenia, used when two other antipsychotics have not worked. It requires regular blood monitoring because of a rare risk to white blood cells, but can be life-changing for symptoms that have not responded to other medicines."
+        }
+      ]
+    },
+    {
+      "slug": "alcohol-use-disorder",
+      "name": "Alcohol Use Disorder",
+      "category": "mental",
+      "aliases": [
+        "Alcoholism",
+        "AUD",
+        "Alcohol Dependence"
+      ],
+      "summary": "Alcohol Use Disorder is a treatable condition where drinking becomes hard to control and starts to harm your health, relationships, or daily life, despite wanting to cut down. Recovery is very possible: a combination of counselling, peer support, and relapse-prevention medication helps many people drink less or stop, and reaching out for help is a sign of strength rather than weakness.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "cbt",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "naltrexone-aud",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "support-group",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "acamprosate",
+            "effectiveness": 3.7,
+            "tier": "strong"
+          },
+          {
+            "slug": "motivational-interviewing",
+            "effectiveness": 3.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "disulfiram",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "act",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "thiamine",
+            "effectiveness": 2.6,
+            "tier": "moderate"
+          },
+          {
+            "slug": "exercise-program",
+            "effectiveness": 2.7,
+            "tier": "emerging"
+          },
+          {
+            "slug": "ssri-sertraline",
+            "effectiveness": 2.2,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Craving — a strong urge or compulsion to drink",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Loss of control over how much or how often you drink",
+            "prevalence": 0.88
+          },
+          {
+            "name": "Continuing to drink despite harm to health, work, or relationships",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Tolerance — needing more alcohol for the same effect",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Failed attempts to cut down or stop",
+            "prevalence": 0.75
+          },
+          {
+            "name": "Neglecting responsibilities or activities you used to enjoy",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Spending a lot of time drinking or recovering from drinking",
+            "prevalence": 0.68
+          },
+          {
+            "name": "Withdrawal symptoms (shaking, sweating, anxiety, nausea) when not drinking",
+            "prevalence": 0.6
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Stress, anxiety, or low mood",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Social settings, peer pressure, and easy alcohol availability",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Cues and routines linked to drinking (places, people, times of day)",
+            "prevalence": 0.65
+          },
+          {
+            "name": "Trauma, grief, or relationship conflict",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Family history of alcohol problems",
+            "prevalence": 0.5
+          }
+        ],
+        "tests": [
+          {
+            "name": "AUDIT or AUDIT-C screening questionnaire",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Liver function tests and GGT (blood test)",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Full blood count including MCV (red-cell size)",
+            "prevalence": 0.6
+          },
+          {
+            "name": "CAGE screening questions",
+            "prevalence": 0.55
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "motivational-interviewing",
+          "name": "Motivational Interviewing / Enhancement Therapy",
+          "kind": "therapy",
+          "summary": "A collaborative, non-judgemental counselling style that strengthens a person's own motivation to change drinking. Strong evidence in alcohol use disorder, especially as a brief intervention and to engage people in further treatment."
+        },
+        {
+          "slug": "exercise-program",
+          "name": "Structured Exercise Program",
+          "kind": "lifestyle",
+          "summary": "Regular aerobic and strength activity used as an adjunct in recovery to reduce cravings, improve mood and sleep, and support overall health. Helpful alongside — never instead of — counselling and relapse-prevention medication."
+        }
+      ]
+    },
+    {
+      "slug": "cervical-cancer",
+      "name": "Cervical Cancer",
+      "category": "cancer",
+      "aliases": [
+        "Cervix Cancer",
+        "Cancer of the Uterine Cervix"
+      ],
+      "summary": "Cervical cancer develops in the cells of the cervix and is almost always caused by long-term infection with high-risk HPV, with HIV greatly raising the risk. The encouraging news is that it is one of the most preventable and, when caught early, most treatable cancers: HPV vaccination and regular screening stop most cases, while surgery, radiation, and chemotherapy can cure or control disease that has already developed.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "radical-hysterectomy",
+            "effectiveness": 4.7,
+            "tier": "strong"
+          },
+          {
+            "slug": "chemoradiation",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "hpv-vaccine",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "cervical-screening",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "radiotherapy",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "art-tld",
+            "effectiveness": 4.3,
+            "tier": "strong"
+          },
+          {
+            "slug": "chemotherapy",
+            "effectiveness": 3.3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "long-acting-pain-management",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Abnormal vaginal bleeding (between periods, after sex, or after menopause)",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Unusual or foul-smelling vaginal discharge",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Pain or bleeding during or after sex",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Pelvic or lower-back pain",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Heavier or prolonged irregular vaginal bleeding",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Leg swelling or pain (advanced disease)",
+            "prevalence": 0.2
+          },
+          {
+            "name": "Unexplained weight loss and fatigue",
+            "prevalence": 0.18
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Persistent high-risk HPV infection",
+            "prevalence": 0.99
+          },
+          {
+            "name": "HIV infection / weakened immune system",
+            "prevalence": 0.6
+          },
+          {
+            "name": "No or infrequent cervical screening",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Smoking",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Early or multiple sexual partners without protection",
+            "prevalence": 0.45
+          }
+        ],
+        "tests": [
+          {
+            "name": "Cervical screening (Pap smear / HPV test / VIA)",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Colposcopy with cervical biopsy",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Pelvic exam and staging imaging (MRI / CT / ultrasound)",
+            "prevalence": 0.7
+          },
+          {
+            "name": "HIV test",
+            "prevalence": 0.8
+          }
+        ]
+      },
+      "extraTreatments": [
+        {
+          "slug": "radical-hysterectomy",
+          "name": "Surgery (Radical Hysterectomy / Conization)",
+          "kind": "procedure",
+          "summary": "Surgical removal of the cancer, ranging from a cone biopsy or trachelectomy for very early disease to a radical hysterectomy removing the cervix, uterus, and nearby tissue. Often curative for early-stage cervical cancer."
+        },
+        {
+          "slug": "chemoradiation",
+          "name": "Concurrent Chemoradiation (with Brachytherapy)",
+          "kind": "procedure",
+          "summary": "The standard curative treatment for locally advanced cervical cancer: cisplatin-based chemotherapy given alongside external-beam radiation plus internal radiation (brachytherapy) to maximise tumour control."
+        }
+      ]
+    },
+    {
+      "slug": "heart-failure",
+      "name": "Heart Failure",
+      "category": "cardiovascular",
+      "aliases": [
+        "Congestive Heart Failure",
+        "CHF"
+      ],
+      "summary": "Heart failure means the heart can't pump strongly enough to meet the body's needs, often after years of high blood pressure, a damaged heart valve, or a previous heart attack. It is a serious but very treatable condition: the right combination of daily medicines, salt and fluid awareness, and regular check-ups can ease breathlessness and swelling, keep you out of hospital, and help you live longer.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "ras-inhibitor-heart-failure",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "beta-blocker",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "ace-inhibitor",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "mra",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "sglt2-inhibitor",
+            "effectiveness": 4.3,
+            "tier": "strong"
+          },
+          {
+            "slug": "loop-diuretic",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "arb",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "dash-diet",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "weight-management",
+            "effectiveness": 2.8,
+            "tier": "moderate"
+          },
+          {
+            "slug": "walking",
+            "effectiveness": 2.7,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Shortness of breath (especially on exertion)",
+            "prevalence": 0.92
+          },
+          {
+            "name": "Fatigue and low energy",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Swelling of the legs, ankles, or feet (oedema)",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Breathlessness when lying flat (orthopnoea)",
+            "prevalence": 0.66
+          },
+          {
+            "name": "Waking at night gasping for breath (paroxysmal nocturnal dyspnoea)",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Rapid or irregular heartbeat (palpitations)",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Persistent cough or wheeze",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Reduced appetite or feeling bloated",
+            "prevalence": 0.38
+          },
+          {
+            "name": "Sudden weight gain from fluid build-up",
+            "prevalence": 0.36
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Uncontrolled high blood pressure",
+            "prevalence": 0.62
+          },
+          {
+            "name": "High salt or fluid intake",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Missing or stopping heart medication",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Chest infection or other illness",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Alcohol or stimulant use",
+            "prevalence": 0.3
+          }
+        ],
+        "tests": [
+          {
+            "name": "Echocardiogram (heart ultrasound, ejection fraction)",
+            "prevalence": 0.9
+          },
+          {
+            "name": "ECG (electrocardiogram)",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Chest X-ray",
+            "prevalence": 0.7
+          },
+          {
+            "name": "BNP / NT-proBNP blood test",
+            "prevalence": 0.62
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "fasd",
+      "name": "Fetal Alcohol Spectrum Disorder",
+      "category": "neurological",
+      "aliases": [
+        "FASD",
+        "FAS",
+        "Foetal Alcohol Spectrum Disorder",
+        "Fetal Alcohol Syndrome"
+      ],
+      "summary": "Fetal Alcohol Spectrum Disorder is a lifelong condition caused by alcohol exposure before birth, which affects how the brain and body develop and can lead to differences in learning, behaviour, and sometimes physical features. There is no cure, but starting support early and building a structured, predictable, and understanding environment at home and school makes a real difference to how well a person thrives.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "early-intervention-fasd",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "occupational-therapy",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "speech-therapy",
+            "effectiveness": 3.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "methylphenidate",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "atomoxetine",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "guanfacine",
+            "effectiveness": 2.9,
+            "tier": "moderate"
+          },
+          {
+            "slug": "melatonin",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "support-group",
+            "effectiveness": 2.9,
+            "tier": "moderate"
+          },
+          {
+            "slug": "antipsychotic",
+            "effectiveness": 2.6,
+            "tier": "moderate"
+          },
+          {
+            "slug": "omega-3",
+            "effectiveness": 2.4,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Learning difficulties and low IQ / intellectual disability",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Attention problems and hyperactivity (ADHD-type symptoms)",
+            "prevalence": 0.75
+          },
+          {
+            "name": "Poor impulse control and difficulty understanding consequences",
+            "prevalence": 0.72
+          },
+          {
+            "name": "Memory and problem-solving (executive function) difficulties",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Delayed speech, language, and motor development",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Emotional dysregulation, anxiety, and behavioural problems",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Distinctive facial features (small eye openings, smooth philtrum, thin upper lip)",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Slow growth and small head size (microcephaly)",
+            "prevalence": 0.35
+          },
+          {
+            "name": "Sleep problems",
+            "prevalence": 0.35
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Any alcohol use during pregnancy (the underlying cause of the condition)",
+            "prevalence": 1
+          },
+          {
+            "name": "Heavy or binge drinking in pregnancy (higher risk and severity)",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Unstructured, unpredictable, or chaotic environments worsening behaviour",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Overstimulation, sensory overload, and changes in routine",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Late diagnosis and lack of early support",
+            "prevalence": 0.5
+          }
+        ],
+        "tests": [
+          {
+            "name": "Clinical assessment of facial features and growth (dysmorphology exam)",
+            "prevalence": 0.85
+          },
+          {
+            "name": "History of confirmed (or, where records are missing, presumed) prenatal alcohol exposure",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Neurodevelopmental and cognitive (IQ / behavioural / executive function) assessment",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Hearing, vision, and developmental screening",
+            "prevalence": 0.55
+          }
+        ]
+      },
+      "extraTreatments": []
+    }
+  ]
+}

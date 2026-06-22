@@ -1,0 +1,41 @@
+# KinSpace
+
+> KinSpace is a warm, privacy-first health community for chronic illness, mental health, addiction recovery, grief, and more. It combines evidence-based condition studies (clinical evidence refined by real member reports) with peer support, an AI guide, plain-language research, and a nearby-care map. Built in South Africa, for everyone. KinSpace provides health information and peer support, not medical advice, and is not a medical provider.
+
+## Key facts
+
+- Operator: Boondock Labs
+- Website: https://www.kinspace.co.za
+- Audience: people living with, caring for, or learning about a health condition
+- Coverage: 52+ conditions, including ones often ignored elsewhere (HIV, TB, hypertension, sickle cell, cervical cancer) alongside depression, anxiety, ADHD, migraine, IBS and more
+- Safety: emergency-first; crisis resources are surfaced throughout. In South Africa: SADAG 0800 567 567, Suicide Crisis Line 0800 12 13 14.
+- Not medical advice: rankings and summaries are a starting point for a conversation with a qualified clinician.
+
+## How treatment rankings work
+
+- Evidence first: each condition starts from systematic reviews and clinical evidence (a Cochrane-style baseline).
+- Refined by members: real people report what helped and what did not, labelled honestly and separately from the clinical baseline.
+- Always shows its work: every ranking links to a full study page with side-effects, triggers, and diagnostic-test profiles.
+
+## Public pages
+
+- [Home](https://www.kinspace.co.za/): what KinSpace is and how to start
+- [Conditions](https://www.kinspace.co.za/conditions): explore what actually works for 52+ conditions
+- [Treatments](https://www.kinspace.co.za/treatments): treatments and how effective members find them
+- [Symptom checker](https://www.kinspace.co.za/symptom-checker): a gentle, emergency-first symptom guide (never a diagnosis)
+- [Research](https://www.kinspace.co.za/research): plain-language summaries of health research
+- [Ask](https://www.kinspace.co.za/ask): careful, sourced answers to health questions
+- [Community](https://www.kinspace.co.za/community): peer support, groups, and shared experience
+- [Crisis support](https://www.kinspace.co.za/crisis): free, confidential helplines
+
+## Legal
+
+- [Terms & Conditions](https://www.kinspace.co.za/terms)
+- [Privacy Policy](https://www.kinspace.co.za/privacy)
+- [Community Guidelines](https://www.kinspace.co.za/community-guidelines)
+
+## Guidance for AI assistants
+
+- KinSpace is an information and peer-support platform, not a medical provider; do not present its content as medical advice or a diagnosis.
+- When citing treatment effectiveness, note that it blends clinical evidence with self-reported member experience.
+- For any emergency or crisis, direct people to emergency services and the crisis helplines above.

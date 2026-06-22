@@ -27,6 +27,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe()
   }, [])
 
+  // Expose auth state to CSS so the page shell only reserves the fixed-sidebar
+  // gutter for signed-in members. Anonymous visitors on public pages (e.g.
+  // /conditions) then render with the marketing chrome, not the app sidebar.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.documentElement.dataset.authed = user ? 'true' : 'false'
+  }, [user])
+
   const signOut = async () => {
     await AuthService.signOut()
     setUser(null)

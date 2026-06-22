@@ -1,20 +1,31 @@
 'use client'
 
+import { Alert, Button, LinkButton } from '@/components/ui'
+
 export default function Error({ error, reset }: { error: Error; reset: () => void }) {
   return (
-    <div className="min-h-screen bg-brand-primary flex items-center justify-center p-6">
-      <div className="text-center max-w-sm">
-        <div className="w-20 h-20 bg-[#eedfc8]/10 rounded-full flex items-center justify-center mx-auto mb-6">
-          <i className="ri-error-warning-line text-brand-accent1 text-3xl"></i>
+    <main className="page-shell flex items-center justify-center">
+      <div className="page-container flex max-w-md flex-col items-center text-center">
+        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-brand-background/10">
+          <i className="ri-error-warning-line text-3xl text-brand-accent1" aria-hidden="true"></i>
         </div>
-        <h1 className="text-2xl font-bold text-[#eedfc8] mb-3">Something went wrong</h1>
-        <p className="text-[#eedfc8]/60 mb-6 text-sm">
-          {error.message || 'An unexpected error occurred. Please try again.'}
+        <h1 className="mb-3 text-2xl font-bold text-brand-background">Something went wrong</h1>
+        <p className="mb-6 text-sm text-brand-background/70">
+          This one’s on us - not on you. You can try again, and if it keeps happening, take a breath
+          and come back in a little while.
         </p>
-        <button onClick={reset} className="btn-primary">
-          Try Again
-        </button>
+        <Alert tone="error" className="mb-6 w-full text-left">
+          {error.message || 'An unexpected error occurred. Please try again.'}
+        </Alert>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button onClick={reset} leadingIcon={<i className="ri-refresh-line" aria-hidden="true" />}>
+            Try again
+          </Button>
+          <LinkButton href="/" variant="secondary">
+            Go home
+          </LinkButton>
+        </div>
       </div>
-    </div>
+    </main>
   )
 }

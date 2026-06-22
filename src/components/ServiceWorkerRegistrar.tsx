@@ -1,25 +1,25 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-
-type BeforeInstallPromptEvent = Event & {
-  readonly platforms: string[]
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
-}
+import {
+  initPwaInstall,
+  subscribePwaInstall,
+  canPromptInstall,
+  isInstalled,
+  promptInstall,
+} from '@/lib/pwa-install'
 
 const DISMISS_KEY = 'kinspace:install-dismissed-at'
 const DISMISS_TTL_MS = 14 * 24 * 60 * 60 * 1000 // 14 days
 
 export default function ServiceWorkerRegistrar() {
-  const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [, setTick] = useState(0)
   const [visible, setVisible] = useState(false)
-  const [alreadyInstalled, setAlreadyInstalled] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    // Register service worker after page load so it doesn't compete with LCP
+    // Register the service worker after load so it doesn't compete with LCP.
     if ('serviceWorker' in navigator) {
       const register = () => {
         navigator.serviceWorker.register('/sw.js').catch(() => undefined)
@@ -31,51 +31,28 @@ export default function ServiceWorkerRegistrar() {
       }
     }
 
-    // Detect already-installed PWA
-    const isStandalone =
-      window.matchMedia?.('(display-mode: standalone)').matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true
-    if (isStandalone) {
-      setAlreadyInstalled(true)
-      return
-    }
+    // Install prompt is owned by the shared controller (so the explicit
+    // "Install app" button and this auto-banner share the one-shot event).
+    initPwaInstall()
 
     const dismissedAt = Number(window.localStorage.getItem(DISMISS_KEY) ?? '0')
-    const recentlyDismissed = dismissedAt && Date.now() - dismissedAt < DISMISS_TTL_MS
+    const recentlyDismissed = Boolean(dismissedAt) && Date.now() - dismissedAt < DISMISS_TTL_MS
 
-    function handleBeforeInstall(event: Event) {
-      event.preventDefault()
-      setPrompt(event as BeforeInstallPromptEvent)
-      if (!recentlyDismissed) {
+    const sync = () => {
+      setTick((n) => n + 1)
+      if (canPromptInstall() && !isInstalled() && !recentlyDismissed) {
+        // Gentle delay so the banner doesn't interrupt the first impression.
         setTimeout(() => setVisible(true), 4000)
       }
+      if (isInstalled()) setVisible(false)
     }
-
-    function handleInstalled() {
-      setVisible(false)
-      setPrompt(null)
-      setAlreadyInstalled(true)
-    }
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall)
-    window.addEventListener('appinstalled', handleInstalled)
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
-      window.removeEventListener('appinstalled', handleInstalled)
-    }
+    sync()
+    return subscribePwaInstall(sync)
   }, [])
 
   async function acceptInstall() {
-    if (!prompt) return
-    try {
-      await prompt.prompt()
-      await prompt.userChoice
-    } catch {
-      // user cancelled — that's fine
-    } finally {
-      setVisible(false)
-      setPrompt(null)
-    }
+    await promptInstall()
+    setVisible(false)
   }
 
   function dismiss() {
@@ -85,7 +62,7 @@ export default function ServiceWorkerRegistrar() {
     }
   }
 
-  if (!visible || !prompt || alreadyInstalled) return null
+  if (!visible || isInstalled() || !canPromptInstall()) return null
 
   return (
     <div

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
+import InstallAppButton from '@/components/InstallAppButton'
 import PlatformAvatarPicker from '@/components/PlatformAvatarPicker'
 import ProfileAvatar from '@/components/ProfileAvatar'
 import { useAuth } from '@/lib/AuthContext'
@@ -11,6 +12,8 @@ import { EncryptionService } from '@/lib/encryption'
 import { invalidateCachedProfile } from '@/lib/profile-cache'
 import { resolveAvatarUrl } from '@/lib/profile-avatars'
 import { StorageService } from '@/lib/storage'
+import { isSfxEnabled, setSfxEnabled, playSfx } from '@/lib/audio/sfx'
+import { Button, Card, Input, Textarea, Field, Badge, Skeleton } from '@/components/ui'
 
 interface ProfileData {
   full_name: string
@@ -24,10 +27,13 @@ interface ProfileData {
   medications: string[]
   status: string
   is_anonymous: boolean
+  anonymous_profile_visibility: string
+  share_health_with_guide: boolean
   preferred_communication: string
   notify_matches: boolean
   notify_messages: boolean
   notify_groups: boolean
+  hide_conditions_on_profile: boolean
   avatar_url?: string | null
   [key: string]: unknown
 }
@@ -44,10 +50,13 @@ const defaultProfile: ProfileData = {
   medications: [],
   status: '',
   is_anonymous: false,
+  anonymous_profile_visibility: 'connections',
+  share_health_with_guide: true,
   preferred_communication: 'chat',
   notify_matches: true,
   notify_messages: true,
   notify_groups: true,
+  hide_conditions_on_profile: false,
 }
 
 const pronounOptions = ['He/Him', 'She/Her', 'They/Them', 'Ze/Zir', 'Prefer not to say']
@@ -56,6 +65,8 @@ const communicationOptions = [
   { value: 'voice', label: 'Voice', icon: 'ri-mic-line' },
   { value: 'video', label: 'Video', icon: 'ri-vidicon-line' },
 ]
+
+type BlockedRow = { user_id: string; profile: { username?: string; full_name?: string | null } | null }
 
 export default function Settings() {
   const { user, loading: authLoading, signOut } = useAuth()
@@ -68,6 +79,42 @@ export default function Settings() {
   const [comorbidityInput, setComorbidityInput] = useState('')
   const [medicationInput, setMedicationInput] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [blockedUsers, setBlockedUsers] = useState<BlockedRow[]>([])
+  // Sound preference is device-local (localStorage), saved instantly rather than via the profile save.
+  const [soundOn, setSoundOn] = useState(true)
+
+  useEffect(() => {
+    setSoundOn(isSfxEnabled())
+  }, [])
+
+  const handleToggleSound = () => {
+    const next = !soundOn
+    setSfxEnabled(next)
+    setSoundOn(next)
+    if (next) playSfx('toggle')
+  }
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    DatabaseService.getBlockedUsers()
+      .then((rows) => {
+        if (!cancelled) setBlockedUsers((Array.isArray(rows) ? rows : []) as BlockedRow[])
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
+  const handleUnblock = async (id: string) => {
+    try {
+      await DatabaseService.unblockUser(id)
+      setBlockedUsers((prev) => prev.filter((b) => b.user_id !== id))
+    } catch {
+      // best effort
+    }
+  }
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [usernameError, setUsernameError] = useState<string | null>(null)
   const usernameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -149,10 +196,20 @@ export default function Settings() {
             ...defaultProfile,
             ...data,
             ...healthFields,
+            // Coalesce nullable DB columns so controlled inputs never receive null.
+            full_name: (data.full_name as string | null) ?? '',
+            username: (data.username as string | null) ?? '',
+            bio: (data.bio as string | null) ?? '',
+            location: (data.location as string | null) ?? '',
+            pronouns: (data.pronouns as string | null) ?? '',
+            status: (data.status as string | null) ?? '',
             age: data.age ? String(data.age) : '',
             notify_matches: data.notify_matches !== false,
             notify_messages: data.notify_messages !== false,
             notify_groups: data.notify_groups !== false,
+            share_health_with_guide: data.share_health_with_guide !== false,
+            anonymous_profile_visibility: (data.anonymous_profile_visibility as string) || 'connections',
+            hide_conditions_on_profile: data.hide_conditions_on_profile === true,
           } as ProfileData)
         }
       } catch (err) {
@@ -204,10 +261,13 @@ export default function Settings() {
         age: profile.age ? parseInt(profile.age, 10) : null,
         pronouns: profile.pronouns,
         is_anonymous: profile.is_anonymous,
+        anonymous_profile_visibility: profile.anonymous_profile_visibility,
+        share_health_with_guide: profile.share_health_with_guide,
         preferred_communication: profile.preferred_communication,
         notify_matches: profile.notify_matches,
         notify_messages: profile.notify_messages,
         notify_groups: profile.notify_groups,
+        hide_conditions_on_profile: profile.hide_conditions_on_profile,
         // Store encrypted health data (plaintext fields zeroed out by encryptFields)
         ...encryptedFields,
       }
@@ -261,70 +321,72 @@ export default function Settings() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-brand-primary pb-24 md:pb-28">
-        <div className="mx-auto w-full max-w-4xl px-4 pt-14 space-y-6">
-          <div className="h-8 w-32 skeleton rounded-lg" />
-          <div className="h-20 skeleton rounded-xl" />
+      <main className="page-shell min-h-screen">
+        <div className="page-container max-w-3xl space-y-6 pt-14">
+          <Skeleton className="h-8 w-32 rounded-lg" />
+          <Skeleton className="h-20 rounded-2xl" />
           <div className="space-y-4">
             {Array(5).fill(0).map((_, i) => (
-              <div key={i} className="h-14 skeleton rounded-xl" />
+              <Skeleton key={i} className="h-14 rounded-2xl" />
             ))}
           </div>
         </div>
         <BottomNav />
-      </div>
+      </main>
     )
   }
 
   return (
-    <div className="min-h-screen bg-brand-primary pb-24 md:pb-28">
+    <main className="page-shell min-h-screen">
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-4 left-4 right-4 z-50 p-3 rounded-xl flex items-center gap-2 text-sm font-medium shadow-lg transition-all ${
-          toast.type === 'success'
-            ? 'bg-brand-accent3/90 text-[#eedfc8]'
-            : 'bg-[#B85C3A]/90 text-white'
-        }`}>
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed left-4 right-4 top-4 z-50 mx-auto flex max-w-md items-center gap-2 rounded-xl p-3 text-sm font-medium shadow-lg transition-all ${
+            toast.type === 'success'
+              ? 'bg-brand-accent3/90 text-brand-background'
+              : 'bg-brand-accent1/90 text-white'
+          }`}
+        >
           <i className={toast.type === 'success' ? 'ri-check-line' : 'ri-error-warning-line'} />
           {toast.message}
         </div>
       )}
 
       {/* Header */}
-      <div className="mx-auto w-full max-w-4xl px-4 pt-14 pb-4">
-        <div className="flex items-center justify-between">
+      <div className="page-container max-w-3xl pb-4 pt-14">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="w-9 h-9 rounded-full bg-[#eedfc8]/5 flex items-center justify-center text-[#eedfc8] hover:bg-[#eedfc8]/10 transition-colors"
+              aria-label="Go back"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-background/5 text-brand-background transition-colors hover:bg-brand-background/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
             >
               <i className="ri-arrow-left-line text-lg" />
             </button>
-            <h1 className="text-xl font-bold text-[#eedfc8]">Settings</h1>
+            <div>
+              <h1 className="text-2xl font-bold text-brand-background">Settings</h1>
+              <p className="text-sm text-brand-background/55">Manage your profile, privacy, and notifications.</p>
+            </div>
           </div>
-          <button
+          <Button
             onClick={handleSave}
             disabled={saving}
-            className="btn-primary !py-2 !px-5 flex items-center gap-1.5 disabled:opacity-50"
+            isLoading={saving}
+            size="sm"
+            leadingIcon={!saving ? <i className="ri-check-line" /> : undefined}
           >
-            {saving ? (
-              <>
-                <i className="ri-loader-4-line animate-spin" /> Saving...
-              </>
-            ) : (
-              <>
-                <i className="ri-check-line" /> Save
-              </>
-            )}
-          </button>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-4xl px-4 space-y-6">
+      <div className="page-container max-w-3xl space-y-6">
         {/* Profile Section */}
-        <section>
-          <h2 className="section-title flex items-center gap-2">
-            <i className="ri-user-line text-[#D19A58]" /> Profile
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-brand-background">
+            <i className="ri-user-line text-brand-accent2" /> Profile
           </h2>
           <div className="space-y-4">
             {/* Avatar Upload Placeholder */}
@@ -333,7 +395,7 @@ export default function Settings() {
                 <ProfileAvatar
                   alt="Avatar"
                   avatarUrl={profile.avatar_url}
-                  className="w-16 h-16 rounded-full object-cover border-2 border-[#D19A58]"
+                  className="h-16 w-16 rounded-full border-2 border-brand-accent2 object-cover"
                   fullName={profile.full_name}
                   userId={user?.userId}
                   username={profile.username}
@@ -341,7 +403,8 @@ export default function Settings() {
                 <button
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={uploadingAvatar}
-                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#B85C3A] flex items-center justify-center text-white shadow-lg"
+                  aria-label="Change profile photo"
+                  className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-brand-accent1 text-white shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60"
                 >
                   {uploadingAvatar ? (
                     <i className="ri-loader-4-line animate-spin text-xs" />
@@ -357,23 +420,25 @@ export default function Settings() {
                   className="hidden"
                 />
               </div>
-              <div className="flex-1 space-y-3">
-                <p className="text-[#eedfc8] text-sm font-medium">Profile Photo</p>
-                <p className="text-[#eedfc8]/40 text-xs">
+              <div className="flex-1 space-y-2">
+                <p className="text-sm font-medium text-brand-background">Profile photo</p>
+                <p className="text-xs text-brand-background/45">
                   Upload your own or choose a KinSpace icon.
                 </p>
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={uploadingAvatar}
-                  className="btn-secondary !py-2 !px-4 disabled:opacity-60"
+                  leadingIcon={<i className="ri-upload-2-line" />}
                 >
                   Upload from device
-                </button>
+                </Button>
               </div>
             </div>
             <div className="space-y-2">
-              <p className="text-[#eedfc8]/50 text-xs font-medium">KinSpace icons</p>
+              <p className="text-xs font-medium text-brand-background/55">KinSpace icons</p>
               <PlatformAvatarPicker
                 disabled={uploadingAvatar}
                 onSelect={handlePlatformAvatarSelect}
@@ -382,25 +447,25 @@ export default function Settings() {
             </div>
 
             {/* Full Name */}
-            <div>
-              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Full Name</label>
-              <input
+            <Field label="Full name" htmlFor="settings-full-name">
+              <Input
+                id="settings-full-name"
                 type="text"
                 value={profile.full_name}
                 onChange={(e) => setProfile((p) => ({ ...p, full_name: e.target.value }))}
                 placeholder="Your full name"
-                className="input-field"
               />
-            </div>
+            </Field>
 
             {/* Username */}
-            <div>
-              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Username</label>
+            <Field label="Username" htmlFor="settings-username" error={usernameError}>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#eedfc8]/40 text-sm">@</span>
-                <input
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-background/40">@</span>
+                <Input
+                  id="settings-username"
                   type="text"
                   value={profile.username}
+                  aria-invalid={usernameError ? true : undefined}
                   onChange={(e) => {
                     const val = e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '')
                     setProfile((p) => ({ ...p, username: val }))
@@ -414,93 +479,97 @@ export default function Settings() {
                     }
                   }}
                   placeholder="username"
-                  className={`input-field !pl-8 ${usernameError ? '!border-[#B85C3A]/60' : ''}`}
+                  className="!pl-8"
                 />
               </div>
-              {usernameError && (
-                <p className="mt-1 text-xs text-[#B85C3A]">{usernameError}</p>
-              )}
-            </div>
+            </Field>
 
             {/* Bio */}
-            <div>
-              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Bio</label>
-              <textarea
+            <Field label="Bio" htmlFor="settings-bio">
+              <Textarea
+                id="settings-bio"
                 value={profile.bio}
                 onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))}
-                placeholder="Tell us about yourself..."
+                placeholder="Tell the community a little about yourself…"
                 rows={3}
-                className="input-field resize-none"
+                className="resize-none"
               />
-            </div>
+            </Field>
 
             {/* Location */}
-            <div>
-              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Location</label>
+            <Field label="Location" htmlFor="settings-location">
               <div className="relative">
-                <i className="ri-map-pin-2-line absolute left-3 top-1/2 -translate-y-1/2 text-[#eedfc8]/40" />
-                <input
+                <i className="ri-map-pin-2-line absolute left-3 top-1/2 -translate-y-1/2 text-brand-background/40" />
+                <Input
+                  id="settings-location"
                   type="text"
                   value={profile.location}
                   onChange={(e) => setProfile((p) => ({ ...p, location: e.target.value }))}
                   placeholder="City, State"
-                  className="input-field !pl-9"
+                  className="!pl-9"
                 />
               </div>
-            </div>
+            </Field>
 
             {/* Age & Pronouns Row */}
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Age</label>
-                <input
+              <Field label="Age" htmlFor="settings-age">
+                <Input
+                  id="settings-age"
                   type="number"
                   value={profile.age}
                   onChange={(e) => setProfile((p) => ({ ...p, age: e.target.value }))}
                   placeholder="Age"
                   min="13"
                   max="120"
-                  className="input-field"
                 />
-              </div>
-              <div>
-                <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Pronouns</label>
+              </Field>
+              <Field label="Pronouns" htmlFor="settings-pronouns">
                 <select
+                  id="settings-pronouns"
                   value={profile.pronouns}
                   onChange={(e) => setProfile((p) => ({ ...p, pronouns: e.target.value }))}
-                  className="input-field"
+                  className="w-full rounded-xl border border-brand-background/15 bg-brand-background/[0.08] px-4 py-3 text-sm text-brand-background transition-colors focus:border-brand-background/40 focus:outline-none focus:ring-2 focus:ring-brand-background/10"
                 >
-                  <option value="">Select...</option>
+                  <option value="">Select…</option>
                   {pronounOptions.map((p) => (
                     <option key={p} value={p}>{p}</option>
                   ))}
                 </select>
-              </div>
+              </Field>
             </div>
           </div>
-        </section>
+        </Card>
 
         {/* Health Info Section */}
-        <section>
-          <h2 className="section-title flex items-center gap-2">
-            <i className="ri-heart-pulse-line text-[#B85C3A]" /> Health Info
+        <Card>
+          <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-brand-background">
+            <i className="ri-heart-pulse-line text-brand-accent1" /> Health info
           </h2>
+          <div className="mb-4 flex items-start gap-2 rounded-xl bg-brand-accent3/10 p-2.5">
+            <i className="ri-shield-keyhole-line mt-0.5 text-sm text-brand-accent3" />
+            <p className="text-xs text-brand-background/65">
+              This is <strong className="text-brand-accent3">end-to-end encrypted</strong>. Only you can see it. None of it is medical advice.
+            </p>
+          </div>
           <div className="space-y-4">
             {/* Conditions */}
-            <div>
-              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Conditions</label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {profile.conditions.map((c, i) => (
-                  <span key={c} className="badge bg-brand-accent1/20 text-brand-accent1 flex items-center gap-1">
-                    {c}
-                    <button onClick={() => handleRemoveTag('conditions', i)} className="hover:text-white">
-                      <i className="ri-close-line text-xs" />
-                    </button>
-                  </span>
-                ))}
-              </div>
+            <Field label="Conditions" htmlFor="settings-condition-input">
+              {profile.conditions.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {profile.conditions.map((c, i) => (
+                    <Badge key={c} tone="accent" className="gap-1">
+                      {c}
+                      <button onClick={() => handleRemoveTag('conditions', i)} aria-label={`Remove ${c}`} className="transition-colors hover:text-white">
+                        <i className="ri-close-line text-xs" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-2">
-                <input
+                <Input
+                  id="settings-condition-input"
                   type="text"
                   value={conditionInput}
                   onChange={(e) => setConditionInput(e.target.value)}
@@ -510,33 +579,37 @@ export default function Settings() {
                       handleAddTag('conditions', conditionInput, setConditionInput)
                     }
                   }}
-                  placeholder="Add a condition..."
-                  className="input-field flex-1"
+                  placeholder="Add a condition…"
+                  className="flex-1"
                 />
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-label="Add condition"
                   onClick={() => handleAddTag('conditions', conditionInput, setConditionInput)}
-                  className="btn-secondary !py-0 !px-3"
                 >
                   <i className="ri-add-line" />
-                </button>
+                </Button>
               </div>
-            </div>
+            </Field>
 
             {/* Comorbidities */}
-            <div>
-              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Comorbidities</label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {profile.comorbidities.map((c, i) => (
-                  <span key={c} className="badge bg-brand-accent2/20 text-[#D19A58] flex items-center gap-1">
-                    {c}
-                    <button onClick={() => handleRemoveTag('comorbidities', i)} className="hover:text-white">
-                      <i className="ri-close-line text-xs" />
-                    </button>
-                  </span>
-                ))}
-              </div>
+            <Field label="Comorbidities" htmlFor="settings-comorbidity-input">
+              {profile.comorbidities.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {profile.comorbidities.map((c, i) => (
+                    <Badge key={c} className="gap-1 bg-brand-accent2/20 text-brand-background">
+                      {c}
+                      <button onClick={() => handleRemoveTag('comorbidities', i)} aria-label={`Remove ${c}`} className="transition-colors hover:text-white">
+                        <i className="ri-close-line text-xs" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-2">
-                <input
+                <Input
+                  id="settings-comorbidity-input"
                   type="text"
                   value={comorbidityInput}
                   onChange={(e) => setComorbidityInput(e.target.value)}
@@ -546,33 +619,37 @@ export default function Settings() {
                       handleAddTag('comorbidities', comorbidityInput, setComorbidityInput)
                     }
                   }}
-                  placeholder="Add a comorbidity..."
-                  className="input-field flex-1"
+                  placeholder="Add a comorbidity…"
+                  className="flex-1"
                 />
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-label="Add comorbidity"
                   onClick={() => handleAddTag('comorbidities', comorbidityInput, setComorbidityInput)}
-                  className="btn-secondary !py-0 !px-3"
                 >
                   <i className="ri-add-line" />
-                </button>
+                </Button>
               </div>
-            </div>
+            </Field>
 
             {/* Medications */}
-            <div>
-              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Medications</label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {profile.medications.map((m, i) => (
-                  <span key={m} className="badge bg-brand-accent3/20 text-brand-accent3 flex items-center gap-1">
-                    {m}
-                    <button onClick={() => handleRemoveTag('medications', i)} className="hover:text-white">
-                      <i className="ri-close-line text-xs" />
-                    </button>
-                  </span>
-                ))}
-              </div>
+            <Field label="Medications" htmlFor="settings-medication-input">
+              {profile.medications.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {profile.medications.map((m, i) => (
+                    <Badge key={m} className="gap-1 bg-brand-accent3/20 text-brand-background">
+                      {m}
+                      <button onClick={() => handleRemoveTag('medications', i)} aria-label={`Remove ${m}`} className="transition-colors hover:text-white">
+                        <i className="ri-close-line text-xs" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-2">
-                <input
+                <Input
+                  id="settings-medication-input"
                   type="text"
                   value={medicationInput}
                   onChange={(e) => setMedicationInput(e.target.value)}
@@ -582,189 +659,370 @@ export default function Settings() {
                       handleAddTag('medications', medicationInput, setMedicationInput)
                     }
                   }}
-                  placeholder="Add a medication..."
-                  className="input-field flex-1"
+                  placeholder="Add a medication…"
+                  className="flex-1"
                 />
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-label="Add medication"
                   onClick={() => handleAddTag('medications', medicationInput, setMedicationInput)}
-                  className="btn-secondary !py-0 !px-3"
                 >
                   <i className="ri-add-line" />
-                </button>
+                </Button>
               </div>
-            </div>
+            </Field>
 
             {/* Status */}
-            <div>
-              <label className="text-[#eedfc8]/60 text-xs font-medium mb-1.5 block">Current Status</label>
-              <input
+            <Field label="Where you are right now" htmlFor="settings-status">
+              <Input
+                id="settings-status"
                 type="text"
                 value={profile.status}
                 onChange={(e) => setProfile((p) => ({ ...p, status: e.target.value }))}
-                placeholder="e.g., In treatment, Managing, In recovery..."
-                className="input-field"
+                placeholder="e.g. In treatment, Managing, In recovery…"
               />
+            </Field>
+
+            {/* Hide conditions on profile */}
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-background/[0.06] p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand-accent3/15">
+                  <i className="ri-eye-off-line text-brand-accent3" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-brand-background">Hide conditions on my profile</p>
+                  <p className="text-xs text-brand-background/45">
+                    Keep your conditions off your profile page. Other people never see them anyway, this hides them from your own profile view too.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={profile.hide_conditions_on_profile}
+                aria-label="Hide conditions on my profile"
+                onClick={() => setProfile((p) => ({ ...p, hide_conditions_on_profile: !p.hide_conditions_on_profile }))}
+                className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
+                  profile.hide_conditions_on_profile ? 'bg-brand-accent2' : 'bg-brand-background/20'
+                }`}
+              >
+                <div className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
+                  profile.hide_conditions_on_profile ? 'left-6' : 'left-1'
+                }`} />
+              </button>
             </div>
           </div>
-        </section>
+        </Card>
 
         {/* Privacy Section */}
-        <section>
-          <h2 className="section-title flex items-center gap-2">
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-brand-background">
             <i className="ri-shield-check-line text-brand-accent3" /> Privacy
           </h2>
           <div className="space-y-4">
             {/* Anonymous Toggle */}
-            <div className="card-light flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-background/[0.06] p-3">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-[#eedfc8]/10 flex items-center justify-center">
-                  <i className="ri-spy-line text-[#eedfc8]/70" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-background/10">
+                  <i className="ri-spy-line text-brand-background/70" />
                 </div>
                 <div>
-                  <p className="text-[#eedfc8] text-sm font-medium">Anonymous Mode</p>
-                  <p className="text-[#eedfc8]/40 text-xs">Hide your identity in posts</p>
+                  <p className="text-sm font-medium text-brand-background">Anonymous mode</p>
+                  <p className="text-xs text-brand-background/45">Hide your identity in posts</p>
                 </div>
               </div>
               <button
+                role="switch"
+                aria-checked={profile.is_anonymous}
+                aria-label="Anonymous mode"
                 onClick={() => setProfile((p) => ({ ...p, is_anonymous: !p.is_anonymous }))}
-                className={`w-12 h-7 rounded-full transition-all relative ${
-                  profile.is_anonymous ? 'bg-[#D19A58]' : 'bg-[#eedfc8]/20'
+                className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
+                  profile.is_anonymous ? 'bg-brand-accent2' : 'bg-brand-background/20'
                 }`}
               >
-                <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-1 transition-all ${
+                <div className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
                   profile.is_anonymous ? 'left-6' : 'left-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* Who can view the profile while anonymous */}
+            {profile.is_anonymous && (
+              <div className="rounded-xl bg-brand-background/[0.06] p-3">
+                <p className="text-sm font-medium text-brand-background">Who can view your profile</p>
+                <p className="mt-0.5 text-xs text-brand-background/45">
+                  While anonymous, your profile page is hidden. Your posts and comments stay visible either way.
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {[
+                    { value: 'connections', label: 'My connections', icon: 'ri-links-line' },
+                    { value: 'private', label: 'No one', icon: 'ri-lock-2-line' },
+                  ].map((opt) => {
+                    const selected = profile.anonymous_profile_visibility === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => setProfile((p) => ({ ...p, anonymous_profile_visibility: opt.value }))}
+                        className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 ${
+                          selected
+                            ? 'border-brand-accent2/40 bg-brand-accent2/15 text-brand-accent2'
+                            : 'border-brand-background/10 bg-brand-background/5 text-brand-background/60 hover:bg-brand-background/10'
+                        }`}
+                      >
+                        <i className={opt.icon} aria-hidden="true" /> {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Share health profile with the Guide */}
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-background/[0.06] p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent3/15">
+                  <i className="ri-mental-health-line text-brand-accent3" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-brand-background">Let your Guide know your health</p>
+                  <p className="text-xs text-brand-background/45">
+                    Share your conditions and medications with the therapy Guide so it can support you with full
+                    context. Turn off to keep them private.
+                  </p>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={profile.share_health_with_guide}
+                aria-label="Share health profile with the Guide"
+                onClick={() => setProfile((p) => ({ ...p, share_health_with_guide: !p.share_health_with_guide }))}
+                className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
+                  profile.share_health_with_guide ? 'bg-brand-accent2' : 'bg-brand-background/20'
+                }`}
+              >
+                <div className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
+                  profile.share_health_with_guide ? 'left-6' : 'left-1'
                 }`} />
               </button>
             </div>
 
             {/* Communication Preferences */}
             <div>
-              <label className="text-[#eedfc8]/60 text-xs font-medium mb-2 block">Preferred Communication</label>
+              <p className="mb-2 text-sm font-medium text-brand-background/90">How you prefer to connect</p>
               <div className="grid grid-cols-3 gap-2">
-                {communicationOptions.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setProfile((p) => ({ ...p, preferred_communication: opt.value }))}
-                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${
-                      profile.preferred_communication === opt.value
-                        ? 'bg-[#D19A58]/15 border-[#D19A58]/40 text-[#D19A58]'
-                        : 'bg-[#eedfc8]/5 border-[#eedfc8]/10 text-[#eedfc8]/50'
-                    }`}
-                  >
-                    <i className={`${opt.icon} text-lg`} />
-                    <span className="text-xs font-medium">{opt.label}</span>
-                  </button>
-                ))}
+                {communicationOptions.map((opt) => {
+                  const isSelected = profile.preferred_communication === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      aria-pressed={isSelected}
+                      onClick={() => setProfile((p) => ({ ...p, preferred_communication: opt.value }))}
+                      className={`flex h-auto min-h-[4.5rem] flex-col items-center justify-center gap-1.5 rounded-xl border p-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 ${
+                        isSelected
+                          ? 'border-brand-accent2/40 bg-brand-accent2/15 text-brand-accent2'
+                          : 'border-brand-background/10 bg-brand-background/5 text-brand-background/55 hover:bg-brand-background/10'
+                      }`}
+                    >
+                      <i className={`${opt.icon} text-lg`} />
+                      <span className="text-xs font-medium">{opt.label}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
-        </section>
+        </Card>
 
         {/* Notifications Section */}
-        <section>
-          <h2 className="section-title flex items-center gap-2">
-            <i className="ri-notification-3-line text-[#D19A58]" /> Notifications
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-brand-background">
+            <i className="ri-notification-3-line text-brand-accent2" /> Notifications
           </h2>
           <div className="space-y-3">
             {/* Matches Toggle */}
-            <div className="card-light flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-background/[0.06] p-3">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-brand-accent1/15 flex items-center justify-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent1/15">
                   <i className="ri-hearts-line text-brand-accent1" />
                 </div>
                 <div>
-                  <p className="text-[#eedfc8] text-sm font-medium">Matches</p>
-                  <p className="text-[#eedfc8]/40 text-xs">New match notifications</p>
+                  <p className="text-sm font-medium text-brand-background">Matches</p>
+                  <p className="text-xs text-brand-background/45">When someone could be a good match</p>
                 </div>
               </div>
               <button
+                role="switch"
+                aria-checked={profile.notify_matches}
+                aria-label="Match notifications"
                 onClick={() => setProfile((p) => ({ ...p, notify_matches: !p.notify_matches }))}
-                className={`w-12 h-7 rounded-full transition-all relative ${
-                  profile.notify_matches ? 'bg-[#D19A58]' : 'bg-[#eedfc8]/20'
+                className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
+                  profile.notify_matches ? 'bg-brand-accent2' : 'bg-brand-background/20'
                 }`}
               >
-                <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-1 transition-all ${
+                <div className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
                   profile.notify_matches ? 'left-6' : 'left-1'
                 }`} />
               </button>
             </div>
 
             {/* Messages Toggle */}
-            <div className="card-light flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-background/[0.06] p-3">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-brand-accent2/15 flex items-center justify-center">
-                  <i className="ri-chat-1-line text-[#D19A58]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent2/15">
+                  <i className="ri-chat-1-line text-brand-accent2" />
                 </div>
                 <div>
-                  <p className="text-[#eedfc8] text-sm font-medium">Messages</p>
-                  <p className="text-[#eedfc8]/40 text-xs">New message alerts</p>
+                  <p className="text-sm font-medium text-brand-background">Messages</p>
+                  <p className="text-xs text-brand-background/45">New message alerts</p>
                 </div>
               </div>
               <button
+                role="switch"
+                aria-checked={profile.notify_messages}
+                aria-label="Message notifications"
                 onClick={() => setProfile((p) => ({ ...p, notify_messages: !p.notify_messages }))}
-                className={`w-12 h-7 rounded-full transition-all relative ${
-                  profile.notify_messages ? 'bg-[#D19A58]' : 'bg-[#eedfc8]/20'
+                className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
+                  profile.notify_messages ? 'bg-brand-accent2' : 'bg-brand-background/20'
                 }`}
               >
-                <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-1 transition-all ${
+                <div className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
                   profile.notify_messages ? 'left-6' : 'left-1'
                 }`} />
               </button>
             </div>
 
             {/* Groups Toggle */}
-            <div className="card-light flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-background/[0.06] p-3">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-brand-accent3/15 flex items-center justify-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent3/15">
                   <i className="ri-group-line text-brand-accent3" />
                 </div>
                 <div>
-                  <p className="text-[#eedfc8] text-sm font-medium">Groups</p>
-                  <p className="text-[#eedfc8]/40 text-xs">Group activity updates</p>
+                  <p className="text-sm font-medium text-brand-background">Groups</p>
+                  <p className="text-xs text-brand-background/45">Group activity updates</p>
                 </div>
               </div>
               <button
+                role="switch"
+                aria-checked={profile.notify_groups}
+                aria-label="Group notifications"
                 onClick={() => setProfile((p) => ({ ...p, notify_groups: !p.notify_groups }))}
-                className={`w-12 h-7 rounded-full transition-all relative ${
-                  profile.notify_groups ? 'bg-[#D19A58]' : 'bg-[#eedfc8]/20'
+                className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
+                  profile.notify_groups ? 'bg-brand-accent2' : 'bg-brand-background/20'
                 }`}
               >
-                <div className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-1 transition-all ${
+                <div className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
                   profile.notify_groups ? 'left-6' : 'left-1'
                 }`} />
               </button>
             </div>
           </div>
-        </section>
+        </Card>
+
+        {/* Install app */}
+        <Card>
+          <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-brand-background">
+            <i className="ri-smartphone-line text-brand-accent1" /> Install the app
+          </h2>
+          <p className="mb-4 text-sm text-brand-background/55">
+            Add KinSpace to your home screen for one-tap access, reminders, and offline support — no app store needed.
+          </p>
+          <InstallAppButton label="Install KinSpace" />
+          <p className="mt-3 text-xs text-brand-background/40">
+            Don&rsquo;t see the button? Open kinspace.co.za in your phone&rsquo;s browser, then tap it (or use your browser&rsquo;s &ldquo;Add to Home Screen&rdquo;).
+          </p>
+        </Card>
+
+        {/* Sounds Section */}
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-brand-background">
+            <i className="ri-volume-up-line text-brand-accent3" /> Sounds
+          </h2>
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-background/[0.06] p-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent3/15">
+                <i className="ri-music-2-line text-brand-accent3" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-brand-background">Sound effects</p>
+                <p className="text-xs text-brand-background/45">
+                  Gentle taps, game sounds, and reminder chimes. Therapy soundscapes have their own control in each session.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={soundOn}
+              aria-label="Sound effects"
+              onClick={handleToggleSound}
+              className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
+                soundOn ? 'bg-brand-accent2' : 'bg-brand-background/20'
+              }`}
+            >
+              <div className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
+                soundOn ? 'left-6' : 'left-1'
+              }`} />
+            </button>
+          </div>
+        </Card>
+
+        {/* Blocked accounts */}
+        <Card>
+          <h2 className="mb-1 flex items-center gap-2 text-lg font-bold text-brand-background">
+            <i className="ri-forbid-2-line text-brand-accent1" /> Blocked accounts
+          </h2>
+          <p className="mb-4 text-xs text-brand-background/45">
+            People you&rsquo;ve blocked can&rsquo;t message you, and you won&rsquo;t see their posts.
+          </p>
+          {blockedUsers.length === 0 ? (
+            <p className="text-sm text-brand-background/50">You haven&rsquo;t blocked anyone.</p>
+          ) : (
+            <div className="space-y-2">
+              {blockedUsers.map((b) => (
+                <div
+                  key={b.user_id}
+                  className="flex items-center justify-between gap-3 rounded-xl bg-brand-background/[0.06] p-3"
+                >
+                  <span className="flex min-w-0 items-center gap-2 text-sm text-brand-background">
+                    <i className="ri-user-3-line text-brand-background/40" aria-hidden="true" />
+                    <span className="truncate">@{b.profile?.username ?? 'member'}</span>
+                  </span>
+                  <Button variant="secondary" size="sm" onClick={() => handleUnblock(b.user_id)}>
+                    Unblock
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
 
         {/* Save Button (bottom) */}
-        <button
+        <Button
           onClick={handleSave}
           disabled={saving}
-          className="btn-primary w-full flex items-center justify-center gap-2 !py-3 disabled:opacity-50"
+          isLoading={saving}
+          fullWidth
+          size="lg"
+          leadingIcon={!saving ? <i className="ri-save-line" /> : undefined}
         >
-          {saving ? (
-            <>
-              <i className="ri-loader-4-line animate-spin" /> Saving Changes...
-            </>
-          ) : (
-            <>
-              <i className="ri-save-line" /> Save Changes
-            </>
-          )}
-        </button>
+          {saving ? 'Saving changes…' : 'Save changes'}
+        </Button>
 
         {/* Sign Out */}
         <button
           onClick={handleSignOut}
-          className="w-full py-3 text-center text-[#B85C3A] text-sm font-medium hover:text-[#B85C3A]/80 transition-colors mb-4"
+          className="mb-4 w-full py-3 text-center text-sm font-medium text-brand-accent1 transition-colors hover:text-brand-accent1/80"
         >
           <i className="ri-logout-box-r-line mr-1.5" />
-          Sign Out
+          Sign out
         </button>
       </div>
 
       <BottomNav />
-    </div>
+    </main>
   )
 }
