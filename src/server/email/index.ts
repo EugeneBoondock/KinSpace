@@ -1,11 +1,32 @@
 import { getEnv } from '../env'
 
 type SendArgs = { to: string; subject: string; html: string; text?: string }
+type EmailSender = { email: string; name?: string }
+
+export function parseEmailSender(value: string): EmailSender {
+  const match = value.match(/^\s*(.*?)\s*<([^<>]+)>\s*$/)
+  if (!match) return { email: value.trim() }
+
+  const rawName = match[1].trim().replace(/^["']|["']$/g, '')
+  return {
+    email: match[2].trim(),
+    ...(rawName ? { name: rawName } : {}),
+  }
+}
+
+export function buildBrevoPayload(args: SendArgs, from: string) {
+  return {
+    sender: parseEmailSender(from),
+    to: [{ email: args.to }],
+    subject: args.subject,
+    htmlContent: args.html,
+    ...(args.text ? { textContent: args.text } : {}),
+  }
+}
 
 /**
- * Sends a transactional email via the configured provider. In dev (no provider
- * key) it logs the message and returns ok:false so callers can degrade
- * gracefully without throwing.
+ * Sends a transactional email via the configured provider. In dev, missing
+ * provider keys log and return ok:false so callers can keep running.
  */
 export async function sendEmail(args: SendArgs): Promise<{ ok: boolean }> {
   const env = getEnv()
@@ -28,7 +49,25 @@ export async function sendEmail(args: SendArgs): Promise<{ ok: boolean }> {
     }
   }
 
-  console.warn(`[email] No provider configured — skipped "${args.subject}" to ${args.to}`)
+  if (provider === 'brevo' && env.BREVO_API_KEY) {
+    try {
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'api-key': env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(buildBrevoPayload(args, from)),
+      })
+      if (!res.ok) console.warn(`[email] Brevo rejected "${args.subject}" for ${args.to}: ${res.status}`)
+      return { ok: res.ok }
+    } catch {
+      return { ok: false }
+    }
+  }
+
+  console.warn(`[email] No provider configured - skipped "${args.subject}" to ${args.to}`)
   return { ok: false }
 }
 
@@ -36,7 +75,7 @@ const SHELL = (title: string, body: string) => `
 <div style="font-family:ui-sans-serif,system-ui,sans-serif;background:#2A4A42;color:#eedfc8;padding:32px;border-radius:16px;max-width:480px;margin:0 auto">
   <h1 style="font-size:20px;margin:0 0 16px">${title}</h1>
   ${body}
-  <p style="color:rgba(238,223,200,0.6);font-size:12px;margin-top:24px">KinSpace — a calmer place to heal. If you didn't request this, you can ignore this email.</p>
+  <p style="color:rgba(238,223,200,0.6);font-size:12px;margin-top:24px">KinSpace - a calmer place to heal. If you did not request this, you can ignore this email.</p>
 </div>`
 
 const BUTTON = (href: string, label: string) =>

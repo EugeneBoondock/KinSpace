@@ -30,9 +30,10 @@ OPENAI_MODEL=gpt-5.4-mini
 OPENAI_MODEL_FULL=gpt-5.4
 
 # ── Email (transactional: verification, password reset, digest) ─────────────
-# Cloudflare Email or a provider like Resend. Adapter is pluggable.
-EMAIL_PROVIDER=resend
+# Cloudflare Email or a provider like Brevo. Adapter is pluggable.
+EMAIL_PROVIDER=brevo
 RESEND_API_KEY=
+BREVO_API_KEY=
 EMAIL_FROM="KinSpace <hello@kinspace.co.za>"
 
 # ── Payments: Paystack (https://dashboard.paystack.com/#/settings/developers) ─

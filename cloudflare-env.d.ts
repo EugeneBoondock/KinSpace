@@ -34,6 +34,7 @@ declare global {
     OPENAI_MODEL_FULL?: string
     EMAIL_PROVIDER?: string
     RESEND_API_KEY?: string
+    BREVO_API_KEY?: string
     EMAIL_FROM?: string
     PAYSTACK_SECRET_KEY?: string
     NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY?: string
