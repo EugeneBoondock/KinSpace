@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import ProfileAvatar from '@/components/ProfileAvatar'
 import ReportDialog from '@/components/ReportDialog'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/lib/AuthContext'
@@ -10,6 +9,10 @@ import { formatCompactNumber, formatRelativeTime } from '@/lib/platform'
 import { getTopReactions, isEmoji, applyReactionMutation } from '@/lib/social'
 import { Badge, Button, Card, Textarea } from '@/components/ui'
 import { cn } from '@/lib/cn'
+import { renderWithMentions } from '@/components/community/renderMentions'
+import CommentReactions from '@/components/community/CommentReactions'
+import ReactionSummaryButton from '@/components/community/ReactionSummaryButton'
+import { MemberAvatar, MemberName } from '@/components/MemberIdentity'
 
 export type PostShape = Record<string, unknown> & {
   id: string
@@ -90,6 +93,9 @@ export default function PostCard({
   const [loadingComments, setLoadingComments] = useState(false)
   const [commentDraft, setCommentDraft] = useState('')
   const [commenting, setCommenting] = useState(false)
+  const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null)
+  const [replyDraft, setReplyDraft] = useState('')
+  const [replyingToId, setReplyingToId] = useState<string | null>(null)
 
   // Pin-to-group (group admins only) + per-comment pin (post author only)
   const [pinningGroup, setPinningGroup] = useState(false)
@@ -267,6 +273,36 @@ export default function PostCard({
     }
   }
 
+  async function submitCommentReply(parentId: string) {
+    if (!user) return
+    const draft = replyDraft.trim()
+    if (!draft) return
+    setReplyingToId(parentId)
+    try {
+      await DatabaseService.addPostComment(
+        postId,
+        user.userId,
+        draft,
+        Boolean(livePost.is_anonymous),
+        parentId
+      )
+      const grouped = await DatabaseService.getCommentsForPosts([postId], 50)
+      setComments(((grouped as Record<string, CommentEntry[]>)[postId]) ?? [])
+      setLivePost((prev) => ({
+        ...prev,
+        comments_count: ((prev.comments_count as number | undefined) ?? 0) + 1,
+      }))
+      setReplyDraft('')
+      setReplyToCommentId(null)
+      toast('Reply added', 'success')
+    } catch (error) {
+      console.error('Failed to reply:', error)
+      toast('Could not add reply', 'error')
+    } finally {
+      setReplyingToId(null)
+    }
+  }
+
   async function handleTogglePinToGroup() {
     if (!user || !canPinToGroup) return
     const wasPinned = isPinnedInGroup
@@ -316,12 +352,22 @@ export default function PostCard({
     }
   }
 
-  // Pinned comment floats to the top of the thread.
-  const sortedComments = (comments ?? []).slice().sort((a, b) => {
+  // Group comments into top-level and replies.
+  const parentComments = (comments ?? []).filter((c) => !c.parent_id)
+  const sortedParentComments = parentComments.slice().sort((a, b) => {
     const aPinned = a.pinned_at ? 1 : 0
     const bPinned = b.pinned_at ? 1 : 0
     return bPinned - aPinned
   })
+
+  const getRepliesFor = (parentId: string) => {
+    return (comments ?? [])
+      .filter((c) => c.parent_id === parentId)
+      .sort(
+        (a, b) =>
+          new Date(a.created_at as string).getTime() - new Date(b.created_at as string).getTime()
+      )
+  }
 
   return (
     <Card id={`community-post-${postId}`}>
@@ -330,19 +376,28 @@ export default function PostCard({
           {livePost.is_anonymous ? (
             <i className="ri-spy-line text-base" aria-hidden="true" />
           ) : (
-            <ProfileAvatar
-              alt={author}
-              avatarUrl={profileData?.avatar_url as string | undefined}
-              className="h-11 w-11 rounded-2xl object-cover"
-              fullName={profileData?.full_name as string | undefined}
-              userId={profileData?.id as string | undefined}
-              username={profileData?.username as string | undefined}
-            />
+                              <MemberAvatar
+                                profile={profileData}
+                                alt={author}
+                                avatarUrl={profileData?.avatar_url as string | undefined}
+                                className="h-11 w-11 rounded-2xl object-cover"
+                                fullName={profileData?.full_name as string | undefined}
+                                isAnonymous={Boolean(livePost.is_anonymous)}
+                                userId={profileData?.id as string | undefined}
+                                username={profileData?.username as string | undefined}
+                              />
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="min-w-0 max-w-full truncate font-semibold text-brand-background">{author}</p>
+                      <p className="min-w-0 max-w-full truncate font-semibold text-brand-background">
+                        <MemberName
+                          profile={profileData}
+                          name={author}
+                          isAnonymous={Boolean(livePost.is_anonymous)}
+                          showQuickAction={!isOwner}
+                        />
+                      </p>
             {isPinnedInGroup && (
               <Badge tone="accent" className="text-[10px]">
                 <i className="ri-pushpin-fill" aria-hidden="true" /> Pinned
@@ -445,7 +500,7 @@ export default function PostCard({
         <>
           {(livePost.content as string)?.trim() && (
             <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-brand-background/75">
-              {livePost.content as string}
+              {renderWithMentions(livePost.content as string)}
             </p>
           )}
         </>
@@ -569,22 +624,14 @@ export default function PostCard({
           {getTopReactions(livePost).map(({ emoji, count }) => {
             const isReacted = userReactions.has(`${postId}:${emoji}`)
             return (
-              <button
-                type="button"
+              <ReactionSummaryButton
                 key={emoji}
+                emoji={emoji}
+                count={count}
+                active={isReacted}
+                actors={(livePost.reactors as Record<string, string[]> | undefined)?.[emoji] ?? []}
                 onClick={() => handleEmojiReaction(emoji)}
-                className={cn(
-                  'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-all',
-                  isReacted
-                    ? 'border border-brand-accent2/40 bg-brand-accent2/20'
-                    : 'border border-brand-background/10 bg-brand-background/8 hover:bg-brand-background/14',
-                )}
-              >
-                <span className="text-sm">{emoji}</span>
-                <span className={isReacted ? 'font-semibold text-brand-accent2' : 'text-brand-background/60'}>
-                  {count}
-                </span>
-              </button>
+              />
             )
           })}
         </div>
@@ -723,11 +770,11 @@ export default function PostCard({
         <div className="mt-3 space-y-3 border-t border-brand-background/8 pt-3">
           {loadingComments ? (
             <p className="text-xs text-brand-background/45">Loading comments…</p>
-          ) : sortedComments.length === 0 ? (
+          ) : sortedParentComments.length === 0 ? (
             <p className="text-xs text-brand-background/45">Be the first to reply.</p>
           ) : (
             <ul className="space-y-3">
-              {sortedComments.map((comment) => {
+              {sortedParentComments.map((comment) => {
                 const authorProfile = comment.profile
                 const commentAuthorName = comment.is_anonymous
                   ? 'Anonymous'
@@ -736,51 +783,163 @@ export default function PostCard({
                       'Community member')
                 const commentPinned = Boolean(comment.pinned_at)
                 return (
-                  <li key={comment.id} className="flex gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-accent3/25 text-xs font-bold text-brand-accent3">
-                      {comment.is_anonymous ? (
-                        <i className="ri-spy-line text-sm" aria-hidden="true" />
-                      ) : (
-                        <ProfileAvatar
-                          alt={commentAuthorName}
-                          avatarUrl={authorProfile?.avatar_url as string | undefined}
-                          className="h-8 w-8 rounded-full object-cover"
-                          fullName={authorProfile?.full_name as string | undefined}
-                          userId={authorProfile?.id as string | undefined}
-                          username={authorProfile?.username as string | undefined}
-                        />
-                      )}
-                    </div>
-                    <div className={cn(
-                      'min-w-0 flex-1 rounded-2xl px-3 py-2',
-                      commentPinned ? 'bg-brand-accent2/10 ring-1 ring-brand-accent2/25' : 'bg-brand-background/6',
-                    )}>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-brand-background/50">
-                        <span className="min-w-0 max-w-full truncate font-semibold text-brand-background/80">{commentAuthorName}</span>
-                        {commentPinned && (
-                          <Badge tone="accent" className="text-[9px]">
-                            <i className="ri-pushpin-fill" aria-hidden="true" /> Pinned
-                          </Badge>
-                        )}
-                        <span aria-hidden="true">·</span>
-                        <span className="shrink-0">{formatRelativeTime(comment.created_at)}</span>
-                        {isOwner && (
-                          <button
-                            type="button"
-                            onClick={() => handleToggleCommentPin(comment)}
-                            disabled={pinningCommentId === comment.id}
-                            className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] text-brand-background/45 transition-colors hover:text-brand-accent2 disabled:opacity-50"
-                            aria-label={commentPinned ? 'Unpin comment' : 'Pin comment'}
-                            aria-pressed={commentPinned}
-                            title={commentPinned ? 'Unpin comment' : 'Pin comment'}
-                          >
-                            <i className={commentPinned ? 'ri-pushpin-fill' : 'ri-pushpin-line'} aria-hidden="true" />
-                          </button>
+                  <li key={comment.id} className="block">
+                    <div className="flex gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-accent3/25 text-xs font-bold text-brand-accent3">
+                        {comment.is_anonymous ? (
+                          <i className="ri-spy-line text-sm" aria-hidden="true" />
+                        ) : (
+                                      <MemberAvatar
+                                        profile={authorProfile}
+                                        alt={commentAuthorName}
+                                        avatarUrl={authorProfile?.avatar_url as string | undefined}
+                                        className="h-8 w-8 rounded-full object-cover"
+                                        fullName={authorProfile?.full_name as string | undefined}
+                                        isAnonymous={Boolean(comment.is_anonymous)}
+                                        userId={authorProfile?.id as string | undefined}
+                                        username={authorProfile?.username as string | undefined}
+                                      />
                         )}
                       </div>
-                      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-brand-background/80">
-                        {comment.content as string}
-                      </p>
+                      <div className={cn(
+                        'min-w-0 flex-1 rounded-2xl px-3 py-2',
+                        commentPinned ? 'bg-brand-accent2/10 ring-1 ring-brand-accent2/25' : 'bg-brand-background/6',
+                      )}>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-brand-background/50">
+                                    <span className="min-w-0 max-w-full truncate font-semibold text-brand-background/80">
+                                      <MemberName
+                                        profile={authorProfile}
+                                        name={commentAuthorName}
+                                        isAnonymous={Boolean(comment.is_anonymous)}
+                                      />
+                                    </span>
+                          {commentPinned && (
+                            <Badge tone="accent" className="text-[9px]">
+                              <i className="ri-pushpin-fill" aria-hidden="true" /> Pinned
+                            </Badge>
+                          )}
+                          <span aria-hidden="true">·</span>
+                          <span className="shrink-0">{formatRelativeTime(comment.created_at)}</span>
+                          {isOwner && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCommentPin(comment)}
+                              disabled={pinningCommentId === comment.id}
+                              className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] text-brand-background/45 transition-colors hover:text-brand-accent2 disabled:opacity-50"
+                              aria-label={commentPinned ? 'Unpin comment' : 'Pin comment'}
+                              aria-pressed={commentPinned}
+                              title={commentPinned ? 'Unpin comment' : 'Pin comment'}
+                            >
+                              <i className={commentPinned ? 'ri-pushpin-fill' : 'ri-pushpin-line'} aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                        <p className="mt-1 whitespace-pre-wrap break-words text-sm text-brand-background/80">
+                          {renderWithMentions(comment.content as string)}
+                        </p>
+                        <div className="mt-2 flex items-center gap-3 text-xs text-brand-background/45">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReplyToCommentId(replyToCommentId === comment.id ? null : comment.id)
+                              setReplyDraft('')
+                            }}
+                            className="hover:text-brand-accent2 transition-colors font-medium"
+                          >
+                            Reply
+                          </button>
+                        </div>
+                        <CommentReactions
+                          commentId={comment.id}
+                          initialCounts={(comment.reaction_counts as Record<string, number> | undefined) ?? {}}
+                          initialMine={(comment.my_reactions as string[] | undefined) ?? []}
+                          reactors={(comment.reactors as Record<string, string[]> | undefined) ?? {}}
+                          canReact={Boolean(user)}
+                        />
+                        {replyToCommentId === comment.id && (
+                          <div className="mt-2.5 flex items-start gap-2 border-t border-brand-background/8 pt-2">
+                            <Textarea
+                              value={replyDraft}
+                              onChange={(event) => setReplyDraft(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' && !event.shiftKey) {
+                                  event.preventDefault()
+                                  void submitCommentReply(comment.id)
+                                }
+                              }}
+                              placeholder="Write a reply…"
+                              aria-label="Write a reply"
+                              rows={1}
+                              autoFocus
+                              className="text-xs"
+                            />
+                            <Button
+                              size="sm"
+                              variant="accent"
+                              onClick={() => submitCommentReply(comment.id)}
+                              isLoading={replyingToId === comment.id}
+                              className="h-8 shrink-0 text-xs px-3"
+                            >
+                              Send
+                            </Button>
+                          </div>
+                        )}
+                        {getRepliesFor(comment.id).length > 0 && (
+                          <ul className="ml-2 mt-3 space-y-3 border-l border-brand-background/10 pl-3">
+                            {getRepliesFor(comment.id).map((reply) => {
+                              const replyAuthorProfile = reply.profile
+                              const replyAuthorName = reply.is_anonymous
+                                ? 'Anonymous'
+                                : ((replyAuthorProfile?.full_name as string | undefined) ||
+                                    (replyAuthorProfile?.username as string | undefined) ||
+                                    'Community member')
+                              return (
+                                <li key={reply.id} className="flex gap-2 text-xs">
+                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-accent3/25 text-[10px] font-bold text-brand-accent3">
+                                    {reply.is_anonymous ? (
+                                      <i className="ri-spy-line text-xs" aria-hidden="true" />
+                                    ) : (
+                                              <MemberAvatar
+                                                profile={replyAuthorProfile}
+                                                alt={replyAuthorName}
+                                                avatarUrl={replyAuthorProfile?.avatar_url as string | undefined}
+                                                className="h-6 w-6 rounded-full object-cover"
+                                                fullName={replyAuthorProfile?.full_name as string | undefined}
+                                                isAnonymous={Boolean(reply.is_anonymous)}
+                                                userId={replyAuthorProfile?.id as string | undefined}
+                                                username={replyAuthorProfile?.username as string | undefined}
+                                              />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1 rounded-xl bg-brand-background/4 px-2.5 py-1.5">
+                                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-brand-background/40">
+                                            <span className="font-semibold text-brand-background/70">
+                                              <MemberName
+                                                profile={replyAuthorProfile}
+                                                name={replyAuthorName}
+                                                isAnonymous={Boolean(reply.is_anonymous)}
+                                              />
+                                            </span>
+                                      <span aria-hidden="true">·</span>
+                                      <span className="shrink-0">{formatRelativeTime(reply.created_at)}</span>
+                                    </div>
+                                    <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-brand-background/80">
+                                      {renderWithMentions(reply.content as string)}
+                                    </p>
+                                    <CommentReactions
+                                      commentId={reply.id}
+                                      initialCounts={(reply.reaction_counts as Record<string, number> | undefined) ?? {}}
+                                      initialMine={(reply.my_reactions as string[] | undefined) ?? []}
+                                      reactors={(reply.reactors as Record<string, string[]> | undefined) ?? {}}
+                                      canReact={Boolean(user)}
+                                    />
+                                  </div>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        )}
+                      </div>
                     </div>
                   </li>
                 )

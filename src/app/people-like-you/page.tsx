@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
-import ProfileAvatar from '@/components/ProfileAvatar'
+import { MemberAvatar, MemberName } from '@/components/MemberIdentity'
 import StrandButton from '@/components/StrandButton'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
@@ -67,37 +67,35 @@ function MatchCard({ member }: { member: SimilarMember }) {
   const name = displayName(member)
   const score = member.similarity_score ?? 0
   const match = matchTone(score)
-  const shared = member.shared ?? {}
-  const interests = shared.interests ?? []
-  const matchReasons = member.match_reasons ?? []
   const starterPrompt = member.starter_prompt
   const activityLabels = member.activity_labels ?? []
 
   return (
     <Card interactive className="space-y-4">
       <div className="flex items-start gap-4">
-        <Link href={`/profile/${member.id}`} className="shrink-0">
-          <ProfileAvatar
-            alt={name}
-            avatarUrl={member.avatar_url}
-            fullName={member.is_anonymous ? null : member.full_name}
-            username={member.is_anonymous ? null : member.username}
-            userId={member.id}
-            className="h-12 w-12 rounded-2xl object-cover"
-            fallbackClassName="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-accent3/15"
-            fallbackTextClassName="text-base font-semibold text-brand-accent3"
-            fallbackText={name}
-          />
-        </Link>
+        <MemberAvatar
+          profile={member as unknown as Record<string, unknown>}
+          alt={name}
+          avatarUrl={member.avatar_url}
+          fullName={member.is_anonymous ? null : member.full_name}
+          username={member.is_anonymous ? null : member.username}
+          userId={member.id}
+          isAnonymous={Boolean(member.is_anonymous)}
+          className="h-12 w-12 rounded-2xl object-cover"
+          fallbackClassName="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-accent3/15"
+          fallbackTextClassName="text-base font-semibold text-brand-accent3"
+        />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/profile/${member.id}`}
-              className="truncate text-base font-semibold text-brand-ink transition-colors hover:text-brand-accent3"
-            >
-              {name}
-            </Link>
+            <MemberName
+              profile={member as unknown as Record<string, unknown>}
+              userId={member.id}
+              name={name}
+              isAnonymous={Boolean(member.is_anonymous)}
+              className="text-base font-semibold text-brand-ink hover:text-brand-accent3"
+              quickActionClassName="border-brand-ink/10 bg-brand-ink/[0.04] text-brand-ink/60 hover:bg-brand-accent2/15"
+            />
             <Badge tone={match.tone}>{match.label}</Badge>
             {activityLabels.map((label) => (
               <Badge key={label} tone={label === 'Available now' ? 'sage' : 'neutral'}>
@@ -115,35 +113,17 @@ function MatchCard({ member }: { member: SimilarMember }) {
         </div>
       </div>
 
-      {matchReasons.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          <Badge tone="sage">Something in common</Badge>
-          {matchReasons.map((reason) => (
-            <Badge key={reason} tone="neutral" className="capitalize">
-              {reason}
-            </Badge>
-          ))}
-        </div>
-      )}
+      {/* PRIVACY: never name (or categorise) what a member shares — just signal the
+          overlap. The specific "what" stays between the two people. */}
+      <div className="flex flex-wrap gap-1.5">
+        <Badge tone="sage">Something in common</Badge>
+      </div>
 
       {starterPrompt && (
         <p className="flex gap-2 text-sm leading-relaxed text-brand-ink/60">
           <i className="ri-chat-smile-2-line mt-0.5 text-brand-accent3" aria-hidden="true" />
           <span>{starterPrompt}</span>
         </p>
-      )}
-
-      {interests.length > 0 && (
-        <div className="space-y-2">
-          <p className="eyebrow">What you share</p>
-          <div className="flex flex-wrap gap-1.5">
-            {interests.map((label) => (
-              <Badge key={`i-${label}`} tone="neutral" className="capitalize">
-                {label}
-              </Badge>
-            ))}
-          </div>
-        </div>
       )}
 
       {member.message_prompt_allowed === false && (
@@ -176,17 +156,18 @@ function LoadingSkeletons() {
 
 export default function PeopleLikeYouPage() {
   const { user } = useAuth()
+  const searchParams = useSearchParams()
   const [members, setMembers] = useState<SimilarMember[]>([])
   const [lanes, setLanes] = useState<MatchSignalLane[]>([])
   const [lanesLoading, setLanesLoading] = useState(true)
   const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState<PeopleFilters>({
-    conditionSlug: '',
+  const [filters, setFilters] = useState<PeopleFilters>(() => ({
+    conditionSlug: searchParams.get('condition') ?? '',
     symptom: '',
     treatment: '',
     ageBand: '',
     location: '',
-  })
+  }))
   const [appliedFilters, setAppliedFilters] = useState<PeopleFilters>(filters)
 
   useEffect(() => {

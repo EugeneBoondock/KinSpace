@@ -14,7 +14,7 @@ import BottomNav from '@/components/BottomNav'
 import ReportDialog from '@/components/ReportDialog'
 import StrandButton from '@/components/StrandButton'
 import { useToast } from '@/components/Toast'
-import { Button, LinkButton, Card, Textarea, Badge, Skeleton, EmptyState } from '@/components/ui'
+import { Button, LinkButton, Card, Textarea, Input, Badge, Skeleton, EmptyState } from '@/components/ui'
 import type { AchievementSummary } from '@/lib/achievements'
 
 type Achievements = AchievementSummary & { is_owner: boolean }
@@ -39,6 +39,12 @@ interface Profile {
   interests?: string[]
   pronouns?: string
   status?: string
+  space_theme?: SpaceThemeKey
+  space_accent?: SpaceAccentKey
+  space_font?: SpaceFontKey
+  space_motto?: string | null
+  space_vibe?: string | null
+  space_pinned_note?: string | null
   followers?: number
   following?: number
   postsCount?: number
@@ -85,6 +91,92 @@ const gameLabels: Record<string, string> = {
   wordsearch: 'Word Search',
 }
 
+type SpaceThemeKey = 'forest' | 'ocean' | 'dream' | 'sunset' | 'paper' | 'mono'
+type SpaceAccentKey = 'sage' | 'gold' | 'coral' | 'violet' | 'sky'
+type SpaceFontKey = 'clean' | 'serif' | 'note'
+
+type SpaceDraft = {
+  space_theme: SpaceThemeKey
+  space_accent: SpaceAccentKey
+  space_font: SpaceFontKey
+  space_motto: string
+  space_vibe: string
+  space_pinned_note: string
+}
+
+const SPACE_THEMES: Record<SpaceThemeKey, { label: string; cover: string; ring: string; card: string }> = {
+  forest: {
+    label: 'Forest',
+    cover: 'from-[#0f2a1d] via-brand-primary to-[#1d3b2e]',
+    ring: 'border-emerald-200/80 shadow-[0_0_28px_rgba(142,211,178,0.28)]',
+    card: 'border-emerald-200/15 bg-emerald-950/20',
+  },
+  ocean: {
+    label: 'Ocean',
+    cover: 'from-[#073052] via-[#164f6e] to-[#78b7d3]',
+    ring: 'border-sky-200/80 shadow-[0_0_28px_rgba(125,211,252,0.28)]',
+    card: 'border-sky-200/15 bg-sky-950/20',
+  },
+  dream: {
+    label: 'Dream',
+    cover: 'from-[#251144] via-[#412059] to-[#1d233f]',
+    ring: 'border-violet-200/80 shadow-[0_0_28px_rgba(196,181,253,0.28)]',
+    card: 'border-violet-200/15 bg-violet-950/20',
+  },
+  sunset: {
+    label: 'Sunset',
+    cover: 'from-[#492013] via-[#90412c] to-[#d28449]',
+    ring: 'border-orange-200/80 shadow-[0_0_28px_rgba(251,191,36,0.28)]',
+    card: 'border-orange-200/15 bg-orange-950/20',
+  },
+  paper: {
+    label: 'Earthy',
+    cover: 'from-[#3a2c20] via-[#6b5437] to-[#b39062]',
+    ring: 'border-stone-100/80 shadow-[0_0_28px_rgba(214,184,138,0.28)]',
+    card: 'border-stone-100/15 bg-stone-900/20',
+  },
+  mono: {
+    label: 'Mono',
+    cover: 'from-[#111111] via-[#2b2b2b] to-[#e8e3d8]',
+    ring: 'border-zinc-100/80 shadow-[0_0_28px_rgba(244,244,245,0.2)]',
+    card: 'border-zinc-100/15 bg-zinc-950/25',
+  },
+}
+
+const SPACE_ACCENTS: Record<SpaceAccentKey, { label: string; chip: string; text: string }> = {
+  sage: { label: 'Sage', chip: 'bg-emerald-300', text: 'text-emerald-200' },
+  gold: { label: 'Gold', chip: 'bg-amber-300', text: 'text-amber-200' },
+  coral: { label: 'Coral', chip: 'bg-orange-300', text: 'text-orange-200' },
+  violet: { label: 'Violet', chip: 'bg-violet-300', text: 'text-violet-200' },
+  sky: { label: 'Sky', chip: 'bg-sky-300', text: 'text-sky-200' },
+}
+
+const SPACE_FONTS: Record<SpaceFontKey, { label: string; className: string }> = {
+  clean: { label: 'Clean', className: '' },
+  serif: { label: 'Serif', className: 'font-serif' },
+  note: { label: 'Note', className: 'font-serif italic' },
+}
+
+const DEFAULT_SPACE: SpaceDraft = {
+  space_theme: 'forest',
+  space_accent: 'sage',
+  space_font: 'clean',
+  space_motto: '',
+  space_vibe: '',
+  space_pinned_note: '',
+}
+
+function readProfileSpace(profile: Profile): SpaceDraft {
+  return {
+    space_theme: profile.space_theme ?? DEFAULT_SPACE.space_theme,
+    space_accent: profile.space_accent ?? DEFAULT_SPACE.space_accent,
+    space_font: profile.space_font ?? DEFAULT_SPACE.space_font,
+    space_motto: profile.space_motto ?? '',
+    space_vibe: profile.space_vibe ?? '',
+    space_pinned_note: profile.space_pinned_note ?? '',
+  }
+}
+
 function gameLabel(key: string): string {
   return gameLabels[key] ?? key.charAt(0).toUpperCase() + key.slice(1)
 }
@@ -118,6 +210,9 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   const [connectionRequestId, setConnectionRequestId] = useState<string | null>(null)
   const [verificationBusy, setVerificationBusy] = useState(false)
   const [achievementsOpen, setAchievementsOpen] = useState(true)
+  const [spaceOpen, setSpaceOpen] = useState(false)
+  const [spaceDraft, setSpaceDraft] = useState<SpaceDraft>(DEFAULT_SPACE)
+  const [spaceSaving, setSpaceSaving] = useState(false)
 
   // Post creation
   const [newPostContent, setNewPostContent] = useState('')
@@ -130,6 +225,10 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   const isOwnProfile = user?.userId === userId
   const [blocked, setBlocked] = useState(false)
   const [blockBusy, setBlockBusy] = useState(false)
+
+  useEffect(() => {
+    if (profile?.id) setSpaceDraft(readProfileSpace(profile))
+  }, [profile?.id])
 
   useEffect(() => {
     if (!user || isOwnProfile) {
@@ -335,6 +434,10 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   const visibleConditions = (profile.hide_conditions_on_profile ? [] : profile.conditions || []).filter(
     (condition) => condition !== 'Private',
   )
+  const space = readProfileSpace(profile)
+  const spaceTheme = SPACE_THEMES[space.space_theme]
+  const spaceAccent = SPACE_ACCENTS[space.space_accent]
+  const spaceFont = SPACE_FONTS[space.space_font]
 
   const tabs = [
     { key: 'overview' as const, label: 'Overview', icon: 'ri-user-line' },
@@ -400,11 +503,34 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
     }
   }
 
+  async function saveMySpace() {
+    if (!user || !isOwnProfile || spaceSaving) return
+    setSpaceSaving(true)
+    const next: SpaceDraft = {
+      space_theme: spaceDraft.space_theme,
+      space_accent: spaceDraft.space_accent,
+      space_font: spaceDraft.space_font,
+      space_motto: spaceDraft.space_motto.trim().slice(0, 160),
+      space_vibe: spaceDraft.space_vibe.trim().slice(0, 80),
+      space_pinned_note: spaceDraft.space_pinned_note.trim().slice(0, 220),
+    }
+    try {
+      await DatabaseService.updateProfile(user.userId, next)
+      setProfile((current) => (current ? { ...current, ...next } : current))
+      setSpaceDraft((current) => ({ ...current, ...next }))
+      toast('My Space saved', 'success')
+    } catch {
+      toast('Could not save My Space', 'error')
+    } finally {
+      setSpaceSaving(false)
+    }
+  }
+
   return (
     <main className="page-shell min-h-screen">
       <div className="mx-auto w-full max-w-5xl">
         {/* Cover Area */}
-        <div className="relative h-36 overflow-hidden bg-gradient-to-br from-brand-accent3/40 via-brand-primary to-brand-accent1/20 sm:h-44">
+        <div className={`relative h-36 overflow-hidden bg-gradient-to-br ${spaceTheme.cover} sm:h-44`}>
           {profile?.cover_image_url ? (
             <img
               src={profile.cover_image_url}
@@ -471,7 +597,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
           <ProfileAvatar
             alt={displayName}
             avatarUrl={profile.avatar_url}
-            className="w-24 h-24 rounded-full object-cover border-4 border-brand-primary shadow-lg"
+            className={`w-24 h-24 rounded-full object-cover border-4 shadow-lg ${spaceTheme.ring}`}
             fullName={profile.full_name}
             userId={profile.id}
             username={profile.username}
@@ -481,7 +607,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         {/* Name & Username */}
         <div className="mb-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold text-brand-background">{displayName}</h1>
+            <h1 className={`text-2xl font-bold text-brand-background ${spaceFont.className}`}>{displayName}</h1>
             {isVerifiedMember && (
               <Badge className="bg-brand-accent3/20 text-brand-accent3">
                 <i className="ri-check-double-line" aria-hidden="true" />
@@ -779,6 +905,175 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                 )}
               </Card>
             )}
+
+            {profile.restricted !== true &&
+              (isOwnProfile || space.space_motto || space.space_vibe || space.space_pinned_note) && (
+                <Card className={spaceTheme.card}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="flex items-center gap-2 text-sm font-semibold text-brand-background">
+                        <i className="ri-sparkling-line text-brand-accent2" aria-hidden="true" /> My Space
+                      </h3>
+                      <p className="mt-1 text-xs text-brand-background/50">
+                        {isOwnProfile ? 'Shape your corner of KinSpace.' : `${displayName}’s corner of KinSpace.`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {space.space_vibe && (
+                        <Badge className={`${spaceAccent.text} bg-brand-background/10`}>
+                          {space.space_vibe}
+                        </Badge>
+                      )}
+                      {isOwnProfile && (
+                        <button
+                          type="button"
+                          onClick={() => setSpaceOpen((open) => !open)}
+                          aria-expanded={spaceOpen}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-brand-background/15 bg-brand-background/[0.06] px-3 text-xs font-semibold text-brand-background/75 transition-colors hover:bg-brand-background/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                        >
+                          <i className="ri-palette-line" aria-hidden="true" />
+                          Customize
+                          <i
+                            className={`ri-arrow-down-s-line transition-transform ${spaceOpen ? 'rotate-180' : ''}`}
+                            aria-hidden="true"
+                          />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {(space.space_motto || space.space_pinned_note) && (
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {space.space_motto && (
+                        <div className="rounded-2xl border border-brand-background/10 bg-brand-background/[0.05] p-4">
+                          <p className={`text-sm leading-relaxed text-brand-background/80 ${spaceFont.className}`}>
+                            “{space.space_motto}”
+                          </p>
+                        </div>
+                      )}
+                      {space.space_pinned_note && (
+                        <div className="rounded-2xl border border-brand-background/10 bg-brand-background/[0.05] p-4">
+                          <p className="mb-1 text-xs font-semibold text-brand-background/45">Pinned memory</p>
+                          <p className={`text-sm leading-relaxed text-brand-background/80 ${spaceFont.className}`}>
+                            {space.space_pinned_note}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {isOwnProfile && spaceOpen && (
+                    <div className="mt-4 space-y-4 border-t border-brand-background/10 pt-4">
+                      <div>
+                        <p className="mb-2 text-xs font-semibold text-brand-background/55">Theme</p>
+                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                          {(Object.entries(SPACE_THEMES) as Array<[SpaceThemeKey, (typeof SPACE_THEMES)[SpaceThemeKey]]>).map(
+                            ([key, option]) => (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() => setSpaceDraft((current) => ({ ...current, space_theme: key }))}
+                                className={`rounded-2xl border p-2 text-xs font-semibold text-brand-background transition-colors ${
+                                  spaceDraft.space_theme === key
+                                    ? 'border-brand-accent2 bg-brand-accent2/18'
+                                    : 'border-brand-background/10 bg-brand-background/[0.04] hover:bg-brand-background/[0.08]'
+                                }`}
+                              >
+                                <span className={`mb-2 block h-8 rounded-xl bg-gradient-to-br ${option.cover}`} />
+                                {option.label}
+                              </button>
+                            ),
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-xs font-semibold text-brand-background/55">Accent</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(Object.entries(SPACE_ACCENTS) as Array<[SpaceAccentKey, (typeof SPACE_ACCENTS)[SpaceAccentKey]]>).map(
+                            ([key, option]) => (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() => setSpaceDraft((current) => ({ ...current, space_accent: key }))}
+                                className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold text-brand-background transition-colors ${
+                                  spaceDraft.space_accent === key
+                                    ? 'border-brand-accent2 bg-brand-accent2/18'
+                                    : 'border-brand-background/10 bg-brand-background/[0.04] hover:bg-brand-background/[0.08]'
+                                }`}
+                              >
+                                <span className={`h-3 w-3 rounded-full ${option.chip}`} aria-hidden="true" />
+                                {option.label}
+                              </button>
+                            ),
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-xs font-semibold text-brand-background/55">Font style</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(Object.entries(SPACE_FONTS) as Array<[SpaceFontKey, (typeof SPACE_FONTS)[SpaceFontKey]]>).map(
+                            ([key, option]) => (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() => setSpaceDraft((current) => ({ ...current, space_font: key }))}
+                                className={`rounded-full border px-3 py-2 text-xs font-semibold text-brand-background transition-colors ${option.className} ${
+                                  spaceDraft.space_font === key
+                                    ? 'border-brand-accent2 bg-brand-accent2/18'
+                                    : 'border-brand-background/10 bg-brand-background/[0.04] hover:bg-brand-background/[0.08]'
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            ),
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Input
+                          value={spaceDraft.space_vibe}
+                          onChange={(event) =>
+                            setSpaceDraft((current) => ({ ...current, space_vibe: event.target.value.slice(0, 80) }))
+                          }
+                          placeholder="Profile vibe"
+                          aria-label="Profile vibe"
+                          className="bg-brand-background/[0.06] text-brand-background placeholder:text-brand-background/35"
+                        />
+                        <Input
+                          value={spaceDraft.space_motto}
+                          onChange={(event) =>
+                            setSpaceDraft((current) => ({ ...current, space_motto: event.target.value.slice(0, 160) }))
+                          }
+                          placeholder="Personal motto"
+                          aria-label="Personal motto"
+                          className="bg-brand-background/[0.06] text-brand-background placeholder:text-brand-background/35"
+                        />
+                      </div>
+                      <Textarea
+                        value={spaceDraft.space_pinned_note}
+                        onChange={(event) =>
+                          setSpaceDraft((current) => ({
+                            ...current,
+                            space_pinned_note: event.target.value.slice(0, 220),
+                          }))
+                        }
+                        rows={3}
+                        placeholder="Pinned memory or note"
+                        aria-label="Pinned memory or note"
+                        className="resize-none bg-brand-background/[0.06] text-brand-background placeholder:text-brand-background/35"
+                      />
+                      <div className="flex justify-end">
+                        <Button size="sm" onClick={saveMySpace} isLoading={spaceSaving} disabled={spaceSaving}>
+                          {spaceSaving ? 'Saving...' : 'Save My Space'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              )}
 
             {/* Create Post (own profile only) */}
             {isOwnProfile && (

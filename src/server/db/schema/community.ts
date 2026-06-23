@@ -131,6 +131,8 @@ export const postComments = sqliteTable(
   {
     id: pk(),
     postId: text('post_id').notNull(),
+    parentId: text('parent_id')
+      .references((): any => postComments.id, { onDelete: 'cascade' }),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -143,7 +145,26 @@ export const postComments = sqliteTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index('comments_post_idx').on(t.postId)],
+  (t) => [
+    index('comments_post_idx').on(t.postId),
+    index('comments_parent_idx').on(t.parentId),
+  ],
+)
+
+export const commentReactions = sqliteTable(
+  'comment_reactions',
+  {
+    id: pk(),
+    commentId: text('comment_id')
+      .notNull()
+      .references(() => postComments.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    reaction: text('reaction').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('comment_reactions_uniq').on(t.commentId, t.userId, t.reaction)],
 )
 
 export const chatMessages = sqliteTable(

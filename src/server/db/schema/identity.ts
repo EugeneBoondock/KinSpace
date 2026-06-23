@@ -87,6 +87,12 @@ export const profiles = sqliteTable(
      * "What you're living with" card). Other people already never receive a
      * non-owner's conditions, so this controls the owner's own profile view. */
     hideConditionsOnProfile: bool('hide_conditions_on_profile').notNull().default(false),
+    spaceTheme: text('space_theme').notNull().default('forest'),
+    spaceAccent: text('space_accent').notNull().default('sage'),
+    spaceFont: text('space_font').notNull().default('clean'),
+    spaceMotto: text('space_motto'),
+    spaceVibe: text('space_vibe'),
+    spacePinnedNote: text('space_pinned_note'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

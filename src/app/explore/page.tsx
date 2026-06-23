@@ -19,6 +19,7 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(true)
   const [groups, setGroups] = useState<Group[]>([])
   const [joinedGroupIds, setJoinedGroupIds] = useState<Set<string>>(new Set())
+  const [requestedGroupIds, setRequestedGroupIds] = useState<Set<string>>(new Set())
   const [activeCategory, setActiveCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -36,9 +37,19 @@ export default function ExplorePage() {
         ])
 
         setGroups(allGroups as Group[])
+        const typedMemberships = memberships as Array<{ status?: string; group?: { id?: string } | null }>
         setJoinedGroupIds(
           new Set(
-            (memberships as Array<{ group?: { id?: string } | null }>)
+            typedMemberships
+              .filter((membership) => membership.status !== 'pending' && membership.status !== 'banned')
+              .map((membership) => membership.group?.id)
+              .filter(Boolean) as string[],
+          ),
+        )
+        setRequestedGroupIds(
+          new Set(
+            typedMemberships
+              .filter((membership) => membership.status === 'pending')
               .map((membership) => membership.group?.id)
               .filter(Boolean) as string[],
           ),
@@ -88,22 +99,24 @@ export default function ExplorePage() {
 
   async function handleJoinGroup(groupId: string) {
     if (!user) return
-    if (joinedGroupIds.has(groupId)) return
+    if (joinedGroupIds.has(groupId) || requestedGroupIds.has(groupId)) return
 
-    setJoinedGroupIds((current) => new Set(current).add(groupId))
     try {
-      await DatabaseService.joinGroup(groupId, user.userId)
-      const refreshedGroups = await DatabaseService.getGroups()
-      setGroups(refreshedGroups as Group[])
-      toast('Joined the group', 'success')
+      const result = (await DatabaseService.joinGroup(groupId, user.userId)) as
+        | { status?: 'joined' | 'pending' }
+        | undefined
+      if (result?.status === 'pending') {
+        setRequestedGroupIds((current) => new Set(current).add(groupId))
+        toast('Request sent. An admin will review it soon.', 'success')
+      } else {
+        setJoinedGroupIds((current) => new Set(current).add(groupId))
+        const refreshedGroups = await DatabaseService.getGroups()
+        setGroups(refreshedGroups as Group[])
+        toast('Joined the group', 'success')
+      }
     } catch (error) {
       console.error('Failed to join group:', error)
-      setJoinedGroupIds((current) => {
-        const next = new Set(current)
-        next.delete(groupId)
-        return next
-      })
-      toast('Could not join group', 'error')
+      toast(error instanceof Error ? error.message : 'Could not join group', 'error')
     }
   }
 
@@ -202,6 +215,8 @@ export default function ExplorePage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredGroups.map((group) => {
                 const joined = joinedGroupIds.has(group.id)
+                const requested = requestedGroupIds.has(group.id)
+                const isPrivate = Boolean(group.is_private)
                 const isOwnGroup = user?.userId === (group.created_by as string | undefined)
                 const groupType = (group.type as string | undefined) || 'virtual'
 
@@ -217,6 +232,12 @@ export default function ExplorePage() {
                             <Badge tone="info">You manage this</Badge>
                           ) : joined ? (
                             <Badge tone="accent">Joined</Badge>
+                          ) : requested ? (
+                            <Badge tone="accent">Requested</Badge>
+                          ) : isPrivate ? (
+                            <Badge>
+                              <i className="ri-lock-2-line" aria-hidden="true" /> Private
+                            </Badge>
                           ) : null}
                         </div>
                         <p className="mt-1 text-xs capitalize text-brand-background/45">
@@ -267,9 +288,18 @@ export default function ExplorePage() {
                         >
                           Already joined
                         </Button>
+                      ) : requested ? (
+                        <Button
+                          variant="secondary"
+                          fullWidth
+                          disabled
+                          leadingIcon={<i className="ri-time-line" aria-hidden="true" />}
+                        >
+                          Request pending
+                        </Button>
                       ) : (
                         <Button onClick={() => handleJoinGroup(group.id)} fullWidth>
-                          Join group
+                          {isPrivate ? 'Request to join' : 'Join group'}
                         </Button>
                       )}
                     </div>

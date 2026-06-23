@@ -21,6 +21,14 @@ type MedicationReminderRow = MedicationReminderSchedule & {
   updated_at?: string
 }
 
+type AdherenceRow = {
+  id: string
+  taken_days: number
+  expected_days: number
+  adherence_pct: number
+  recent: Array<boolean | null>
+}
+
 type ReminderForm = {
   id: string | null
   medication: string
@@ -150,6 +158,7 @@ export default function MedicationShelf() {
   const toast = useToast()
   const [open, setOpen] = useState(false)
   const [reminders, setReminders] = useState<MedicationReminderRow[]>([])
+  const [adherence, setAdherence] = useState<Record<string, AdherenceRow>>({})
   const [form, setForm] = useState<ReminderForm>(emptyForm)
   const [timeInput, setTimeInput] = useState('08:00')
   const [loadingReminders, setLoadingReminders] = useState(false)
@@ -178,8 +187,16 @@ export default function MedicationShelf() {
     if (!user) return
     setLoadingReminders(true)
     try {
-      const data = await DatabaseService.getMedicationReminders(user.userId) as MedicationReminderRow[]
+      const [data, adherenceRows] = await Promise.all([
+        DatabaseService.getMedicationReminders(user.userId) as Promise<MedicationReminderRow[]>,
+        (DatabaseService.getMedicationAdherence(user.userId, 14) as Promise<AdherenceRow[]>).catch(
+          () => [] as AdherenceRow[],
+        ),
+      ])
       setReminders(data.map((item) => ({ ...item, times: normalizeReminderTimes(item.times ?? []) })))
+      const map: Record<string, AdherenceRow> = {}
+      for (const row of adherenceRows ?? []) map[row.id] = row
+      setAdherence(map)
     } catch {
       toast.push('Could not load medication reminders.', 'error')
     } finally {
@@ -872,7 +889,9 @@ export default function MedicationShelf() {
               </div>
             ) : (
               <div className="space-y-3">
-                {sortedReminders.map((reminder) => (
+                {sortedReminders.map((reminder) => {
+                  const adh = adherence[reminder.id]
+                  return (
                   <article key={reminder.id} className="rounded-2xl border border-brand-line bg-brand-surface-raised p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -904,6 +923,34 @@ export default function MedicationShelf() {
                         <i className="ri-pencil-line" aria-hidden="true" />
                       </button>
                     </div>
+                    {adh && adh.expected_days > 0 && (
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between text-xs text-brand-ink/55">
+                          <span>Last {adh.recent.length} days</span>
+                          <span className="font-semibold text-brand-ink/70">
+                            {adh.taken_days}/{adh.expected_days} days · {adh.adherence_pct}%
+                          </span>
+                        </div>
+                        <div
+                          className="mt-1.5 flex flex-wrap gap-1"
+                          aria-label={`Taken ${adh.taken_days} of ${adh.expected_days} days, ${adh.adherence_pct} percent`}
+                        >
+                          {adh.recent.map((cell, index) => (
+                            <span
+                              key={index}
+                              title={cell === null ? 'Before this reminder' : cell ? 'Taken' : 'Missed'}
+                              className={`h-2 w-2 rounded-full ${
+                                cell === null
+                                  ? 'bg-brand-ink/10'
+                                  : cell
+                                    ? 'bg-brand-accent3'
+                                    : 'bg-brand-accent1/40'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="mt-3 flex flex-wrap gap-2">
                       {isTakenToday(reminder.last_taken_at) ? (
                         <Button
@@ -929,7 +976,8 @@ export default function MedicationShelf() {
                       </Button>
                     </div>
                   </article>
-                ))}
+                  )
+                })}
               </div>
             )}
           </section>

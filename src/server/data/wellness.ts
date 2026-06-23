@@ -481,20 +481,28 @@ export async function markMedicationReminderTaken(ctx: Ctx, _userId: string, rem
   if (!existing || existing.userId !== userId) throw new Error('Not authorized')
 
   const now = new Date()
+  const day = now.toISOString().slice(0, 10)
   await ctx.db
     .update(medicationReminders)
     .set({ lastTakenAt: now, updatedAt: now })
     .where(eq(medicationReminders.id, reminderId))
 
-  // Append to the per-dose history that powers the activity calendar.
-  await ctx.db.insert(medicationTakenLog).values({
-    id: crypto.randomUUID(),
-    userId,
-    reminderId,
-    medication: existing.medication,
-    day: now.toISOString().slice(0, 10),
-    takenAt: now,
+  // Append to the per-dose history that powers the activity calendar — but only
+  // once per reminder per day, so repeat taps (the shelf + the push "Taken"
+  // action both call this) never double-log the same dose.
+  const alreadyLogged = await ctx.db.query.medicationTakenLog.findFirst({
+    where: and(eq(medicationTakenLog.reminderId, reminderId), eq(medicationTakenLog.day, day)),
   })
+  if (!alreadyLogged) {
+    await ctx.db.insert(medicationTakenLog).values({
+      id: crypto.randomUUID(),
+      userId,
+      reminderId,
+      medication: existing.medication,
+      day,
+      takenAt: now,
+    })
+  }
 
   return ctx.db.query.medicationReminders.findFirst({ where: eq(medicationReminders.id, reminderId) })
 }
@@ -545,6 +553,64 @@ export async function getActivityCalendar(ctx: Ctx, _userId?: string, days = 120
   }
 
   return Array.from(map.values()).sort((a, b) => (a.day < b.day ? -1 : 1))
+}
+
+/**
+ * Per-medication adherence over the last `days` days. Honest at DAY granularity:
+ * medicationTakenLog holds one row per reminder per day (a reminder counts as
+ * taken that day if marked at least once), so this reports days-taken vs
+ * days-expected, only counting days on or after the reminder was created. The
+ * `recent` array is oldest→newest: true = taken, false = missed, null = before
+ * the reminder existed (so the UI can render a clean streak strip).
+ */
+export async function getMedicationAdherence(ctx: Ctx, _userId?: string, days = 14) {
+  const userId = requireActor(ctx)
+  const windowDays = Math.max(1, Math.min(60, Math.round(days)))
+  const today = new Date()
+  const dayKey = (d: Date) => d.toISOString().slice(0, 10)
+
+  const windowKeys: string[] = []
+  for (let i = windowDays - 1; i >= 0; i -= 1) {
+    windowKeys.push(dayKey(new Date(today.getTime() - i * 24 * 60 * 60 * 1000)))
+  }
+  const earliest = windowKeys[0]
+
+  const [reminders, takenRows] = await Promise.all([
+    ctx.db.query.medicationReminders.findMany({
+      where: and(eq(medicationReminders.userId, userId), eq(medicationReminders.active, true)),
+    }),
+    ctx.db.query.medicationTakenLog.findMany({ where: eq(medicationTakenLog.userId, userId) }),
+  ])
+
+  const takenByReminder = new Map<string, Set<string>>()
+  for (const row of takenRows) {
+    const day = String(row.day ?? '').slice(0, 10)
+    if (!day || day < earliest || !row.reminderId) continue
+    const set = takenByReminder.get(row.reminderId) ?? new Set<string>()
+    set.add(day)
+    takenByReminder.set(row.reminderId, set)
+  }
+
+  return reminders
+    .map((reminder) => {
+      const createdDay = dayKey(toDate(reminder.createdAt as never) ?? today)
+      const startDay = createdDay > earliest ? createdDay : earliest
+      const expectedKeys = windowKeys.filter((key) => key >= startDay)
+      const takenSet = takenByReminder.get(reminder.id) ?? new Set<string>()
+      const takenDays = expectedKeys.filter((key) => takenSet.has(key)).length
+      const expectedDays = expectedKeys.length
+      return {
+        id: reminder.id,
+        medication: reminder.medication,
+        dose: reminder.dose ?? null,
+        doses_per_day: normalizeReminderTimes(reminder.times ?? []).length,
+        taken_days: takenDays,
+        expected_days: expectedDays,
+        adherence_pct: expectedDays > 0 ? Math.round((takenDays / expectedDays) * 100) : 0,
+        recent: windowKeys.map((key) => (key < startDay ? null : takenSet.has(key))),
+      }
+    })
+    .sort((a, b) => a.medication.localeCompare(b.medication))
 }
 
 // ── Spoons Today (opt-in, expiring capacity signal) ─────────────────────────

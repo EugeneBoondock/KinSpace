@@ -239,8 +239,12 @@ export async function POST(request: NextRequest) {
     const isCrisis = result.isCrisis || detectCrisisInMessages(sanitised)
     return NextResponse.json({ ok: true, reply: result.reply, isCrisis, endSession: result.endSession && !isCrisis })
   } catch (error) {
-    console.error('Therapy chat failed')
-    void error
+    // Log the real error so failures are diagnosable in `wrangler tail` (the
+    // generic message below is all the user sees). Most common cause: an invalid
+    // or expired OPENAI_API_KEY → OpenAI returns 401.
+    const status = (error as { status?: number })?.status
+    const detail = error instanceof Error ? error.message : String(error)
+    console.error(`Therapy chat failed (status=${status ?? 'n/a'}): ${detail}`)
     return NextResponse.json({ ok: false, error: 'The Guide is unavailable right now.' }, { status: 500 })
   }
 }

@@ -38,9 +38,17 @@ async function ownProfile(row: typeof profiles.$inferSelect) {
  * Read a profile by id. The OWNER receives the full row; everyone else receives
  * only the public projection (no health/PHI, emergency contacts, mood, etc.).
  */
-export async function getProfile(ctx: Ctx, userId: string) {
-  const row = await ctx.db.query.profiles.findFirst({ where: eq(profiles.userId, userId) })
+export async function getProfile(ctx: Ctx, userIdOrUsername: string) {
+  let row = (await ctx.db.query.profiles.findFirst({ where: eq(profiles.userId, userIdOrUsername) })) ?? null
+  if (!row) {
+    // Fall back to a username lookup so @mention links (via /u/{username}) resolve.
+    const handle = String(userIdOrUsername ?? '').trim().replace(/^@/, '').toLowerCase()
+    if (handle) {
+      row = (await ctx.db.query.profiles.findFirst({ where: sql`lower(${profiles.username}) = ${handle}` })) ?? null
+    }
+  }
   if (!row) return null
+  const userId = row.userId
   if (ctx.userId === userId) return ownProfile(row) // own profile → full (decrypted)
 
   // Visibility gate. A non-anonymous profile is viewable across the community.
@@ -82,6 +90,7 @@ const ALLOWED_PROFILE_FIELDS = new Set([
   'onboardingComplete', 'onboardingStatus', 'visibility', 'shareHealthWithGuide',
   'anonymousProfileVisibility', 'notifyMatches', 'notifyMessages', 'notifyGroups',
   'hideConditionsOnHome', 'hideConditionsOnProfile',
+  'spaceTheme', 'spaceAccent', 'spaceFont', 'spaceMotto', 'spaceVibe', 'spacePinnedNote',
 ])
 
 function snakeToCamel(key: string): string {

@@ -18,6 +18,16 @@ export function isEmoji(str: string): boolean {
   return emojiRegex.test(trimmed)
 }
 
+export function getReactionActorList(names: string[]): string[] {
+  return Array.from(new Set(names.map((name) => name.trim()).filter(Boolean)))
+}
+
+export function formatReactionActorSummary(names: string[]): string {
+  const count = getReactionActorList(names).length
+  if (count === 0) return 'No reactions yet'
+  return `${count} ${count === 1 ? 'person' : 'people'} reacted`
+}
+
 export function applyReactionMutation<T extends Record<string, unknown>>(
   post: T,
   emoji: string,

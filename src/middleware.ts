@@ -21,6 +21,7 @@ const PUBLIC_PREFIXES = [
   '/community-guidelines',
   '/crisis',
   '/symptom-checker',
+  '/mindfulness',
   '/offline',
 ]
 

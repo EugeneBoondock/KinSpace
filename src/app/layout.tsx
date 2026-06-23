@@ -7,6 +7,7 @@ import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import { ToastProvider } from "@/components/Toast";
 import { ThemeProvider, themeInitScript } from "@/components/ThemeProvider";
 import MedicationShelf from "@/components/MedicationShelf";
+import CommandLauncher from "@/components/CommandLauncher";
 import Script from "next/script";
 
 const manrope = Manrope({
@@ -80,6 +81,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <ResponsiveNavbar />
               <main className="min-h-screen">{children}</main>
               <MedicationShelf />
+              <CommandLauncher />
               <ServiceWorkerRegistrar />
             </ToastProvider>
           </AuthProvider>

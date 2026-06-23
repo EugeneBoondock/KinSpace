@@ -27,6 +27,7 @@ const CATEGORY_TABS = [
   { id: 'chronic', label: 'Chronic' },
   { id: 'infectious', label: 'Infectious' },
   { id: 'cardiovascular', label: 'Heart & blood pressure' },
+  { id: 'disability', label: 'Disabilities' },
   { id: 'autoimmune', label: 'Autoimmune' },
   { id: 'neurological', label: 'Neurological' },
   { id: 'respiratory', label: 'Respiratory' },
@@ -81,7 +82,7 @@ export default function ConditionsPage() {
         <div className="space-y-2 border-t border-brand-line pt-8">
           <h2 className="text-xl font-bold text-brand-background sm:text-2xl">Browse the full directory</h2>
           <p className="max-w-2xl text-sm leading-relaxed text-brand-background/65">
-            All 52 conditions, search or filter by category. Honest ratings and stories, a starting point
+            Browse every condition, search or filter by category. Honest ratings and stories, a starting point
             for your own care conversations, not medical advice.
           </p>
         </div>

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
-import ProfileAvatar from '@/components/ProfileAvatar'
+import { MemberAvatar, MemberName } from '@/components/MemberIdentity'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
@@ -476,11 +476,13 @@ export default function ResearchArticlePage() {
                               {contribution.is_anonymous ? (
                                 <i className="ri-spy-line" aria-hidden="true" />
                               ) : (
-                                <ProfileAvatar
+                                <MemberAvatar
+                                  profile={authorProfile}
                                   alt={authorName}
                                   avatarUrl={authorProfile?.avatar_url as string | undefined}
                                   className="h-9 w-9 rounded-full object-cover"
                                   fullName={authorProfile?.full_name as string | undefined}
+                                  isAnonymous={Boolean(contribution.is_anonymous)}
                                   userId={authorProfile?.id as string | undefined}
                                   username={authorProfile?.username as string | undefined}
                                 />
@@ -488,7 +490,13 @@ export default function ResearchArticlePage() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2 text-xs text-brand-background/50">
-                                <span className="font-semibold text-brand-background/80">{authorName}</span>
+                                <span className="font-semibold text-brand-background/80">
+                                  <MemberName
+                                    profile={authorProfile}
+                                    name={authorName}
+                                    isAnonymous={Boolean(contribution.is_anonymous)}
+                                  />
+                                </span>
                                 <span aria-hidden="true">·</span>
                                 <span>{formatRelativeTime(contribution.created_at)}</span>
                               </div>

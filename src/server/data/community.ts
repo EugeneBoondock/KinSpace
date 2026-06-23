@@ -18,6 +18,7 @@ import {
   postLikes,
   postReactions,
   postComments,
+  commentReactions,
   chatMessages,
   groupMembers,
   groups,
@@ -178,11 +179,42 @@ async function hydratePosts(ctx: Ctx, rows: Array<typeof communityPosts.$inferSe
     const groupRows = await ctx.db.query.groups.findMany({ where: inArray(groups.id, groupIds) })
     for (const group of groupRows) groupMap.set(group.id, { id: group.id, name: group.name })
   }
-  return visibleRows.map((row) => ({
-    ...row,
-    profile: profileMap.get(row.userId) ?? null,
-    group: row.groupId ? groupMap.get(row.groupId) ?? null : null,
-  }))
+
+  const postIds = visibleRows.map((row) => row.id)
+  const reactionRows = postIds.length
+    ? await ctx.db.query.postReactions.findMany({
+        where: inArray(postReactions.postId, postIds),
+      })
+    : []
+
+  const reactorUserIds = reactionRows.map((r) => r.userId)
+  const reactorProfileMap = await getProfileSummaries(ctx.db, reactorUserIds)
+
+  const reactorsByPostReaction = new Map<string, string[]>() // keyed by `${postId}:${emoji}`
+  for (const reaction of reactionRows) {
+    const profile = reactorProfileMap.get(reaction.userId)
+    const name = profile ? (profile.fullName || profile.username) : 'Anonymous'
+    const key = `${reaction.postId}:${reaction.reaction}`
+    const list = reactorsByPostReaction.get(key) ?? []
+    if (!list.includes(name)) {
+      list.push(name)
+    }
+    reactorsByPostReaction.set(key, list)
+  }
+
+  return visibleRows.map((row) => {
+    const reactors: Record<string, string[]> = {}
+    const reactionCounts = row.reactionCounts ?? {}
+    for (const emoji of Object.keys(reactionCounts)) {
+      reactors[emoji] = reactorsByPostReaction.get(`${row.id}:${emoji}`) ?? []
+    }
+    return {
+      ...row,
+      profile: profileMap.get(row.userId) ?? null,
+      group: row.groupId ? groupMap.get(row.groupId) ?? null : null,
+      reactors,
+    }
+  })
 }
 
 function normalizeReplyToken(value: unknown): string {
@@ -458,12 +490,71 @@ export async function getCommunityReplyQueue(
  */
 export async function getGroupFeed(ctx: Ctx, groupId: string, limitCount = 30) {
   if (!groupId) return []
+
+  // PRIVATE groups are not readable by outsiders. The UI hides the feed, but this
+  // is the real boundary: a non-member hitting the RPC directly gets nothing.
+  // Active members (and the creator) can read; pending/banned/non-members cannot.
+  const group = await ctx.db.query.groups.findFirst({ where: eq(groups.id, groupId) })
+  if (!group) return []
+  if (group.isPrivate) {
+    const actor = ctx.userId
+    if (!actor) return []
+    if (group.createdBy !== actor) {
+      const membership = await ctx.db.query.groupMembers.findFirst({
+        where: and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, actor)),
+      })
+      const isActive = Boolean(membership && membership.status !== 'banned' && membership.status !== 'pending')
+      if (!isActive) return []
+    }
+  }
+
   const rows = await ctx.db.query.communityPosts.findMany({
     where: eq(communityPosts.groupId, groupId),
     orderBy: desc(communityPosts.createdAt),
     limit: limitCount,
   })
   return sortByNewest(await hydratePosts(ctx, rows)).slice(0, limitCount)
+}
+
+/**
+ * Parse @handles from `content`, resolve them to members, and notify each that
+ * they were mentioned. Best-effort: never blocks the post/comment on failure.
+ * Skips the author, anyone blocked either way, and de-dupes. Bounded to 10.
+ */
+async function notifyMentions(
+  ctx: Ctx,
+  content: string,
+  authorId: string,
+  context: { postId: string; inComment?: boolean },
+): Promise<void> {
+  try {
+    const handles = new Set<string>()
+    const re = /(?:^|[^a-zA-Z0-9_])@([a-zA-Z0-9_]{2,30})/g
+    let match: RegExpExecArray | null
+    while ((match = re.exec(content)) !== null) {
+      handles.add(match[1].toLowerCase())
+      if (handles.size >= 10) break
+    }
+    if (handles.size === 0) return
+
+    const rows = await ctx.db.query.profiles.findMany({
+      where: or(...Array.from(handles).map((handle) => sql`lower(${profiles.username}) = ${handle}`)),
+    })
+    const notified = new Set<string>([authorId])
+    for (const row of rows) {
+      if (notified.has(row.userId)) continue
+      notified.add(row.userId)
+      if (await isBlockBetween(ctx.db, authorId, row.userId)) continue
+      await createNotification(ctx.db, row.userId, {
+        type: 'mention',
+        title: context.inComment ? 'You were mentioned in a comment' : 'You were mentioned in a post',
+        body: 'Someone tagged you. Tap to take a look.',
+        data: { post_id: context.postId },
+      })
+    }
+  } catch (error) {
+    console.warn('mention notify failed (non-fatal):', error)
+  }
 }
 
 export async function createPost(
@@ -517,6 +608,9 @@ export async function createPost(
     content,
     tags: tags || [],
   })
+
+  // Notify anyone @mentioned in the post.
+  await notifyMentions(ctx, content, userId, { postId: id })
 
   return { id }
 }
@@ -689,12 +783,44 @@ async function adjustReactionCount(ctx: Ctx, postId: string, reaction: string, d
 
 // ── Comments ────────────────────────────────────────────────────────────────
 
+/**
+ * Toggle a single emoji reaction on a comment for the current user. Counts are
+ * computed on read (getCommentsForPosts), not denormalized. Returns true if the
+ * reaction is now on, false if it was removed.
+ */
+export async function toggleCommentReaction(
+  ctx: Ctx,
+  commentId: string,
+  reaction: string,
+) {
+  const userId = requireActor(ctx)
+  const value = String(reaction ?? '').trim().slice(0, 16)
+  if (!commentId || !value) throw new Error('Missing comment or reaction')
+
+  const existing = await ctx.db.query.commentReactions.findFirst({
+    where: and(
+      eq(commentReactions.commentId, commentId),
+      eq(commentReactions.userId, userId),
+      eq(commentReactions.reaction, value),
+    ),
+  })
+  if (existing) {
+    await ctx.db.delete(commentReactions).where(eq(commentReactions.id, existing.id))
+    return false
+  }
+  await ctx.db
+    .insert(commentReactions)
+    .values({ id: crypto.randomUUID(), commentId, userId, reaction: value })
+  return true
+}
+
 export async function addPostComment(
   ctx: Ctx,
   postId: string,
   _userId: string,
   content: string,
   isAnonymous = false,
+  parentId: string | null = null,
 ) {
   const userId = requireActor(ctx)
 
@@ -702,10 +828,18 @@ export async function addPostComment(
   if (!trimmed) throw new Error('Comment cannot be empty')
   if (!postId || !userId) throw new Error('Missing post or user id')
 
+  let parentComment: typeof postComments.$inferSelect | null = null
+  if (parentId) {
+    parentComment = (await ctx.db.query.postComments.findFirst({
+      where: eq(postComments.id, parentId),
+    })) ?? null
+    if (!parentComment || parentComment.postId !== postId) throw new Error('Parent comment not found')
+  }
+
   const id = crypto.randomUUID()
   await ctx.db
     .insert(postComments)
-    .values({ id, postId, userId, content: trimmed, isAnonymous })
+    .values({ id, postId, parentId, userId, content: trimmed, isAnonymous })
 
   // Count-bump is a nice-to-have. Do not fail the comment if this update errors.
   try {
@@ -715,6 +849,18 @@ export async function addPostComment(
       .where(eq(communityPosts.id, postId))
   } catch (error) {
     console.warn('comments_count increment failed (non-fatal):', error)
+  }
+
+  // Notify anyone @mentioned in the comment.
+  await notifyMentions(ctx, trimmed, userId, { postId, inComment: true })
+
+  if (parentComment && parentComment.userId !== userId && !(await isBlockBetween(ctx.db, userId, parentComment.userId))) {
+    await createNotification(ctx.db, parentComment.userId, {
+      type: 'comment_reply',
+      title: 'Someone replied to your comment',
+      body: trimmed.slice(0, 140),
+      data: { post_id: postId, comment_id: parentComment.id, reply_id: id },
+    })
   }
 
   return { id }
@@ -768,12 +914,57 @@ export async function getCommentsForPosts(ctx: Ctx, postIds: string[], limitCoun
   })
 
   const userIds = rows.map((row) => row.userId)
+  const commentIds = rows.map((row) => row.id)
   const profileMap = await getProfileSummaries(ctx.db, userIds)
+  const reactionRows = commentIds.length
+    ? await ctx.db.query.commentReactions.findMany({
+        where: inArray(commentReactions.commentId, commentIds),
+      })
+    : []
 
-  const comments = rows.map((row) => ({
-    ...row,
-    profile: profileMap.get(row.userId) ?? null,
-  }))
+  const countsByComment = new Map<string, Record<string, number>>()
+  const mineByComment = new Map<string, string[]>()
+  for (const reaction of reactionRows) {
+    const counts = countsByComment.get(reaction.commentId) ?? {}
+    counts[reaction.reaction] = (counts[reaction.reaction] ?? 0) + 1
+    countsByComment.set(reaction.commentId, counts)
+    if (ctx.userId && reaction.userId === ctx.userId) {
+      const mine = mineByComment.get(reaction.commentId) ?? []
+      mine.push(reaction.reaction)
+      mineByComment.set(reaction.commentId, mine)
+    }
+  }
+
+  const reactorUserIds = reactionRows.map((r) => r.userId)
+  const reactorProfileMap = await getProfileSummaries(ctx.db, reactorUserIds)
+
+  const reactorsByCommentReaction = new Map<string, string[]>() // keyed by `${commentId}:${emoji}`
+  for (const reaction of reactionRows) {
+    const profile = reactorProfileMap.get(reaction.userId)
+    const name = profile ? (profile.fullName || profile.username) : 'Anonymous'
+    const key = `${reaction.commentId}:${reaction.reaction}`
+    const list = reactorsByCommentReaction.get(key) ?? []
+    if (!list.includes(name)) {
+      list.push(name)
+    }
+    reactorsByCommentReaction.set(key, list)
+  }
+
+  const comments = rows.map((row) => {
+    const commentId = row.id
+    const reactionCounts = countsByComment.get(commentId) ?? {}
+    const reactors: Record<string, string[]> = {}
+    for (const emoji of Object.keys(reactionCounts)) {
+      reactors[emoji] = reactorsByCommentReaction.get(`${commentId}:${emoji}`) ?? []
+    }
+    return {
+      ...row,
+      profile: profileMap.get(row.userId) ?? null,
+      reaction_counts: reactionCounts,
+      my_reactions: mineByComment.get(commentId) ?? [],
+      reactors,
+    }
+  })
 
   const grouped = new Map<
     string,

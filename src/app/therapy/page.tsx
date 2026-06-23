@@ -580,6 +580,48 @@ export default function TherapyPage() {
     maxWidth: '100vw',
   }
 
+  // Summarise + close the current session (mirrors the auto-end + tab-close hook),
+  // then clear the live session id so the next message opens a fresh one.
+  async function endActiveSession(options?: { silent?: boolean }) {
+    const sid = sessionId
+    const enoughToSummarise = messages.filter((message) => message.role === 'user').length >= 2
+    if (sid && user && enoughToSummarise) {
+      try {
+        await fetch('/api/therapy/end-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: sid,
+            personaName: persona.name,
+            moodAtStart,
+            messages: messages.slice(-40).map((message) => ({ role: message.role, content: message.content })),
+          }),
+        })
+      } catch {
+        // best-effort; the tab-close hook is a fallback
+      }
+    }
+    sessionIdRef.current = null
+    setSessionId(null)
+    if (!options?.silent) toast('Session ended and saved to your history.', 'success')
+  }
+
+  async function handleEndSession() {
+    if (sessionEnded) return
+    await endActiveSession()
+    setSessionEnded(true)
+  }
+
+  async function handleNewSession() {
+    await endActiveSession({ silent: true })
+    setMessages([])
+    setSessionEnded(false)
+    setMoodAtStart(null)
+    setInputValue('')
+    setView('empty')
+    toast('Fresh session ready when you are.', 'success')
+  }
+
   if (view === 'loading' || authLoading) {
     return (
       <div style={pageStyle} className="px-3 pb-28 pt-6 sm:px-4 md:pb-24">
@@ -989,6 +1031,28 @@ export default function TherapyPage() {
             </button>
             <button
               type="button"
+              onClick={() => void handleNewSession()}
+              className="flex h-9 w-9 items-center justify-center rounded-full border shadow-sm backdrop-blur-md transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 sm:h-auto sm:w-auto sm:gap-1 sm:px-3 sm:py-1.5 text-xs font-semibold"
+              style={{ background: 'rgba(20,28,24,0.55)', borderColor: 'rgba(238,223,200,0.2)', color: theme.headingColor }}
+              aria-label="Start a new session"
+            >
+              <i className="ri-add-line" aria-hidden="true" />
+              <span className="hidden sm:inline">New</span>
+            </button>
+            {!sessionEnded && messages.length > 0 && (
+              <button
+                type="button"
+                onClick={() => void handleEndSession()}
+                className="flex h-9 w-9 items-center justify-center rounded-full border shadow-sm backdrop-blur-md transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 sm:h-auto sm:w-auto sm:gap-1 sm:px-3 sm:py-1.5 text-xs font-semibold"
+                style={{ background: 'rgba(20,28,24,0.55)', borderColor: 'rgba(238,223,200,0.2)', color: theme.headingColor }}
+                aria-label="End this session"
+              >
+                <i className="ri-stop-circle-line" aria-hidden="true" />
+                <span className="hidden sm:inline">End</span>
+              </button>
+            )}
+            <button
+              type="button"
               onClick={() => setShowBreathing(true)}
               className="flex h-9 w-9 items-center justify-center rounded-full border shadow-sm backdrop-blur-md transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 sm:h-auto sm:w-auto sm:gap-1 sm:px-3 sm:py-1.5 text-xs font-semibold"
               style={{ background: 'rgba(20,28,24,0.55)', borderColor: 'rgba(238,223,200,0.24)', color: theme.accent }}
@@ -1150,15 +1214,25 @@ export default function TherapyPage() {
 
           {sessionEnded && (
             <div
-              className="mx-auto mb-1 flex w-full max-w-6xl items-center gap-1.5 rounded-2xl border px-3 py-2 text-xs sm:px-4"
+              className="mx-auto mb-1 flex w-full max-w-6xl items-center justify-between gap-2 rounded-2xl border px-3 py-2 text-xs sm:px-4"
               style={{
                 borderColor: 'rgba(238,223,200,0.16)',
                 background: theme.accentSoft,
                 color: theme.bodyColor,
               }}
             >
-              <i className="ri-checkbox-circle-line" aria-hidden="true" style={{ color: theme.accent }} />
-              Session ended and saved to your history. Send a message whenever you want to start a new one.
+              <span className="flex items-center gap-1.5">
+                <i className="ri-checkbox-circle-line" aria-hidden="true" style={{ color: theme.accent }} />
+                Session ended and saved to your history.
+              </span>
+              <button
+                type="button"
+                onClick={() => void handleNewSession()}
+                className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1 font-semibold transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                style={{ background: theme.accent, color: '#1a2420' }}
+              >
+                <i className="ri-add-line" aria-hidden="true" /> New session
+              </button>
             </div>
           )}
 

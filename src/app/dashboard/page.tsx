@@ -8,6 +8,7 @@ import PageFrame from '@/components/PageFrame'
 import ProfileAvatar from '@/components/ProfileAvatar'
 import SpoonsToday from '@/components/SpoonsToday'
 import SymptomCheckin from '@/components/SymptomCheckin'
+import DailyBrief from '@/components/DailyBrief'
 import SocialStarterPanel from '@/components/SocialStarterPanel'
 import ForYou from '@/components/ForYou'
 import { useAuth } from '@/lib/AuthContext'
@@ -377,6 +378,7 @@ export default function DashboardPage() {
 
         <div className="page-grid lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,24rem)] lg:items-start">
           <div className="space-y-5">
+            <DailyBrief />
             <Card>
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -448,6 +450,30 @@ export default function DashboardPage() {
               )}
 
               <SymptomCheckin />
+            </Card>
+
+            <Card className="border-brand-accent2/30 bg-brand-accent2/[0.06]">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-accent2/15 text-brand-accent2">
+                    <i className="ri-lightbulb-flash-line text-xl" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-brand-background">Talk to someone now</h2>
+                    <p className="mt-1 max-w-md text-sm leading-relaxed text-brand-background/60">
+                      A hard moment is lighter with company. Light a lantern and a caring member will sit with
+                      you. No appointment, no waiting room.
+                    </p>
+                  </div>
+                </div>
+                <LinkButton
+                  href="/support"
+                  className="shrink-0"
+                  leadingIcon={<i className="ri-lightbulb-flash-line" aria-hidden="true" />}
+                >
+                  Light a lantern
+                </LinkButton>
+              </div>
             </Card>
 
             {!discreet && <ForYou />}

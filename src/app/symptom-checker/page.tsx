@@ -69,6 +69,7 @@ function UrgentBlock({ redFlags }: { redFlags: string[] }) {
 
 const CATEGORY_TONE: Record<string, 'violet' | 'blue' | 'terracotta' | 'gold' | 'sage'> = {
   mental: 'violet', neurological: 'violet', infectious: 'blue', respiratory: 'blue', sleep: 'blue',
+  disability: 'blue',
   pain: 'terracotta', musculoskeletal: 'terracotta', cardiovascular: 'terracotta', blood: 'terracotta',
   metabolic: 'gold', chronic: 'gold', autoimmune: 'sage', cancer: 'sage',
 }

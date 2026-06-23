@@ -15,6 +15,10 @@ import { formatCompactNumber, formatRelativeTime } from '@/lib/platform'
 import { getTopReactions, isEmoji, applyReactionMutation } from '@/lib/social'
 import { Card, Button, LinkButton, Textarea, Input, Badge, Skeleton, EmptyState } from '@/components/ui'
 import { cn } from '@/lib/cn'
+import { renderWithMentions } from '@/components/community/renderMentions'
+import CommentReactions from '@/components/community/CommentReactions'
+import ReactionSummaryButton from '@/components/community/ReactionSummaryButton'
+import { MemberAvatar, MemberName } from '@/components/MemberIdentity'
 
 type Tab = 'discussions' | 'angels' | 'mentors' | 'activities'
 
@@ -202,6 +206,9 @@ export default function CommunityPage() {
   const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentEntry[]>>({})
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({})
   const [commentingPostId, setCommentingPostId] = useState<string | null>(null)
+  const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null)
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({})
+  const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(null)
   const [loadingCommentsFor, setLoadingCommentsFor] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -579,6 +586,37 @@ export default function CommunityPage() {
       toast('Could not add comment', 'error')
     } finally {
       setCommentingPostId(null)
+    }
+  }
+
+  async function submitCommentReply(postId: string, parentId: string) {
+    if (!user) return
+    const draft = (replyDrafts[parentId] ?? '').trim()
+    if (!draft) return
+    setReplyingToCommentId(parentId)
+    try {
+      await DatabaseService.addPostComment(postId, user.userId, draft, Boolean(profile?.is_anonymous), parentId)
+      const grouped = await DatabaseService.getCommentsForPosts([postId], 50)
+      setCommentsByPost((current) => ({
+        ...current,
+        [postId]: (grouped as Record<string, CommentEntry[]>)[postId] ?? [],
+      }))
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? { ...post, comments_count: ((post.comments_count as number | undefined) ?? 0) + 1 }
+            : post,
+        ),
+      )
+      setReplyDrafts((current) => ({ ...current, [parentId]: '' }))
+      setReplyToCommentId(null)
+      void refreshReplyQueue()
+      toast('Reply added', 'success')
+    } catch (error) {
+      console.error('Failed to reply:', error)
+      toast('Could not add reply', 'error')
+    } finally {
+      setReplyingToCommentId(null)
     }
   }
 
@@ -1102,11 +1140,13 @@ export default function CommunityPage() {
                             {post.is_anonymous ? (
                               <i className="ri-spy-line text-base" aria-hidden="true" />
                             ) : (
-                              <ProfileAvatar
+                              <MemberAvatar
+                                profile={post.profile}
                                 alt={author}
                                 avatarUrl={post.profile?.avatar_url as string | undefined}
                                 className="h-11 w-11 rounded-2xl object-cover"
                                 fullName={post.profile?.full_name as string | undefined}
+                                isAnonymous={Boolean(post.is_anonymous)}
                                 userId={post.profile?.id as string | undefined}
                                 username={post.profile?.username as string | undefined}
                               />
@@ -1114,7 +1154,14 @@ export default function CommunityPage() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="min-w-0 max-w-full truncate font-semibold text-brand-background">{author}</p>
+                              <p className="min-w-0 max-w-full truncate font-semibold text-brand-background">
+                                <MemberName
+                                  profile={post.profile}
+                                  name={author}
+                                  isAnonymous={Boolean(post.is_anonymous)}
+                                  showQuickAction={!isOwner}
+                                />
+                              </p>
                               {pinnedForMe && (
                                 <Badge tone="accent" className="text-[10px]">
                                   <i className="ri-pushpin-fill" aria-hidden="true" /> Pinned
@@ -1224,7 +1271,7 @@ export default function CommunityPage() {
                           <>
                             {(post.content as string)?.trim() && (
                               <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-brand-background/75">
-                                {post.content as string}
+                                {renderWithMentions(post.content as string)}
                               </p>
                             )}
                           </>
@@ -1348,22 +1395,14 @@ export default function CommunityPage() {
                             {getTopReactions(post).map(({ emoji, count }) => {
                               const reacted = userReactions.has(`${post.id}:${emoji}`)
                               return (
-                                <button
-                                  type="button"
+                                <ReactionSummaryButton
                                   key={emoji}
+                                  emoji={emoji}
+                                  count={count}
+                                  active={reacted}
+                                  actors={(post.reactors as Record<string, string[]> | undefined)?.[emoji] ?? []}
                                   onClick={() => handleEmojiReaction(post.id, emoji)}
-                                  className={cn(
-                                    'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-all',
-                                    reacted
-                                      ? 'border border-brand-accent2/40 bg-brand-accent2/20'
-                                      : 'border border-brand-background/10 bg-brand-background/8 hover:bg-brand-background/14',
-                                  )}
-                                >
-                                  <span className="text-sm">{emoji}</span>
-                                  <span className={reacted ? 'font-semibold text-brand-accent2' : 'text-brand-background/60'}>
-                                    {count}
-                                  </span>
-                                </button>
+                                />
                               )
                             })}
                           </div>
@@ -1510,24 +1549,27 @@ export default function CommunityPage() {
                               <p className="text-xs text-brand-background/45">Be the first to reply.</p>
                             ) : (
                               <ul className="space-y-3">
-                                {(commentsByPost[post.id] ?? []).map((comment) => {
+                                {(commentsByPost[post.id] ?? []).filter((comment) => !comment.parent_id).map((comment) => {
                                   const authorProfile = comment.profile
                                   const commentAuthorName = comment.is_anonymous
                                     ? 'Anonymous'
                                     : ((authorProfile?.full_name as string | undefined) ||
                                         (authorProfile?.username as string | undefined) ||
                                         'Community member')
+                                  const replies = (commentsByPost[post.id] ?? []).filter((reply) => reply.parent_id === comment.id)
                                   return (
                                     <li key={comment.id} className="flex gap-3">
                                       <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-accent3/25 text-xs font-bold text-brand-accent3">
                                         {comment.is_anonymous ? (
                                           <i className="ri-spy-line text-sm" aria-hidden="true" />
                                         ) : (
-                                          <ProfileAvatar
+                                          <MemberAvatar
+                                            profile={authorProfile}
                                             alt={commentAuthorName}
                                             avatarUrl={authorProfile?.avatar_url as string | undefined}
                                             className="h-8 w-8 rounded-full object-cover"
                                             fullName={authorProfile?.full_name as string | undefined}
+                                            isAnonymous={Boolean(comment.is_anonymous)}
                                             userId={authorProfile?.id as string | undefined}
                                             username={authorProfile?.username as string | undefined}
                                           />
@@ -1535,13 +1577,117 @@ export default function CommunityPage() {
                                       </div>
                                       <div className="min-w-0 flex-1 rounded-2xl bg-brand-background/6 px-3 py-2">
                                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-brand-background/50">
-                                          <span className="min-w-0 max-w-full truncate font-semibold text-brand-background/80">{commentAuthorName}</span>
+                                          <span className="min-w-0 max-w-full truncate font-semibold text-brand-background/80">
+                                            <MemberName
+                                              profile={authorProfile}
+                                              name={commentAuthorName}
+                                              isAnonymous={Boolean(comment.is_anonymous)}
+                                            />
+                                          </span>
                                           <span aria-hidden="true">·</span>
                                           <span className="shrink-0">{formatRelativeTime(comment.created_at)}</span>
                                         </div>
                                         <p className="mt-1 whitespace-pre-wrap break-words text-sm text-brand-background/80">
-                                          {comment.content as string}
+                                          {renderWithMentions(comment.content as string)}
                                         </p>
+                                        <CommentReactions
+                                          commentId={comment.id as string}
+                                          initialCounts={(comment.reaction_counts as Record<string, number> | undefined) ?? {}}
+                                          initialMine={(comment.my_reactions as string[] | undefined) ?? []}
+                                          reactors={(comment.reactors as Record<string, string[]> | undefined) ?? {}}
+                                          canReact={Boolean(user)}
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => setReplyToCommentId(replyToCommentId === comment.id ? null : comment.id)}
+                                          className="mt-2 text-xs font-semibold text-brand-accent2 hover:text-brand-accent1"
+                                        >
+                                          Reply
+                                        </button>
+                                        {replyToCommentId === comment.id && (
+                                          <div className="mt-3 flex items-start gap-2">
+                                            <Textarea
+                                              value={replyDrafts[comment.id] ?? ''}
+                                              onChange={(event) =>
+                                                setReplyDrafts((current) => ({
+                                                  ...current,
+                                                  [comment.id]: event.target.value,
+                                                }))
+                                              }
+                                              onKeyDown={(event) => {
+                                                if (event.key === 'Enter' && !event.shiftKey) {
+                                                  event.preventDefault()
+                                                  void submitCommentReply(post.id, comment.id)
+                                                }
+                                              }}
+                                              placeholder="Write a reply..."
+                                              aria-label="Write a reply"
+                                              rows={1}
+                                              className="flex-1 resize-none !py-2.5"
+                                            />
+                                            <Button
+                                              onClick={() => void submitCommentReply(post.id, comment.id)}
+                                              disabled={replyingToCommentId === comment.id || !(replyDrafts[comment.id] ?? '').trim()}
+                                              isLoading={replyingToCommentId === comment.id}
+                                            >
+                                              {replyingToCommentId === comment.id ? 'Sending...' : 'Reply'}
+                                            </Button>
+                                          </div>
+                                        )}
+                                        {replies.length > 0 && (
+                                          <ul className="mt-3 space-y-2 border-l border-brand-background/10 pl-3">
+                                            {replies.map((reply) => {
+                                              const replyAuthorProfile = reply.profile
+                                              const replyAuthorName = reply.is_anonymous
+                                                ? 'Anonymous'
+                                                : ((replyAuthorProfile?.full_name as string | undefined) ||
+                                                    (replyAuthorProfile?.username as string | undefined) ||
+                                                    'Community member')
+                                              return (
+                                                <li key={reply.id} className="flex gap-2 text-xs">
+                                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-accent3/20 text-[10px] font-bold text-brand-accent3">
+                                                    {reply.is_anonymous ? (
+                                                      <i className="ri-spy-line" aria-hidden="true" />
+                                                    ) : (
+                                                      <MemberAvatar
+                                                        profile={replyAuthorProfile}
+                                                        alt={replyAuthorName}
+                                                        avatarUrl={replyAuthorProfile?.avatar_url as string | undefined}
+                                                        className="h-6 w-6 rounded-full object-cover"
+                                                        fullName={replyAuthorProfile?.full_name as string | undefined}
+                                                        isAnonymous={Boolean(reply.is_anonymous)}
+                                                        userId={replyAuthorProfile?.id as string | undefined}
+                                                        username={replyAuthorProfile?.username as string | undefined}
+                                                      />
+                                                    )}
+                                                  </div>
+                                                  <div className="min-w-0 flex-1">
+                                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-brand-background/45">
+                                                      <span className="font-semibold text-brand-background/70">
+                                                        <MemberName
+                                                          profile={replyAuthorProfile}
+                                                          name={replyAuthorName}
+                                                          isAnonymous={Boolean(reply.is_anonymous)}
+                                                        />
+                                                      </span>
+                                                      <span className="shrink-0">{formatRelativeTime(reply.created_at)}</span>
+                                                    </div>
+                                                    <p className="mt-0.5 whitespace-pre-wrap break-words text-brand-background/75">
+                                                      {renderWithMentions(reply.content as string)}
+                                                    </p>
+                                                    <CommentReactions
+                                                      commentId={reply.id as string}
+                                                      initialCounts={(reply.reaction_counts as Record<string, number> | undefined) ?? {}}
+                                                      initialMine={(reply.my_reactions as string[] | undefined) ?? []}
+                                                      reactors={(reply.reactors as Record<string, string[]> | undefined) ?? {}}
+                                                      canReact={Boolean(user)}
+                                                    />
+                                                  </div>
+                                                </li>
+                                              )
+                                            })}
+                                          </ul>
+                                        )}
                                       </div>
                                     </li>
                                   )
@@ -1646,7 +1792,8 @@ export default function CommunityPage() {
                           <div className="flex items-start gap-3">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-brand-background/10 text-brand-accent2">
                               {author ? (
-                                <ProfileAvatar
+                                <MemberAvatar
+                                  profile={author as Record<string, unknown>}
                                   alt={authorName}
                                   avatarUrl={avatarUrl}
                                   className="h-9 w-9 rounded-xl object-cover"
@@ -1661,7 +1808,12 @@ export default function CommunityPage() {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between gap-2">
                                 <p className="min-w-0 truncate text-sm font-semibold text-brand-background">
-                                  {authorName}
+                                  <MemberName
+                                    profile={author as Record<string, unknown>}
+                                    userId={authorUserId}
+                                    name={authorName}
+                                    showQuickAction={false}
+                                  />
                                 </p>
                                 <span className="shrink-0 text-[11px] text-brand-background/45">
                                   {formatRelativeTime(item.created_at ?? item.createdAt)}
@@ -1775,7 +1927,8 @@ export default function CommunityPage() {
                 return (
                   <Card key={angel.id as string} className="flex flex-col">
                     <div className="flex items-start gap-3">
-                      <ProfileAvatar
+                      <MemberAvatar
+                        profile={profileData}
                         alt={name}
                         avatarUrl={profileData.avatar_url as string | undefined}
                         className="h-12 w-12 rounded-2xl object-cover"
@@ -1785,7 +1938,9 @@ export default function CommunityPage() {
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <h2 className="min-w-0 truncate font-semibold text-brand-background">{name}</h2>
+                          <h2 className="min-w-0 truncate font-semibold text-brand-background">
+                            <MemberName profile={profileData} name={name} />
+                          </h2>
                           <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-medium text-emerald-300">
                             <span className="h-2 w-2 rounded-full bg-emerald-400" aria-hidden="true" />
                             Available
@@ -1874,7 +2029,8 @@ export default function CommunityPage() {
                 return (
                   <Card key={mentor.id as string} className="flex flex-col">
                     <div className="flex items-start gap-3">
-                      <ProfileAvatar
+                      <MemberAvatar
+                        profile={profileData}
                         alt={name}
                         avatarUrl={profileData.avatar_url as string | undefined}
                         className="h-12 w-12 rounded-2xl object-cover"
@@ -1883,7 +2039,9 @@ export default function CommunityPage() {
                         username={profileData.username as string | undefined}
                       />
                       <div className="min-w-0 flex-1">
-                        <h2 className="min-w-0 truncate font-semibold text-brand-background">{name}</h2>
+                          <h2 className="min-w-0 truncate font-semibold text-brand-background">
+                            <MemberName profile={profileData} name={name} />
+                          </h2>
                         <p className="break-words text-xs text-brand-background/45">
                           {(mentor.credentials as string | undefined) || 'Guided support'}
                         </p>

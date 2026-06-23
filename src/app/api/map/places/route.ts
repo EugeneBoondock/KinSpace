@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
           subtitle: [amenity, tags.healthcare].filter(Boolean).join(' · '),
           address: [tags['addr:housenumber'], tags['addr:street'], tags['addr:city']].filter(Boolean).join(' '),
           phone: tags.phone || tags['contact:phone'] || null,
+          website: tags.website || tags['contact:website'] || tags.url || null,
           hours: tags.opening_hours || null,
           latitude: lat,
           longitude: lng,

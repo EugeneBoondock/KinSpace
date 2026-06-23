@@ -33,6 +33,12 @@ export type PublicProfile = {
   followers: number
   following: number
   postsCount: number
+  spaceTheme: string
+  spaceAccent: string
+  spaceFont: string
+  spaceMotto: string | null
+  spaceVibe: string | null
+  spacePinnedNote: string | null
   createdAt: Date
 }
 
@@ -52,6 +58,12 @@ export function toPublicProfile(row: Profile): PublicProfile {
     followers: row.followers,
     following: row.following,
     postsCount: row.postsCount,
+    spaceTheme: row.spaceTheme,
+    spaceAccent: row.spaceAccent,
+    spaceFont: row.spaceFont,
+    spaceMotto: row.spaceMotto,
+    spaceVibe: row.spaceVibe,
+    spacePinnedNote: row.spacePinnedNote,
     createdAt: row.createdAt,
   }
 }

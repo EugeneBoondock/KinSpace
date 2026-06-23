@@ -11,8 +11,13 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const update = (key: keyof typeof form) => (e: { target: { value: string } }) =>
-    setForm((prev) => ({ ...prev, [key]: e.target.value }))
+  const update = (key: keyof typeof form) => (e: { target: { value: string } }) => {
+    let val = e.target.value
+    if (key === 'username') {
+      val = val.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
+    }
+    setForm((prev) => ({ ...prev, [key]: val }))
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()

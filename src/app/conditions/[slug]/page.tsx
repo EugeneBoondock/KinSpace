@@ -655,6 +655,49 @@ export default function ConditionDetailPage() {
               )}
             </Card>
 
+            <Card className="space-y-4">
+              <div>
+                <CardTitle className="text-lg">Connect around {condition.name as string}</CardTitle>
+                <p className="mt-1 text-sm leading-relaxed text-brand-background/55">
+                  You&apos;ve seen what works. Now find the people who get it.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <LinkButton
+                  href={`/people-like-you?condition=${condition.id}`}
+                  variant="secondary"
+                  fullWidth
+                  leadingIcon={<i className="ri-group-line" aria-hidden="true" />}
+                >
+                  People like you
+                </LinkButton>
+                <LinkButton
+                  href="/support"
+                  variant="secondary"
+                  fullWidth
+                  leadingIcon={<i className="ri-lightbulb-flash-line" aria-hidden="true" />}
+                >
+                  Talk to someone now
+                </LinkButton>
+                <LinkButton
+                  href="/groups"
+                  variant="secondary"
+                  fullWidth
+                  leadingIcon={<i className="ri-team-line" aria-hidden="true" />}
+                >
+                  Find a group
+                </LinkButton>
+                <LinkButton
+                  href={`/care?for=${encodeURIComponent(condition.name as string)}`}
+                  variant="secondary"
+                  fullWidth
+                  leadingIcon={<i className="ri-map-pin-2-line" aria-hidden="true" />}
+                >
+                  Find care
+                </LinkButton>
+              </div>
+            </Card>
+
             <Card>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>

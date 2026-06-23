@@ -8,6 +8,7 @@ import { DatabaseService } from '@/lib/database'
 import { StorageService } from '@/lib/storage'
 import PageFrame from '@/components/PageFrame'
 import BottomNav from '@/components/BottomNav'
+import { MemberName } from '@/components/MemberIdentity'
 import PostComposer from '@/components/community/PostComposer'
 import PostCard, { type PollDto, type PostShape } from '@/components/community/PostCard'
 import { Avatar, Badge, Button, Card, EmptyState, Input, LinkButton, Skeleton, Textarea } from '@/components/ui'
@@ -30,6 +31,12 @@ type GroupMember = {
   profile: MemberProfile | null
 }
 
+type PendingRequest = {
+  user_id: string
+  requested_at: string | null
+  profile: MemberProfile | null
+}
+
 type GroupDetail = {
   id: string
   name: string
@@ -44,9 +51,12 @@ type GroupDetail = {
   created_by: string
   members_count: number
   my_role: 'admin' | 'member' | null
-  my_status: 'active' | 'muted' | 'banned' | null
+  my_status: 'active' | 'muted' | 'banned' | 'pending' | null
   is_admin: boolean
   members: GroupMember[]
+  locked?: boolean
+  pending_requests?: PendingRequest[]
+  pending_count?: number
 }
 
 type Tab = 'feed' | 'members' | 'about' | 'settings'
@@ -139,7 +149,7 @@ export default function GroupPage() {
       if (!user) return
       setLoading(true)
       const result = await loadDetail()
-      if (result && result.my_status !== 'banned') {
+      if (result && result.my_status !== 'banned' && !result.locked) {
         await loadFeed()
       }
       setLoading(false)
@@ -150,13 +160,54 @@ export default function GroupPage() {
   async function handleJoin() {
     if (!user) return
     try {
-      await DatabaseService.joinGroup(groupId, user.userId)
-      await loadDetail()
-      await loadFeed()
-      toast('Joined the group', 'success')
+      const result = (await DatabaseService.joinGroup(groupId, user.userId)) as
+        | { status?: 'joined' | 'pending' }
+        | undefined
+      const detail = await loadDetail()
+      if (result?.status === 'pending') {
+        toast('Request sent. An admin will review it soon.', 'success')
+      } else {
+        if (detail && !detail.locked) await loadFeed()
+        toast('Joined the group', 'success')
+      }
     } catch (error) {
       console.error('Failed to join group:', error)
-      toast('Could not join group', 'error')
+      toast(error instanceof Error ? error.message : 'Could not join group', 'error')
+    }
+  }
+
+  async function handleCancelRequest() {
+    if (!user) return
+    try {
+      await DatabaseService.leaveGroup(groupId, user.userId)
+      await loadDetail()
+      toast('Request withdrawn', 'success')
+    } catch (error) {
+      console.error('Failed to withdraw request:', error)
+      toast('Could not withdraw request', 'error')
+    }
+  }
+
+  async function handleApproveRequest(targetUserId: string) {
+    try {
+      await DatabaseService.approveJoinRequest(groupId, targetUserId)
+      await loadDetail()
+      await loadFeed()
+      toast('Request approved', 'success')
+    } catch (error) {
+      console.error('Failed to approve request:', error)
+      toast(error instanceof Error ? error.message : 'Could not approve request', 'error')
+    }
+  }
+
+  async function handleRejectRequest(targetUserId: string) {
+    try {
+      await DatabaseService.rejectJoinRequest(groupId, targetUserId)
+      await loadDetail()
+      toast('Request declined', 'success')
+    } catch (error) {
+      console.error('Failed to decline request:', error)
+      toast('Could not decline request', 'error')
     }
   }
 
@@ -354,6 +405,75 @@ export default function GroupPage() {
     )
   }
 
+  // Private group, viewed by someone who isn't an active member or admin. Show the
+  // cover, logo, name and counts so they can decide to ask in — but nothing inside.
+  if (detail.locked) {
+    const requested = detail.my_status === 'pending'
+    return (
+      <PageFrame>
+        <div className="page-grid space-y-6">
+          <header className="space-y-5">
+            <div
+              className={cn(
+                'relative h-40 rounded-2xl border border-brand-line sm:h-52',
+                !detail.cover_url && 'bg-gradient-to-br from-brand-accent2/30 via-brand-accent3/20 to-brand-accent5/25',
+              )}
+              style={
+                detail.cover_url
+                  ? { backgroundImage: `url(${detail.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                  : undefined
+              }
+            >
+              <div className="absolute -bottom-6 left-5">
+                <Avatar src={detail.icon_url} name={detail.name} size="xl" className="ring-4 ring-brand-primary" />
+              </div>
+            </div>
+            <div className="space-y-2 pt-2">
+              <h1 className="break-words text-2xl font-bold text-brand-background">{detail.name}</h1>
+              <p className="text-sm text-brand-background/60">
+                {formatCompactNumber(detail.members_count)} members
+                {detail.category ? <span className="capitalize"> · {detail.category}</span> : null}
+                <span> · Private</span>
+              </p>
+            </div>
+          </header>
+
+          <Card className="space-y-4 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-accent2/15 text-brand-accent2">
+              <i className="ri-lock-2-line text-2xl" aria-hidden="true" />
+            </div>
+            <div className="space-y-1.5">
+              <h2 className="text-lg font-bold text-brand-background">This is a private group</h2>
+              <p className="mx-auto max-w-md text-sm leading-relaxed text-brand-background/60">
+                {requested
+                  ? 'Your request is in. A group admin will review it, and you’ll get a notification when you’re approved.'
+                  : 'Only members can see who’s here and what’s shared. Ask to join and an admin will review your request.'}
+              </p>
+            </div>
+            <div className="flex justify-center pt-1">
+              {requested ? (
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-brand-accent2/12 px-4 py-2 text-sm font-semibold text-brand-accent2">
+                    <i className="ri-time-line" aria-hidden="true" />
+                    Request pending
+                  </span>
+                  <Button variant="ghost" onClick={handleCancelRequest}>
+                    Withdraw request
+                  </Button>
+                </div>
+              ) : (
+                <Button onClick={handleJoin} leadingIcon={<i className="ri-add-line" aria-hidden="true" />}>
+                  Request to join
+                </Button>
+              )}
+            </div>
+          </Card>
+        </div>
+        <BottomNav />
+      </PageFrame>
+    )
+  }
+
   const isMember = detail.my_role !== null
   const isCreator = user?.userId === detail.created_by
   const isMuted = detail.my_status === 'muted'
@@ -475,6 +595,11 @@ export default function GroupPage() {
                 >
                   <i className={tab.icon} aria-hidden="true" />
                   {tab.label}
+                  {tab.id === 'members' && detail.is_admin && (detail.pending_count ?? 0) > 0 && (
+                    <span className="ml-0.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-brand-accent1 px-1.5 text-xs font-bold text-white">
+                      {detail.pending_count}
+                    </span>
+                  )}
                 </button>
               )
             })}
@@ -565,6 +690,52 @@ export default function GroupPage() {
               </Card>
             )}
 
+            {detail.is_admin && (detail.pending_requests?.length ?? 0) > 0 && (
+              <Card className="space-y-3 border-brand-accent2/30">
+                <p className="text-sm font-semibold text-brand-background">
+                  Join requests · {detail.pending_requests!.length}
+                </p>
+                <ul className="divide-y divide-brand-background/8">
+                  {detail.pending_requests!.map((request) => {
+                    const requesterName =
+                      request.profile && !request.profile.is_anonymous
+                        ? request.profile.full_name || request.profile.pseudonym || request.profile.username || 'Someone'
+                        : 'Anonymous'
+                    return (
+                      <li key={request.user_id} className="flex flex-wrap items-center gap-3 py-3">
+                        <Avatar
+                          src={request.profile?.is_anonymous ? null : request.profile?.avatar_url}
+                          name={requesterName}
+                          size="sm"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-brand-background">
+                            <MemberName
+                              profile={request.profile as unknown as Record<string, unknown>}
+                              userId={request.user_id}
+                              name={requesterName}
+                              isAnonymous={Boolean(request.profile?.is_anonymous)}
+                            />
+                          </p>
+                          {request.profile?.username && !request.profile.is_anonymous && (
+                            <p className="truncate text-xs text-brand-background/45">@{request.profile.username}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Button size="sm" onClick={() => handleApproveRequest(request.user_id)}>
+                            Approve
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleRejectRequest(request.user_id)}>
+                            Decline
+                          </Button>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </Card>
+            )}
+
             <Card className="space-y-3">
               <p className="text-sm font-semibold text-brand-background">
                 Members · {formatCompactNumber(detail.members.length)}
@@ -584,7 +755,14 @@ export default function GroupPage() {
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-sm font-semibold text-brand-background">{name}</p>
+                          <p className="truncate text-sm font-semibold text-brand-background">
+                            <MemberName
+                              profile={member.profile as unknown as Record<string, unknown>}
+                              userId={member.user_id}
+                              name={name}
+                              isAnonymous={Boolean(member.profile?.is_anonymous)}
+                            />
+                          </p>
                           {member.role === 'admin' && <Badge tone="info">Admin</Badge>}
                           {member.status === 'muted' && <Badge tone="warning">Muted</Badge>}
                         </div>
@@ -709,7 +887,7 @@ export default function GroupPage() {
                       <span>{option === 'public' ? 'Public' : 'Private'}</span>
                     </div>
                     <p className="mt-1 text-xs opacity-80">
-                      {option === 'public' ? 'Anyone can find and join.' : 'Hidden from Explore. Invite-only.'}
+                      {option === 'public' ? 'Anyone can find and join.' : 'People request to join; admins approve.'}
                     </p>
                   </button>
                 )

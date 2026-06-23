@@ -1,4 +1,5 @@
-export const MOOD_CHECKIN_VALUES = ['grounded', 'hopeful', 'tired', 'stretched', 'heavy'] as const
+export const MOOD_CHECKIN_VALUES = ['grounded', 'okay', 'hopeful', 'tired', 'heavy', 'numb', 'stretched'] as const
+
 
 export type MoodCheckinValue = (typeof MOOD_CHECKIN_VALUES)[number]
 

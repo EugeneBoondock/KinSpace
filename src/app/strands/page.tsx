@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
-import ProfileAvatar from '@/components/ProfileAvatar'
+import { MemberAvatar, MemberName } from '@/components/MemberIdentity'
 import SocialStarterPanel from '@/components/SocialStarterPanel'
 import StrandButton from '@/components/StrandButton'
 import { useToast } from '@/components/Toast'
@@ -250,7 +250,8 @@ export default function StrandsPage() {
                           aria-label={`View ${name}’s profile`}
                           className="shrink-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                         >
-                          <ProfileAvatar
+                          <MemberAvatar
+                            profile={person as unknown as Record<string, unknown>}
                             alt={name}
                             avatarUrl={person.avatar_url}
                             fullName={person.full_name}
@@ -260,12 +261,12 @@ export default function StrandsPage() {
                           />
                         </Link>
                         <div className="min-w-0 flex-1">
-                          <Link
-                            href={`/profile/${person.user_id}`}
-                            className="block truncate font-semibold text-brand-background transition-colors hover:text-brand-accent2"
-                          >
-                            {name}
-                          </Link>
+                          <MemberName
+                            profile={person as unknown as Record<string, unknown>}
+                            userId={person.user_id}
+                            name={name}
+                            className="font-semibold text-brand-background hover:text-brand-accent2"
+                          />
                           {person.username && (
                             <p className="truncate text-xs text-brand-background/45">@{person.username}</p>
                           )}

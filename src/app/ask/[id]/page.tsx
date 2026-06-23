@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
-import ProfileAvatar from '@/components/ProfileAvatar'
+import { MemberAvatar, MemberName } from '@/components/MemberIdentity'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
@@ -193,11 +193,13 @@ export default function AskQuestionPage() {
               {question.is_anonymous ? (
                 <i className="ri-spy-line text-base" aria-hidden="true" />
               ) : (
-                <ProfileAvatar
+                <MemberAvatar
+                  profile={question.profile}
                   alt={author}
                   avatarUrl={question.profile?.avatar_url as string | undefined}
                   className="h-11 w-11 rounded-2xl object-cover"
                   fullName={question.profile?.full_name as string | undefined}
+                  isAnonymous={Boolean(question.is_anonymous)}
                   userId={question.profile?.id as string | undefined}
                   username={question.profile?.username as string | undefined}
                 />
@@ -205,7 +207,14 @@ export default function AskQuestionPage() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 text-xs text-brand-background/50">
-                <span className="font-semibold text-brand-background/75">{author}</span>
+                <span className="font-semibold text-brand-background/75">
+                  <MemberName
+                    profile={question.profile}
+                    name={author}
+                    isAnonymous={Boolean(question.is_anonymous)}
+                    showQuickAction={!isOwner}
+                  />
+                </span>
                 <span aria-hidden="true">·</span>
                 <span>{formatRelativeTime(question.created_at)}</span>
                 <Badge className="text-[10px]">
@@ -345,11 +354,13 @@ export default function AskQuestionPage() {
                             {answer.is_anonymous ? (
                               <i className="ri-spy-line text-sm" aria-hidden="true" />
                             ) : (
-                              <ProfileAvatar
+                              <MemberAvatar
+                                profile={answer.profile}
                                 alt={replyAuthor}
                                 avatarUrl={answer.profile?.avatar_url as string | undefined}
                                 className="h-8 w-8 rounded-full object-cover"
                                 fullName={answer.profile?.full_name as string | undefined}
+                                isAnonymous={Boolean(answer.is_anonymous)}
                                 userId={answer.profile?.id as string | undefined}
                                 username={answer.profile?.username as string | undefined}
                               />
@@ -357,7 +368,13 @@ export default function AskQuestionPage() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2 text-xs text-brand-background/50">
-                              <span className="font-semibold text-brand-background/75">{replyAuthor}</span>
+                              <span className="font-semibold text-brand-background/75">
+                                <MemberName
+                                  profile={answer.profile}
+                                  name={replyAuthor}
+                                  isAnonymous={Boolean(answer.is_anonymous)}
+                                />
+                              </span>
                               <span aria-hidden="true">·</span>
                               <span>{formatRelativeTime(answer.created_at)}</span>
                             </div>

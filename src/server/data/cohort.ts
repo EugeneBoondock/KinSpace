@@ -688,11 +688,15 @@ export async function getSimilarMembers(
   for (const entry of top) {
     const summary = summaries.get(entry.userId)
     if (!summary) continue
+    // PRIVACY: matches are RANKED server-side using shared health signals, but we
+    // never reveal WHAT a member shares — not the named condition, not even the
+    // category ("shared condition") or their age band / area. The viewer only sees
+    // match strength + "something in common". Mirrors getSocialStarter (warm-start).
     result.push({
       ...summary,
       similarity_score: entry.score,
-      shared: entry.shared,
-      match_reasons: entry.match_reasons,
+      shared: { conditions: [], comorbidities: [], interests: [], symptoms: [], treatments: [] },
+      match_reasons: [],
       starter_prompt: entry.starter_prompt,
       activity_labels: entry.activity_labels,
       message_prompt_allowed: entry.message_prompt_allowed,

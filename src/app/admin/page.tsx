@@ -6,13 +6,13 @@ import BottomNav from '@/components/BottomNav'
 import { DatabaseService } from '@/lib/database'
 import { resolveReportAction } from '@/app/actions/moderation'
 import { formatCompactNumber, formatRelativeTime } from '@/lib/platform'
-import { Badge, Card, EmptyState, Skeleton } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, Input, Skeleton, Textarea } from '@/components/ui'
 
 type Stats = {
   users: Record<string, number>
   content: Record<string, number>
   signups_daily: { date: string; count: number }[]
-  recent_signups: { username: string; joined: string; verified: boolean }[]
+  recent_signups: { username: string | null; joined: string; verified: boolean }[]
   generated_at: string
 }
 type Traffic =
@@ -72,6 +72,17 @@ export default function AdminPage() {
   const [bugs, setBugs] = useState<BugRow[] | null>(null)
   const [reports, setReports] = useState<ReportRow[] | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'forbidden' | 'error'>('loading')
+  const [emailSubject, setEmailSubject] = useState('')
+  const [emailBody, setEmailBody] = useState('')
+  const [emailVerifiedOnly, setEmailVerifiedOnly] = useState(true)
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailResult, setEmailResult] = useState<null | {
+    attempted: number
+    sent: number
+    failed: number
+    verified_only: boolean
+    recipient_limit_reached: boolean
+  }>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -127,6 +138,26 @@ export default function AdminPage() {
       DatabaseService.getModerationReports()
         .then((r) => setReports(r as ReportRow[]))
         .catch(() => undefined)
+    }
+  }
+
+  const sendMassEmail = async () => {
+    if (!emailSubject.trim() || !emailBody.trim() || emailSending) return
+    setEmailSending(true)
+    setEmailResult(null)
+    try {
+      const result = (await DatabaseService.sendAdminMassEmail({
+        subject: emailSubject,
+        body: emailBody,
+        verifiedOnly: emailVerifiedOnly,
+      })) as typeof emailResult
+      setEmailResult(result)
+      if (result?.failed === 0) {
+        setEmailSubject('')
+        setEmailBody('')
+      }
+    } finally {
+      setEmailSending(false)
     }
   }
 
@@ -192,6 +223,59 @@ export default function AdminPage() {
             <section className="space-y-4">
               <h2 className="text-lg font-bold text-brand-ink">Traffic</h2>
               <TrafficPanel traffic={traffic} />
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-lg font-bold text-brand-ink">Mass email</h2>
+              <Card className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                  <Input
+                    value={emailSubject}
+                    onChange={(event) => setEmailSubject(event.target.value)}
+                    placeholder="Subject"
+                    aria-label="Email subject"
+                    maxLength={140}
+                  />
+                  <label className="inline-flex items-center gap-2 rounded-xl border border-brand-line-strong bg-brand-ink/[0.03] px-4 py-3 text-sm font-semibold text-brand-ink">
+                    <input
+                      type="checkbox"
+                      checked={emailVerifiedOnly}
+                      onChange={(event) => setEmailVerifiedOnly(event.target.checked)}
+                      className="h-4 w-4 rounded border-brand-line-strong text-brand-accent2 focus:ring-brand-accent2/30"
+                    />
+                    Verified only
+                  </label>
+                </div>
+                <Textarea
+                  value={emailBody}
+                  onChange={(event) => setEmailBody(event.target.value)}
+                  placeholder="Write the message"
+                  aria-label="Email message"
+                  rows={6}
+                  maxLength={8000}
+                />
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-brand-ink/55">
+                    Sends through Brevo from the verified KinSpace sender.
+                  </p>
+                  <Button
+                    onClick={sendMassEmail}
+                    disabled={emailSending || emailSubject.trim().length < 3 || emailBody.trim().length < 10}
+                    isLoading={emailSending}
+                    leadingIcon={<i className="ri-mail-send-line" aria-hidden="true" />}
+                  >
+                    {emailSending ? 'Sending...' : 'Send email'}
+                  </Button>
+                </div>
+                {emailResult && (
+                  <div className="rounded-2xl border border-brand-line-strong bg-brand-ink/[0.03] p-3 text-sm text-brand-ink/70">
+                    Sent {emailResult.sent} of {emailResult.attempted}. Failed {emailResult.failed}.
+                    {emailResult.recipient_limit_reached && (
+                      <span className="ml-1 text-brand-accent1">The first 1000 active users were processed.</span>
+                    )}
+                  </div>
+                )}
+              </Card>
             </section>
 
             {/* ── Content ── */}
@@ -335,10 +419,12 @@ export default function AdminPage() {
                   <p className="p-4 text-sm text-brand-ink/55">No signups yet.</p>
                 ) : (
                   stats.recent_signups.map((u, i) => (
-                    <div key={`${u.username}-${i}`} className="flex items-center justify-between gap-3 p-3.5">
+                    <div key={`${u.username ?? 'profile'}-${i}`} className="flex items-center justify-between gap-3 p-3.5">
                       <span className="flex min-w-0 items-center gap-2">
                         <i className="ri-user-3-line text-brand-ink/40" aria-hidden="true" />
-                        <span className="truncate text-sm font-medium text-brand-ink">@{u.username}</span>
+                        <span className="truncate text-sm font-medium text-brand-ink">
+                          {u.username ? `@${u.username}` : 'Profile setup'}
+                        </span>
                         {u.verified ? (
                           <Badge tone="sage" className="shrink-0">Verified</Badge>
                         ) : (

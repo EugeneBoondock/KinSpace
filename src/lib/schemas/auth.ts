@@ -7,7 +7,7 @@ export const signUpSchema = z.object({
     .string()
     .min(3, 'Username must be at least 3 characters')
     .max(30)
-    .regex(/^[a-zA-Z0-9_]+$/, 'Letters, numbers and underscores only'),
+    .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
   fullName: z.string().min(1, 'Tell us what to call you').max(80),
 })
 export type SignUpInput = z.infer<typeof signUpSchema>

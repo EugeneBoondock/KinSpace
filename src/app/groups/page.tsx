@@ -153,13 +153,19 @@ export default function GroupsPage() {
   async function handleJoinGroup(groupId: string) {
     if (!user) return
     try {
-      await DatabaseService.joinGroup(groupId, user.userId)
+      const result = (await DatabaseService.joinGroup(groupId, user.userId)) as
+        | { status?: 'joined' | 'pending' }
+        | undefined
       await refreshGroups()
-      setActiveTab('following')
-      toast('Joined the group', 'success')
+      if (result?.status === 'pending') {
+        toast('Request sent. An admin will review it soon.', 'success')
+      } else {
+        setActiveTab('following')
+        toast('Joined the group', 'success')
+      }
     } catch (error) {
       console.error('Failed to join group:', error)
-      toast('Could not join group', 'error')
+      toast(error instanceof Error ? error.message : 'Could not join group', 'error')
     }
   }
 
@@ -305,7 +311,7 @@ export default function GroupsPage() {
             <p className="mt-1 text-xs opacity-80">
               {privacy === 'public'
                 ? 'Anyone on KinSpace can find and join.'
-                : 'Hidden from Explore. Invite-only.'}
+                : 'Anyone can find it, but admins approve who joins.'}
             </p>
           </button>
         ))}
@@ -367,7 +373,7 @@ export default function GroupsPage() {
                 renderGroupCard(
                   group,
                   <Button onClick={() => handleJoinGroup(group.id as string)} fullWidth>
-                    Join group
+                    {group.is_private ? 'Request to join' : 'Join group'}
                   </Button>,
                   (group.recommendation_score as number | undefined) ? (
                     <Badge tone="accent">

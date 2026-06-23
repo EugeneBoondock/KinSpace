@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import ProfileAvatar from '@/components/ProfileAvatar'
+import { MemberName } from '@/components/MemberIdentity'
 import StrandButton from '@/components/StrandButton'
 import { Badge, Card, LinkButton, Skeleton } from '@/components/ui'
 import { useAuth } from '@/lib/AuthContext'
@@ -183,12 +184,14 @@ export default function SocialStarterPanel({
                     />
                   </Link>
                   <div className="min-w-0">
-                    <Link
-                      href={`/profile/${id}`}
-                      className="block truncate text-sm font-semibold text-brand-ink hover:text-brand-accent3"
-                    >
-                      {name}
-                    </Link>
+                    <MemberName
+                      profile={member as unknown as Record<string, unknown>}
+                      userId={id}
+                      name={name}
+                      isAnonymous={Boolean(member.is_anonymous)}
+                      className="text-sm font-semibold text-brand-ink hover:text-brand-accent3"
+                      quickActionClassName="border-brand-ink/10 bg-brand-ink/[0.04] text-brand-ink/60 hover:bg-brand-accent2/15"
+                    />
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {activityLabels.slice(0, 1).map((label) => (
                         <Badge key={`activity-${label}`} tone={label === 'Available now' ? 'sage' : 'neutral'}>

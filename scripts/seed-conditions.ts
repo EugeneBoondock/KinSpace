@@ -41,6 +41,7 @@ type ConditionCategory =
   | 'sleep'
   | 'infectious'
   | 'cardiovascular'
+  | 'disability'
   | 'respiratory'
   | 'cancer'
   | 'musculoskeletal'

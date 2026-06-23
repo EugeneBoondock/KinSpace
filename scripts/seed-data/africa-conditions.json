@@ -695,6 +695,168 @@
       "name": "Concurrent Chemoradiation (with Brachytherapy)",
       "kind": "procedure",
       "summary": "The standard curative treatment for locally advanced cervical cancer: cisplatin-based chemotherapy given alongside external-beam radiation plus internal radiation (brachytherapy) to maximise tumour control."
+    },
+    {
+      "slug": "physiotherapy",
+      "name": "Physiotherapy",
+      "kind": "therapy",
+      "summary": "Therapist-guided movement, strengthening, balance, stretching, and mobility training used after injury, disability, stroke, pain, and long-term illness. It helps protect function and make everyday movement safer."
+    },
+    {
+      "slug": "occupational-therapy",
+      "name": "Occupational Therapy",
+      "kind": "therapy",
+      "summary": "Therapy focused on daily activities such as washing, dressing, school, work, cooking, and communication. It can include skill practice, home changes, splints, and assistive tools."
+    },
+    {
+      "slug": "speech-therapy",
+      "name": "Speech and Language Therapy",
+      "kind": "therapy",
+      "summary": "Therapy for speech, language, swallowing, voice, and communication needs. It can include exercises, communication tools, family coaching, and swallowing safety plans."
+    },
+    {
+      "slug": "support-group",
+      "name": "Peer Support Groups",
+      "kind": "therapy",
+      "summary": "Structured peer or family groups that offer shared experience, practical tips, and emotional support. They work best alongside medical, therapy, or social care when those are needed."
+    },
+    {
+      "slug": "smoking-cessation",
+      "name": "Smoking Cessation Support",
+      "kind": "therapy",
+      "summary": "Counselling, nicotine replacement, and medicines that help a person stop smoking. Stopping smoking lowers future heart attack, stroke, lung disease, and wound healing risks."
+    },
+    {
+      "slug": "cardiac-rehabilitation",
+      "name": "Cardiac Rehabilitation",
+      "kind": "therapy",
+      "summary": "Medically supervised exercise, education, risk-factor coaching, and stress support after a heart attack, heart failure, angioplasty, or heart surgery. It improves fitness, confidence, and future heart health."
+    },
+    {
+      "slug": "coronary-angioplasty-stent",
+      "name": "Coronary Angioplasty and Stent",
+      "kind": "procedure",
+      "summary": "A procedure that opens a narrowed heart artery with a balloon and often places a stent to keep blood flowing. It can relieve angina and is urgent treatment for many heart attacks."
+    },
+    {
+      "slug": "rate-control-medicine",
+      "name": "Rate-Control Medicine",
+      "kind": "medication",
+      "summary": "Medicines such as beta-blockers, calcium channel blockers, or digoxin that slow a fast heart rate in atrial fibrillation. Better rate control can ease palpitations, breathlessness, and fatigue."
+    },
+    {
+      "slug": "electrical-cardioversion",
+      "name": "Electrical Cardioversion",
+      "kind": "procedure",
+      "summary": "A planned procedure that uses a brief electrical shock under sedation to reset an abnormal heart rhythm. It is used for selected people with atrial fibrillation or atrial flutter."
+    },
+    {
+      "slug": "catheter-ablation",
+      "name": "Catheter Ablation",
+      "kind": "procedure",
+      "summary": "A heart rhythm procedure that targets small areas of tissue causing abnormal electrical signals. It can reduce atrial fibrillation episodes for selected people when medicines are not enough."
+    },
+    {
+      "slug": "valve-surgery",
+      "name": "Valve Repair or Replacement",
+      "kind": "procedure",
+      "summary": "Surgery or catheter-based treatment to fix a damaged heart valve when valve disease is severe or causing heart failure. It can relieve breathlessness and prevent further heart strain."
+    },
+    {
+      "slug": "penicillin-prophylaxis-rhd",
+      "name": "Penicillin Prophylaxis for Rheumatic Heart Disease",
+      "kind": "medication",
+      "summary": "Regular penicillin injections or tablets used after rheumatic fever to prevent repeat strep infections that can cause more valve damage. It is a major preventive step in rheumatic heart disease care."
+    },
+    {
+      "slug": "peripheral-angioplasty-stent",
+      "name": "Peripheral Angioplasty and Stent",
+      "kind": "procedure",
+      "summary": "A procedure that opens a narrowed leg artery with a balloon and sometimes a stent to improve blood flow. It is used for selected peripheral artery disease cases, especially severe pain or threatened limb."
+    },
+    {
+      "slug": "mobility-aids",
+      "name": "Mobility Aids",
+      "kind": "device",
+      "summary": "Canes, crutches, walkers, prostheses, or wheelchairs chosen with a clinician or therapist to improve safety, movement, and daily independence."
+    },
+    {
+      "slug": "wheelchair-seating",
+      "name": "Wheelchair Seating and Pressure Care",
+      "kind": "device",
+      "summary": "A properly fitted wheelchair, cushion, positioning plan, and skin-care routine to improve comfort and reduce pressure injury risk."
+    },
+    {
+      "slug": "assistive-technology",
+      "name": "Assistive Technology",
+      "kind": "device",
+      "summary": "Tools such as communication devices, adapted keyboards, environmental controls, and reminders that help a person learn, communicate, move, and manage daily tasks."
+    },
+    {
+      "slug": "hearing-aids",
+      "name": "Hearing Aids",
+      "kind": "device",
+      "summary": "Devices programmed to make speech and important sounds easier to hear. They work best with careful fitting, follow-up, and communication support."
+    },
+    {
+      "slug": "audiology-care",
+      "name": "Audiology Care",
+      "kind": "therapy",
+      "summary": "Hearing assessment, device fitting, listening training, communication planning, and follow-up with an audiologist or hearing specialist."
+    },
+    {
+      "slug": "cochlear-implant",
+      "name": "Cochlear Implant",
+      "kind": "device",
+      "summary": "A surgically placed hearing device for selected people with severe hearing loss who do not get enough benefit from hearing aids. It needs assessment, surgery, programming, and listening therapy."
+    },
+    {
+      "slug": "low-vision-aids",
+      "name": "Low-Vision Aids",
+      "kind": "device",
+      "summary": "Magnifiers, high-contrast tools, screen readers, lighting changes, and large-print or audio tools that help people use remaining vision."
+    },
+    {
+      "slug": "vision-rehabilitation",
+      "name": "Vision Rehabilitation",
+      "kind": "therapy",
+      "summary": "Training and support that helps people adapt to vision loss, use assistive tools, move safely, read, cook, work, study, and manage daily routines."
+    },
+    {
+      "slug": "orientation-mobility-training",
+      "name": "Orientation and Mobility Training",
+      "kind": "therapy",
+      "summary": "Training that helps a person with low vision or blindness travel safely using routes, sensory cues, a white cane, or other mobility tools."
+    },
+    {
+      "slug": "orthotics",
+      "name": "Orthotics and Bracing",
+      "kind": "device",
+      "summary": "Braces and splints that support joints, guide limb position, reduce pain, and improve comfort or walking stability."
+    },
+    {
+      "slug": "spasticity-treatment",
+      "name": "Spasticity Treatment",
+      "kind": "therapy",
+      "summary": "Stretching, positioning, medicines, botulinum toxin injections, or pump therapy used to relax tight muscles and make care or movement easier."
+    },
+    {
+      "slug": "prosthetic-rehabilitation",
+      "name": "Prosthetic Rehabilitation",
+      "kind": "therapy",
+      "summary": "Residual-limb care, prosthesis fitting, strengthening, gait training, and daily activity practice after limb loss. It helps the prosthesis feel safer and more useful."
+    },
+    {
+      "slug": "developmental-therapy-support",
+      "name": "Developmental Therapy Support",
+      "kind": "therapy",
+      "summary": "Early and ongoing therapy for learning, movement, communication, behaviour, and daily living skills. The plan is matched to the child or adult and their support network."
+    },
+    {
+      "slug": "inclusive-education-support",
+      "name": "Inclusive Education Support",
+      "kind": "therapy",
+      "summary": "School or learning support such as adjusted teaching, extra time, visual schedules, communication tools, and skill-building plans."
     }
   ],
   "conditions": [
@@ -4016,6 +4178,1225 @@
           {
             "name": "Hearing, vision, and developmental screening",
             "prevalence": 0.55
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "coronary-artery-disease",
+      "name": "Coronary Artery Disease",
+      "category": "cardiovascular",
+      "aliases": [
+        "CAD",
+        "Coronary Heart Disease",
+        "Ischaemic Heart Disease"
+      ],
+      "summary": "Coronary artery disease happens when the arteries that supply the heart muscle become narrowed by plaque, reducing blood flow and raising the risk of angina or heart attack. Treatment focuses on lowering cholesterol and blood pressure, stopping smoking, cardiac rehabilitation, and procedures such as stents or bypass surgery when blood flow needs to be restored.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "statin",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "antiplatelet",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "cardiac-rehabilitation",
+            "effectiveness": 4.1,
+            "tier": "strong"
+          },
+          {
+            "slug": "coronary-angioplasty-stent",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "beta-blocker",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "ace-inhibitor",
+            "effectiveness": 3.7,
+            "tier": "strong"
+          },
+          {
+            "slug": "smoking-cessation",
+            "effectiveness": 3.7,
+            "tier": "strong"
+          },
+          {
+            "slug": "dash-diet",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "walking",
+            "effectiveness": 3,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Chest pressure or pain with exertion",
+            "prevalence": 0.72
+          },
+          {
+            "name": "Shortness of breath",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Fatigue or reduced exercise tolerance",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Pain spreading to the arm, jaw, neck, or back",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Sweating, nausea, or lightheadedness during chest discomfort",
+            "prevalence": 0.35
+          },
+          {
+            "name": "No symptoms until a heart attack",
+            "prevalence": 0.28
+          }
+        ],
+        "triggers": [
+          {
+            "name": "High LDL cholesterol",
+            "prevalence": 0.7
+          },
+          {
+            "name": "High blood pressure",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Smoking or second-hand smoke exposure",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Diabetes",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Physical inactivity",
+            "prevalence": 0.4
+          },
+          {
+            "name": "Family history of early heart disease",
+            "prevalence": 0.3
+          }
+        ],
+        "tests": [
+          {
+            "name": "ECG (electrocardiogram)",
+            "prevalence": 0.85
+          },
+          {
+            "name": "Exercise or imaging stress test",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Coronary CT angiography",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Coronary angiogram",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Cholesterol and glucose blood tests",
+            "prevalence": 0.75
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "atrial-fibrillation",
+      "name": "Atrial Fibrillation",
+      "category": "cardiovascular",
+      "aliases": [
+        "AFib",
+        "AF",
+        "Atrial Flutter"
+      ],
+      "summary": "Atrial fibrillation is an irregular heart rhythm that can make the heart beat too fast and allow blood clots to form. Care usually focuses on stroke prevention with anticoagulants when risk is high, heart-rate control, rhythm treatment for selected people, and managing triggers such as blood pressure, alcohol, sleep apnea, and thyroid disease.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "anticoagulant",
+            "effectiveness": 4.5,
+            "tier": "strong"
+          },
+          {
+            "slug": "rate-control-medicine",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "beta-blocker",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "electrical-cardioversion",
+            "effectiveness": 3.7,
+            "tier": "moderate"
+          },
+          {
+            "slug": "catheter-ablation",
+            "effectiveness": 3.6,
+            "tier": "moderate"
+          },
+          {
+            "slug": "weight-management",
+            "effectiveness": 3.1,
+            "tier": "moderate"
+          },
+          {
+            "slug": "alcohol-reduction",
+            "effectiveness": 3,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Palpitations or fluttering heartbeat",
+            "prevalence": 0.72
+          },
+          {
+            "name": "Irregular pulse",
+            "prevalence": 0.68
+          },
+          {
+            "name": "Fatigue",
+            "prevalence": 0.58
+          },
+          {
+            "name": "Shortness of breath",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Dizziness or lightheadedness",
+            "prevalence": 0.38
+          },
+          {
+            "name": "Chest discomfort",
+            "prevalence": 0.22
+          },
+          {
+            "name": "No obvious symptoms",
+            "prevalence": 0.3
+          }
+        ],
+        "triggers": [
+          {
+            "name": "High blood pressure",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Older age",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Heart valve disease or heart failure",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Thyroid disease",
+            "prevalence": 0.22
+          },
+          {
+            "name": "Alcohol or stimulant use",
+            "prevalence": 0.34
+          },
+          {
+            "name": "Sleep apnea",
+            "prevalence": 0.36
+          }
+        ],
+        "tests": [
+          {
+            "name": "ECG (electrocardiogram)",
+            "prevalence": 0.95
+          },
+          {
+            "name": "Holter or event heart monitor",
+            "prevalence": 0.65
+          },
+          {
+            "name": "Echocardiogram",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Thyroid, kidney, and electrolyte blood tests",
+            "prevalence": 0.55
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "rheumatic-heart-disease",
+      "name": "Rheumatic Heart Disease",
+      "category": "cardiovascular",
+      "aliases": [
+        "RHD",
+        "Rheumatic Valve Disease"
+      ],
+      "summary": "Rheumatic heart disease is damage to the heart valves after rheumatic fever, which can follow untreated strep throat, especially in childhood. Ongoing care focuses on regular penicillin to prevent repeat rheumatic fever, monitoring valve damage, treating heart failure or rhythm problems, and repairing or replacing valves when disease becomes severe.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "penicillin-prophylaxis-rhd",
+            "effectiveness": 4.6,
+            "tier": "strong"
+          },
+          {
+            "slug": "valve-surgery",
+            "effectiveness": 4.3,
+            "tier": "strong"
+          },
+          {
+            "slug": "loop-diuretic",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "anticoagulant",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "beta-blocker",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "ace-inhibitor",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "cardiac-rehabilitation",
+            "effectiveness": 2.8,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Shortness of breath",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Fatigue",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Palpitations or irregular heartbeat",
+            "prevalence": 0.48
+          },
+          {
+            "name": "Chest pain",
+            "prevalence": 0.32
+          },
+          {
+            "name": "Swollen legs or feet",
+            "prevalence": 0.44
+          },
+          {
+            "name": "Fainting or near fainting",
+            "prevalence": 0.16
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Previous rheumatic fever",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Untreated strep throat in childhood",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Missed penicillin prevention doses",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Crowded living conditions and limited access to early antibiotics",
+            "prevalence": 0.45
+          },
+          {
+            "name": "Pregnancy or infection increasing strain on damaged valves",
+            "prevalence": 0.28
+          }
+        ],
+        "tests": [
+          {
+            "name": "Echocardiogram (heart ultrasound)",
+            "prevalence": 0.92
+          },
+          {
+            "name": "Clinical exam for heart murmur",
+            "prevalence": 0.8
+          },
+          {
+            "name": "ECG (electrocardiogram)",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Throat swab or strep antibody blood tests when rheumatic fever is suspected",
+            "prevalence": 0.4
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "peripheral-artery-disease",
+      "name": "Peripheral Artery Disease",
+      "category": "cardiovascular",
+      "aliases": [
+        "PAD",
+        "Peripheral Vascular Disease",
+        "PVD"
+      ],
+      "summary": "Peripheral artery disease happens when narrowed arteries reduce blood flow to the legs or other limbs, often causing calf or thigh pain when walking. Treatment focuses on stopping smoking, walking or supervised exercise, cholesterol and antiplatelet medicines, diabetes and blood-pressure control, foot care, and procedures to restore blood flow when symptoms are severe.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "smoking-cessation",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "walking",
+            "effectiveness": 4.1,
+            "tier": "strong"
+          },
+          {
+            "slug": "statin",
+            "effectiveness": 4.1,
+            "tier": "strong"
+          },
+          {
+            "slug": "antiplatelet",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "peripheral-angioplasty-stent",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "dash-diet",
+            "effectiveness": 3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "weight-management",
+            "effectiveness": 2.8,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Calf, thigh, or buttock pain when walking",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Pain improves after resting",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Cold or numb feet",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Slow-healing foot or leg wounds",
+            "prevalence": 0.34
+          },
+          {
+            "name": "Weak or absent foot pulses",
+            "prevalence": 0.56
+          },
+          {
+            "name": "Leg pain at rest in severe disease",
+            "prevalence": 0.2
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Smoking",
+            "prevalence": 0.65
+          },
+          {
+            "name": "Diabetes",
+            "prevalence": 0.48
+          },
+          {
+            "name": "High cholesterol",
+            "prevalence": 0.55
+          },
+          {
+            "name": "High blood pressure",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Older age",
+            "prevalence": 0.44
+          },
+          {
+            "name": "Kidney disease",
+            "prevalence": 0.24
+          }
+        ],
+        "tests": [
+          {
+            "name": "Ankle-brachial index (ABI)",
+            "prevalence": 0.82
+          },
+          {
+            "name": "Pulse and foot exam",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Doppler ultrasound of leg arteries",
+            "prevalence": 0.62
+          },
+          {
+            "name": "CT or MR angiography",
+            "prevalence": 0.38
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "cerebral-palsy",
+      "name": "Cerebral Palsy",
+      "category": "disability",
+      "aliases": [
+        "CP"
+      ],
+      "summary": "Cerebral palsy is a lifelong movement and posture disability caused by early differences or injury in the developing brain. Support is usually tailored over time and can include physiotherapy, occupational therapy, speech therapy, braces, mobility aids, spasticity treatment, and school or family support.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "physiotherapy",
+            "effectiveness": 4.4,
+            "tier": "strong"
+          },
+          {
+            "slug": "occupational-therapy",
+            "effectiveness": 4.1,
+            "tier": "strong"
+          },
+          {
+            "slug": "speech-therapy",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "orthotics",
+            "effectiveness": 3.8,
+            "tier": "moderate"
+          },
+          {
+            "slug": "spasticity-treatment",
+            "effectiveness": 3.7,
+            "tier": "moderate"
+          },
+          {
+            "slug": "mobility-aids",
+            "effectiveness": 3.6,
+            "tier": "moderate"
+          },
+          {
+            "slug": "assistive-technology",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "support-group",
+            "effectiveness": 2.8,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Delayed sitting, crawling, or walking",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Stiff or tight muscles",
+            "prevalence": 0.72
+          },
+          {
+            "name": "Poor coordination or balance",
+            "prevalence": 0.68
+          },
+          {
+            "name": "Speech or swallowing difficulty",
+            "prevalence": 0.44
+          },
+          {
+            "name": "Learning or attention differences",
+            "prevalence": 0.38
+          },
+          {
+            "name": "Seizures",
+            "prevalence": 0.32
+          },
+          {
+            "name": "Hip, spine, or joint contracture problems",
+            "prevalence": 0.28
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Preterm birth or low birth weight",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Brain infection, stroke, or injury before or soon after birth",
+            "prevalence": 0.28
+          },
+          {
+            "name": "Lack of oxygen around birth",
+            "prevalence": 0.2
+          },
+          {
+            "name": "Genetic or developmental brain differences",
+            "prevalence": 0.2
+          },
+          {
+            "name": "Delayed therapy or poorly fitted equipment worsening function",
+            "prevalence": 0.18
+          }
+        ],
+        "tests": [
+          {
+            "name": "Developmental and motor assessment",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Neurological exam",
+            "prevalence": 0.86
+          },
+          {
+            "name": "Brain MRI or ultrasound",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Hearing, vision, and speech screening",
+            "prevalence": 0.58
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "spinal-cord-injury",
+      "name": "Spinal Cord Injury",
+      "category": "disability",
+      "aliases": [
+        "SCI",
+        "Paraplegia",
+        "Tetraplegia",
+        "Quadriplegia"
+      ],
+      "summary": "Spinal cord injury is damage to the spinal cord from trauma or illness that can change movement, sensation, bladder and bowel function, pain, and skin health below the injury level. Early rehabilitation, careful seating, mobility aids, bladder and bowel plans, skin care, pain care, and assistive technology help protect health and daily independence.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "physiotherapy",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "occupational-therapy",
+            "effectiveness": 4.1,
+            "tier": "strong"
+          },
+          {
+            "slug": "wheelchair-seating",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "mobility-aids",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "assistive-technology",
+            "effectiveness": 3.6,
+            "tier": "moderate"
+          },
+          {
+            "slug": "spasticity-treatment",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "long-acting-pain-management",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "support-group",
+            "effectiveness": 3,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Weakness or paralysis below the injury level",
+            "prevalence": 0.86
+          },
+          {
+            "name": "Loss or change in sensation",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Bladder or bowel changes",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Spasticity or muscle spasms",
+            "prevalence": 0.58
+          },
+          {
+            "name": "Nerve pain",
+            "prevalence": 0.52
+          },
+          {
+            "name": "Pressure injury risk",
+            "prevalence": 0.5
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Road traffic injury",
+            "prevalence": 0.38
+          },
+          {
+            "name": "Falls",
+            "prevalence": 0.32
+          },
+          {
+            "name": "Violence, sport, or work injury",
+            "prevalence": 0.22
+          },
+          {
+            "name": "Tumours, infections, or degenerative spine disease",
+            "prevalence": 0.18
+          },
+          {
+            "name": "Poor seating or skin care increasing pressure injury risk",
+            "prevalence": 0.2
+          }
+        ],
+        "tests": [
+          {
+            "name": "Neurological level and ASIA impairment scale exam",
+            "prevalence": 0.88
+          },
+          {
+            "name": "MRI or CT scan of the spine",
+            "prevalence": 0.82
+          },
+          {
+            "name": "Bladder and bowel function assessment",
+            "prevalence": 0.68
+          },
+          {
+            "name": "Skin and pressure-risk assessment",
+            "prevalence": 0.62
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "limb-loss",
+      "name": "Limb Loss",
+      "category": "disability",
+      "aliases": [
+        "Amputation",
+        "Limb Difference",
+        "Lower Limb Amputation",
+        "Upper Limb Amputation"
+      ],
+      "summary": "Limb loss can happen after injury, infection, diabetes, vascular disease, cancer, or a difference present from birth. Care often includes wound and residual-limb care, physiotherapy, occupational therapy, prosthetic rehabilitation, mobility aids, pain care, skin monitoring, and emotional support.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "prosthetic-rehabilitation",
+            "effectiveness": 4.3,
+            "tier": "strong"
+          },
+          {
+            "slug": "physiotherapy",
+            "effectiveness": 4.1,
+            "tier": "strong"
+          },
+          {
+            "slug": "occupational-therapy",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "mobility-aids",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "long-acting-pain-management",
+            "effectiveness": 3.3,
+            "tier": "moderate"
+          },
+          {
+            "slug": "assistive-technology",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "support-group",
+            "effectiveness": 3,
+            "tier": "moderate"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Missing limb or limb difference",
+            "prevalence": 1
+          },
+          {
+            "name": "Residual-limb pain",
+            "prevalence": 0.58
+          },
+          {
+            "name": "Phantom limb sensations",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Balance or walking difficulty",
+            "prevalence": 0.6
+          },
+          {
+            "name": "Skin irritation or wound problems",
+            "prevalence": 0.44
+          },
+          {
+            "name": "Fatigue from mobility effort",
+            "prevalence": 0.36
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Trauma",
+            "prevalence": 0.34
+          },
+          {
+            "name": "Diabetes, peripheral artery disease, or severe infection",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Cancer or bone infection",
+            "prevalence": 0.12
+          },
+          {
+            "name": "Congenital limb difference",
+            "prevalence": 0.12
+          },
+          {
+            "name": "Poor prosthetic fit or skin breakdown worsening pain",
+            "prevalence": 0.3
+          }
+        ],
+        "tests": [
+          {
+            "name": "Residual-limb and wound assessment",
+            "prevalence": 0.86
+          },
+          {
+            "name": "Prosthetic fit and alignment assessment",
+            "prevalence": 0.72
+          },
+          {
+            "name": "Gait, balance, and function assessment",
+            "prevalence": 0.7
+          },
+          {
+            "name": "Vascular and diabetes testing when blood-flow disease is suspected",
+            "prevalence": 0.52
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "intellectual-disability",
+      "name": "Intellectual Disability",
+      "category": "disability",
+      "aliases": [
+        "ID",
+        "Learning Disability",
+        "Developmental Disability"
+      ],
+      "summary": "Intellectual disability begins before adulthood and affects learning, reasoning, problem-solving, and daily living skills. Support is usually long term and can include developmental therapies, communication support, adapted education, assistive technology, health checks, family support, and planning for safe independence.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "developmental-therapy-support",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "inclusive-education-support",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "speech-therapy",
+            "effectiveness": 3.8,
+            "tier": "strong"
+          },
+          {
+            "slug": "occupational-therapy",
+            "effectiveness": 3.7,
+            "tier": "moderate"
+          },
+          {
+            "slug": "assistive-technology",
+            "effectiveness": 3.4,
+            "tier": "moderate"
+          },
+          {
+            "slug": "support-group",
+            "effectiveness": 3.1,
+            "tier": "moderate"
+          },
+          {
+            "slug": "cbt",
+            "effectiveness": 2.8,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Delayed learning milestones",
+            "prevalence": 0.86
+          },
+          {
+            "name": "Difficulty with reasoning or problem solving",
+            "prevalence": 0.82
+          },
+          {
+            "name": "Daily living skills need extra support",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Communication delays",
+            "prevalence": 0.58
+          },
+          {
+            "name": "Social skill difficulty",
+            "prevalence": 0.5
+          },
+          {
+            "name": "Attention or behaviour support needs",
+            "prevalence": 0.46
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Genetic or chromosomal conditions",
+            "prevalence": 0.38
+          },
+          {
+            "name": "Prenatal alcohol exposure or infection",
+            "prevalence": 0.26
+          },
+          {
+            "name": "Birth complications or early brain injury",
+            "prevalence": 0.2
+          },
+          {
+            "name": "Early childhood infection, toxin exposure, or severe malnutrition",
+            "prevalence": 0.18
+          },
+          {
+            "name": "Unmet communication, education, or sensory support needs",
+            "prevalence": 0.28
+          }
+        ],
+        "tests": [
+          {
+            "name": "Developmental history and clinical assessment",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Cognitive assessment",
+            "prevalence": 0.82
+          },
+          {
+            "name": "Adaptive behaviour assessment",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Hearing and vision screening",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Genetic or metabolic testing when indicated",
+            "prevalence": 0.42
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "hearing-loss",
+      "name": "Hearing Loss",
+      "category": "disability",
+      "aliases": [
+        "Deafness",
+        "Hard of Hearing",
+        "Disabling Hearing Loss"
+      ],
+      "summary": "Hearing loss can affect one or both ears and may change speech understanding, learning, work, safety, and social connection. Support depends on the cause and degree of loss and can include audiology care, hearing aids, cochlear implants for selected people, assistive listening tools, speech therapy, sign language, and communication planning.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "hearing-aids",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "audiology-care",
+            "effectiveness": 4,
+            "tier": "strong"
+          },
+          {
+            "slug": "cochlear-implant",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "assistive-technology",
+            "effectiveness": 3.6,
+            "tier": "moderate"
+          },
+          {
+            "slug": "speech-therapy",
+            "effectiveness": 3.2,
+            "tier": "moderate"
+          },
+          {
+            "slug": "support-group",
+            "effectiveness": 2.8,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Difficulty following speech, especially in noise",
+            "prevalence": 0.82
+          },
+          {
+            "name": "Asking people to repeat themselves",
+            "prevalence": 0.72
+          },
+          {
+            "name": "Turning up TV, radio, or phone volume",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Delayed speech or language development in children",
+            "prevalence": 0.38
+          },
+          {
+            "name": "Tinnitus or ringing in the ears",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Withdrawal from conversations or social settings",
+            "prevalence": 0.36
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Ageing",
+            "prevalence": 0.46
+          },
+          {
+            "name": "Noise exposure",
+            "prevalence": 0.36
+          },
+          {
+            "name": "Ear infections or untreated ear disease",
+            "prevalence": 0.28
+          },
+          {
+            "name": "Genetic causes",
+            "prevalence": 0.22
+          },
+          {
+            "name": "Medicines that can damage hearing",
+            "prevalence": 0.16
+          },
+          {
+            "name": "Head trauma or birth complications",
+            "prevalence": 0.16
+          }
+        ],
+        "tests": [
+          {
+            "name": "Pure-tone audiometry",
+            "prevalence": 0.9
+          },
+          {
+            "name": "Speech hearing test",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Ear exam",
+            "prevalence": 0.75
+          },
+          {
+            "name": "Newborn hearing screen for infants",
+            "prevalence": 0.62
+          },
+          {
+            "name": "Tympanometry or middle-ear testing",
+            "prevalence": 0.52
+          }
+        ]
+      },
+      "extraTreatments": []
+    },
+    {
+      "slug": "vision-impairment",
+      "name": "Vision Impairment",
+      "category": "disability",
+      "aliases": [
+        "Low Vision",
+        "Blindness",
+        "Visual Impairment"
+      ],
+      "summary": "Vision impairment includes low vision and blindness that cannot be fully corrected with ordinary glasses, contact lenses, medicine, or surgery. Care may include treating the eye condition when possible, low-vision aids, vision rehabilitation, orientation and mobility training, assistive technology, home changes, and emotional support.",
+      "evidence": {
+        "treatments": [
+          {
+            "slug": "low-vision-aids",
+            "effectiveness": 4.2,
+            "tier": "strong"
+          },
+          {
+            "slug": "vision-rehabilitation",
+            "effectiveness": 4.1,
+            "tier": "strong"
+          },
+          {
+            "slug": "orientation-mobility-training",
+            "effectiveness": 3.9,
+            "tier": "strong"
+          },
+          {
+            "slug": "assistive-technology",
+            "effectiveness": 3.8,
+            "tier": "moderate"
+          },
+          {
+            "slug": "occupational-therapy",
+            "effectiveness": 3.5,
+            "tier": "moderate"
+          },
+          {
+            "slug": "support-group",
+            "effectiveness": 2.8,
+            "tier": "emerging"
+          }
+        ],
+        "symptoms": [
+          {
+            "name": "Blurred or reduced vision",
+            "prevalence": 0.82
+          },
+          {
+            "name": "Trouble reading or seeing faces",
+            "prevalence": 0.68
+          },
+          {
+            "name": "Difficulty moving around unfamiliar places",
+            "prevalence": 0.48
+          },
+          {
+            "name": "Glare or light sensitivity",
+            "prevalence": 0.42
+          },
+          {
+            "name": "Bumping into objects or missing steps",
+            "prevalence": 0.38
+          },
+          {
+            "name": "Eye strain or headaches",
+            "prevalence": 0.34
+          }
+        ],
+        "triggers": [
+          {
+            "name": "Cataract, glaucoma, or macular disease",
+            "prevalence": 0.48
+          },
+          {
+            "name": "Diabetes and diabetic retinopathy",
+            "prevalence": 0.34
+          },
+          {
+            "name": "Uncorrected refractive error",
+            "prevalence": 0.3
+          },
+          {
+            "name": "Eye injury or infection",
+            "prevalence": 0.22
+          },
+          {
+            "name": "Genetic or childhood eye conditions",
+            "prevalence": 0.18
+          }
+        ],
+        "tests": [
+          {
+            "name": "Visual acuity test",
+            "prevalence": 0.92
+          },
+          {
+            "name": "Refraction test",
+            "prevalence": 0.8
+          },
+          {
+            "name": "Dilated eye exam",
+            "prevalence": 0.78
+          },
+          {
+            "name": "Retinal imaging or OCT",
+            "prevalence": 0.55
+          },
+          {
+            "name": "Visual field test",
+            "prevalence": 0.48
           }
         ]
       },

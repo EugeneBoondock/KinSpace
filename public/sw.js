@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kinspace-v4'
+const CACHE_NAME = 'kinspace-v5'
 const OFFLINE_URL = '/offline'
 
 const PRECACHE_URLS = [
@@ -103,14 +103,25 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  // "Snooze" just dismisses for now; the in-app shelf re-surfaces it, and a full
-  // server-side snooze re-schedule is wired with the reminder scheduler.
-  if (event.action === 'snooze') return
-
   const data = event.notification.data || {}
-  // "Taken" deep-links into the shelf so the dose can be logged in one tap.
-  const targetUrl = event.action === 'taken' ? '/dashboard?meds=1' : data.url || '/dashboard'
 
+  // Medication reminder action buttons: acknowledge to the server directly, with
+  // no app window needed. "Taken" logs the dose; "Snooze 10m" re-arms it via the
+  // reminder cron. Same-origin fetch carries the session cookie.
+  if ((event.action === 'taken' || event.action === 'snooze') && data.kind === 'med-reminder' && data.reminderId) {
+    event.waitUntil(
+      fetch('/api/push/ack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: event.action, reminderId: data.reminderId, time: data.time }),
+      }).catch(() => undefined)
+    )
+    return
+  }
+
+  // Body tap (or any non-med notification): open/focus the relevant page.
+  const targetUrl = data.url || '/dashboard'
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {

@@ -145,17 +145,74 @@ export async function createGroup(ctx: Ctx, _userId: string, data: GroupInput) {
   return { id: groupId }
 }
 
+/** Notify a group's creator + all admins (except the trigger user). Best-effort. */
+async function notifyGroupAdmins(
+  ctx: Ctx,
+  group: GroupRow,
+  exceptUserId: string,
+  payload: { type: string; title: string; body?: string },
+): Promise<void> {
+  const adminRows = await ctx.db.query.groupMembers.findMany({
+    where: and(eq(groupMembers.groupId, group.id), eq(groupMembers.role, 'admin')),
+  })
+  const recipientIds = new Set<string>([group.createdBy, ...adminRows.map((row) => row.userId)])
+  recipientIds.delete(exceptUserId)
+  for (const recipientId of recipientIds) {
+    try {
+      await createNotification(ctx.db, recipientId, {
+        type: payload.type,
+        title: payload.title,
+        body: payload.body,
+        data: { group_id: group.id, requester_id: exceptUserId },
+      })
+    } catch {
+      // best-effort: never block the request flow on a notification failure
+    }
+  }
+}
+
 /**
- * Join a group as a member. Idempotent: returns the existing membership id if
- * the actor is already a member. The actor comes from ctx.userId.
+ * Join a group. PUBLIC groups join immediately. PRIVATE groups can't be entered
+ * freely: the actor is recorded as a 'pending' request (which does NOT count
+ * toward membersCount) and the group's admins are notified to approve it.
+ * Idempotent: re-joining returns the current state. The actor comes from
+ * ctx.userId. Returns { status: 'joined' | 'pending' }.
  */
-export async function joinGroup(ctx: Ctx, groupId: string, _userId: string) {
+export async function joinGroup(
+  ctx: Ctx,
+  groupId: string,
+  _userId: string,
+): Promise<{ status: 'joined' | 'pending'; id: string }> {
   const actor = requireActor(ctx)
+
+  const group = await ctx.db.query.groups.findFirst({ where: eq(groups.id, groupId) })
+  if (!group) throw new Error('Group not found')
 
   const existing = await ctx.db.query.groupMembers.findFirst({
     where: and(eq(groupMembers.userId, actor), eq(groupMembers.groupId, groupId)),
   })
-  if (existing) return existing.id
+  if (existing) {
+    if (existing.status === 'banned') throw new Error('You do not have access to this group')
+    if (existing.status === 'pending') return { status: 'pending', id: existing.id }
+    return { status: 'joined', id: existing.id }
+  }
+
+  if (group.isPrivate) {
+    const requestId = crypto.randomUUID()
+    await ctx.db.insert(groupMembers).values({
+      id: requestId,
+      groupId,
+      userId: actor,
+      role: 'member',
+      status: 'pending',
+    })
+    await notifyGroupAdmins(ctx, group, actor, {
+      type: 'group_join_request',
+      title: `Someone asked to join ${group.name}`,
+      body: 'Tap to review the request.',
+    })
+    return { status: 'pending', id: requestId }
+  }
 
   const memberId = crypto.randomUUID()
   await ctx.db.insert(groupMembers).values({
@@ -163,6 +220,7 @@ export async function joinGroup(ctx: Ctx, groupId: string, _userId: string) {
     groupId,
     userId: actor,
     role: 'member',
+    status: 'active',
   })
 
   await ctx.db
@@ -170,7 +228,7 @@ export async function joinGroup(ctx: Ctx, groupId: string, _userId: string) {
     .set({ membersCount: sql`${groups.membersCount} + 1`, updatedAt: new Date() })
     .where(eq(groups.id, groupId))
 
-  return memberId
+  return { status: 'joined', id: memberId }
 }
 
 /**
@@ -226,16 +284,23 @@ export async function leaveGroup(ctx: Ctx, groupId: string, _userId: string): Pr
   })
   if (rows.length === 0) return false
 
+  // Pending requests and banned rows never contributed to membersCount, so only
+  // decrement for rows that were actually counted. This also lets a member cancel
+  // a pending request (leave) without skewing the tally.
+  const countedRemoved = rows.filter((row) => row.status !== 'banned' && row.status !== 'pending').length
+
   await Promise.all(
     rows.map((row) => ctx.db.delete(groupMembers).where(eq(groupMembers.id, row.id))))
 
-  try {
-    await ctx.db
-      .update(groups)
-      .set({ membersCount: sql`${groups.membersCount} - ${rows.length}`, updatedAt: new Date() })
-      .where(eq(groups.id, groupId))
-  } catch {
-    // Mirror the original `.catch(() => undefined)`, best-effort counter update.
+  if (countedRemoved > 0) {
+    try {
+      await ctx.db
+        .update(groups)
+        .set({ membersCount: sql`max(0, ${groups.membersCount} - ${countedRemoved})`, updatedAt: new Date() })
+        .where(eq(groups.id, groupId))
+    } catch {
+      // best-effort counter update
+    }
   }
 
   return true
@@ -254,21 +319,11 @@ export async function getGroupDetail(ctx: Ctx, groupId: string) {
   if (!group) return null
 
   const memberRows = await ctx.db.query.groupMembers.findMany({ where: eq(groupMembers.groupId, groupId) })
-  const profileMap = await getProfileSummaries(ctx.db, memberRows.map((row) => row.userId))
   const mine = actor ? memberRows.find((row) => row.userId === actor) ?? null : null
+  const isAdmin = actor ? await isGroupAdmin(ctx, groupId, actor) : false
+  const isActiveMember = Boolean(mine && mine.status !== 'banned' && mine.status !== 'pending')
 
-  // Order: admins first, then by join time.
-  const members = memberRows
-    .filter((row) => row.status !== 'banned')
-    .map((row) => ({
-      user_id: row.userId,
-      role: row.role,
-      status: row.status,
-      profile: profileMap.get(row.userId) ?? null,
-    }))
-    .sort((a, b) => (a.role === 'admin' && b.role !== 'admin' ? -1 : b.role === 'admin' && a.role !== 'admin' ? 1 : 0))
-
-  return {
+  const base = {
     id: group.id,
     name: group.name,
     description: group.description,
@@ -281,10 +336,51 @@ export async function getGroupDetail(ctx: Ctx, groupId: string) {
     icon_url: group.iconUrl,
     created_by: group.createdBy,
     members_count: group.membersCount,
-    my_role: mine?.role ?? null,
+    // A pending request is not yet a role — surface it via my_status only so the
+    // UI can show "Requested" instead of a member view.
+    my_role: mine && mine.status !== 'pending' && mine.status !== 'banned' ? mine.role : null,
     my_status: mine?.status ?? null,
-    is_admin: actor ? await isGroupAdmin(ctx, groupId, actor) : false,
+    is_admin: isAdmin,
+  }
+
+  // Private groups are locked to outsiders: show cover, logo, name and counts so
+  // they can decide to request, but never the roster, the request queue, or feed.
+  if (group.isPrivate && !isActiveMember && !isAdmin) {
+    return { ...base, locked: true, members: [], pending_requests: [], pending_count: 0 }
+  }
+
+  const activeRows = memberRows.filter((row) => row.status !== 'banned' && row.status !== 'pending')
+  const profileMap = await getProfileSummaries(ctx.db, activeRows.map((row) => row.userId))
+
+  // Order: admins first, then by join time.
+  const members = activeRows
+    .map((row) => ({
+      user_id: row.userId,
+      role: row.role,
+      status: row.status,
+      profile: profileMap.get(row.userId) ?? null,
+    }))
+    .sort((a, b) => (a.role === 'admin' && b.role !== 'admin' ? -1 : b.role === 'admin' && a.role !== 'admin' ? 1 : 0))
+
+  // Only admins see the pending join-request queue.
+  const pendingRows = isAdmin ? memberRows.filter((row) => row.status === 'pending') : []
+  const pendingProfiles = pendingRows.length
+    ? await getProfileSummaries(ctx.db, pendingRows.map((row) => row.userId))
+    : new Map()
+  const pendingRequests = pendingRows
+    .sort((a, b) => (a.joinedAt?.getTime() ?? 0) - (b.joinedAt?.getTime() ?? 0))
+    .map((row) => ({
+      user_id: row.userId,
+      requested_at: row.joinedAt?.toISOString() ?? null,
+      profile: pendingProfiles.get(row.userId) ?? null,
+    }))
+
+  return {
+    ...base,
+    locked: false,
     members,
+    pending_requests: pendingRequests,
+    pending_count: pendingRequests.length,
   }
 }
 
@@ -361,6 +457,52 @@ export async function removeMember(ctx: Ctx, groupId: string, targetUserId: stri
   if (existing.status !== 'banned') {
     await ctx.db.update(groups).set({ membersCount: sql`max(0, ${groups.membersCount} - 1)` }).where(eq(groups.id, groupId))
   }
+  return { ok: true }
+}
+
+/**
+ * Approve a pending join request: flips the requester's row from 'pending' to
+ * 'active', bumps the member count, and notifies them. Admin-only.
+ */
+export async function approveJoinRequest(ctx: Ctx, groupId: string, targetUserId: string) {
+  const actor = requireActor(ctx)
+  if (!(await isGroupAdmin(ctx, groupId, actor))) throw new Error('Only admins can approve requests')
+  const group = await ctx.db.query.groups.findFirst({ where: eq(groups.id, groupId) })
+  if (!group) throw new Error('Group not found')
+
+  const request = await ctx.db.query.groupMembers.findFirst({
+    where: and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, targetUserId)),
+  })
+  if (!request || request.status !== 'pending') throw new Error('No pending request from this person')
+
+  await ctx.db.update(groupMembers).set({ status: 'active' }).where(eq(groupMembers.id, request.id))
+  await ctx.db
+    .update(groups)
+    .set({ membersCount: sql`${groups.membersCount} + 1`, updatedAt: new Date() })
+    .where(eq(groups.id, groupId))
+
+  await createNotification(ctx.db, targetUserId, {
+    type: 'group_request_approved',
+    title: `You're in! ${group.name} approved your request`,
+    body: 'Tap to jump into the group.',
+    data: { group_id: groupId },
+  })
+  return { ok: true }
+}
+
+/**
+ * Decline a pending join request: removes the pending row. Admin-only. No
+ * notification is sent so a decline never feels pointed; the person can ask again.
+ */
+export async function rejectJoinRequest(ctx: Ctx, groupId: string, targetUserId: string) {
+  const actor = requireActor(ctx)
+  if (!(await isGroupAdmin(ctx, groupId, actor))) throw new Error('Only admins can manage requests')
+
+  const request = await ctx.db.query.groupMembers.findFirst({
+    where: and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, targetUserId)),
+  })
+  if (!request || request.status !== 'pending') return { ok: true }
+  await ctx.db.delete(groupMembers).where(eq(groupMembers.id, request.id))
   return { ok: true }
 }
 

@@ -1,4 +1,4 @@
-import { eq, gte, desc, sql, inArray, type SQL } from 'drizzle-orm'
+import { and, eq, gte, desc, sql, inArray, type SQL } from 'drizzle-orm'
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
 import type { Ctx } from './_shared'
 import { requireActor } from './_shared'
@@ -13,6 +13,7 @@ import {
 import { conditions } from '../db/schema/health'
 import { therapySessions } from '../db/schema/wellness'
 import { reports } from '../db/schema'
+import { sendEmail } from '../email'
 
 const DAY_MS = 86_400_000
 
@@ -126,11 +127,66 @@ export async function getAdminStats(ctx: Ctx) {
     },
     signups_daily: Array.from(buckets.entries()).map(([date, count]) => ({ date, count })),
     recent_signups: recentRows.map((r) => ({
-      username: r.username ?? 'pending',
+      username: r.username,
       joined: r.createdAt instanceof Date ? r.createdAt.toISOString() : new Date(Number(r.createdAt)).toISOString(),
       verified: Boolean(r.verified),
     })),
     generated_at: new Date(now).toISOString(),
+  }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+export async function sendAdminMassEmail(
+  ctx: Ctx,
+  input: { subject?: string; body?: string; verifiedOnly?: boolean } = {},
+) {
+  await requireAdmin(ctx)
+
+  const subject = String(input.subject ?? '').trim().slice(0, 140)
+  const body = String(input.body ?? '').trim().slice(0, 8000)
+  const verifiedOnly = Boolean(input.verifiedOnly)
+  if (subject.length < 3) throw new Error('Subject is too short')
+  if (body.length < 10) throw new Error('Message is too short')
+
+  const recipientRows = await ctx.db
+    .select({ email: users.email })
+    .from(users)
+    .where(verifiedOnly ? and(eq(users.status, 'active'), eq(users.emailVerified, true)) : eq(users.status, 'active'))
+    .limit(1000)
+
+  const htmlBody = escapeHtml(body)
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p style="line-height:1.6;margin:0 0 14px">${paragraph.replace(/\n/g, '<br>')}</p>`)
+    .join('')
+  const html = `
+<div style="font-family:ui-sans-serif,system-ui,sans-serif;background:#f7f1e6;color:#1f352f;padding:28px;border-radius:18px;max-width:560px;margin:0 auto">
+  <h1 style="font-size:20px;margin:0 0 16px">${escapeHtml(subject)}</h1>
+  ${htmlBody}
+  <p style="color:rgba(31,53,47,0.58);font-size:12px;margin-top:26px">Sent by KinSpace.</p>
+</div>`
+
+  let sent = 0
+  let failed = 0
+  for (const row of recipientRows) {
+    const result = await sendEmail({ to: row.email, subject, text: body, html })
+    if (result.ok) sent += 1
+    else failed += 1
+  }
+
+  return {
+    attempted: recipientRows.length,
+    sent,
+    failed,
+    verified_only: verifiedOnly,
+    recipient_limit_reached: recipientRows.length === 1000,
   }
 }
 

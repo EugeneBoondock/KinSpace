@@ -17,7 +17,7 @@ type Condition = {
   description?: string | null
   activity_count?: number
 }
-type Treatment = { name: string; effectiveness: number; slug: string }
+type Treatment = { name: string; effectiveness: number; slug: string; reportCount: number }
 type FeaturedBundle = { condition: Condition; treatments: Treatment[] }
 
 // ── Category → colour (the connective tissue across the page) ────────────────
@@ -27,6 +27,7 @@ const CATEGORY_VAR: Record<string, string> = {
   infectious: 'var(--accent-5)',
   respiratory: 'var(--accent-5)',
   sleep: 'var(--accent-5)',
+  disability: 'var(--accent-5)',
   pain: 'var(--accent-1)',
   musculoskeletal: 'var(--accent-1)',
   cardiovascular: 'var(--accent-1)',
@@ -46,6 +47,7 @@ const CATEGORY_TONE: Record<string, BadgeTone> = {
   infectious: 'blue',
   respiratory: 'blue',
   sleep: 'blue',
+  disability: 'blue',
   pain: 'terracotta',
   musculoskeletal: 'terracotta',
   cardiovascular: 'terracotta',
@@ -113,10 +115,26 @@ function normalizeTreatments(raw: unknown): Treatment[] {
       const name = String(treatment.name ?? row.name ?? '').trim()
       const slug = String(treatment.slug ?? row.treatment_slug ?? row.slug ?? '')
       const effectiveness = Number(row.effectiveness_avg ?? row.effectivenessAvg ?? 0)
-      return { name, slug, effectiveness }
+      const reportCount = Number(
+        row.effectiveness_count ?? row.effectivenessCount ?? row.report_count ?? row.reportCount ?? 0,
+      )
+      return { name, slug, effectiveness, reportCount: Number.isFinite(reportCount) ? reportCount : 0 }
     })
     .filter((t) => t.name.length > 0)
     .slice(0, 3)
+}
+
+/**
+ * Cochrane-style confidence read on a treatment's evidence, derived purely from
+ * the member-report sample size — mirrors studyConfidenceLabel on the detail page
+ * so the public preview and the full study agree. `dots` (0-3) drives a tiny
+ * strength meter; count 0 means a clinical baseline with no member reports yet.
+ */
+function evidenceMeta(count: number): { label: string; dots: number } {
+  if (count <= 0) return { label: 'Clinical baseline', dots: 0 }
+  if (count >= 20) return { label: 'Well reported', dots: 3 }
+  if (count >= 5) return { label: 'Growing signal', dots: 2 }
+  return { label: 'Early signal', dots: 1 }
 }
 
 /**
@@ -484,20 +502,37 @@ function AnswerCard({
         <p className="mt-4 text-sm text-brand-ink/55">No ranked treatments yet, open the full study.</p>
       ) : (
         <ol className="mt-5 space-y-4">
-          {rows.map((t, i) => (
-            <li key={t.slug || t.name}>
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="font-bold text-brand-accent2">#{i + 1}</span>
-                  <span className="truncate text-brand-ink">{t.name}</span>
-                </span>
-                <span className="shrink-0 font-semibold text-brand-accent2">{t.effectiveness.toFixed(1)}/5</span>
-              </div>
-              <div className="mt-1.5">
-                <EffectivenessMeter value={t.effectiveness} color={color} reduced={reduced} />
-              </div>
-            </li>
-          ))}
+          {rows.map((t, i) => {
+            const ev = evidenceMeta(t.reportCount)
+            return (
+              <li key={t.slug || t.name}>
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="font-bold text-brand-accent2">#{i + 1}</span>
+                    <span className="truncate text-brand-ink">{t.name}</span>
+                  </span>
+                  <span className="shrink-0 font-semibold text-brand-accent2">{t.effectiveness.toFixed(1)}/5</span>
+                </div>
+                <div className="mt-1.5">
+                  <EffectivenessMeter value={t.effectiveness} color={color} reduced={reduced} />
+                </div>
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-brand-ink/50">
+                  <span className="inline-flex gap-0.5" aria-hidden="true">
+                    {[0, 1, 2].map((d) => (
+                      <span
+                        key={d}
+                        className={`h-1 w-1 rounded-full ${d < ev.dots ? 'bg-brand-accent2' : 'bg-brand-ink/20'}`}
+                      />
+                    ))}
+                  </span>
+                  <span>
+                    {ev.label}
+                    {t.reportCount > 0 ? ` · ${t.reportCount} ${t.reportCount === 1 ? 'report' : 'reports'}` : ''}
+                  </span>
+                </p>
+              </li>
+            )
+          })}
         </ol>
       )}
 
