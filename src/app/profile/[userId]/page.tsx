@@ -29,6 +29,7 @@ interface Profile {
   id: string
   full_name?: string
   username?: string
+  email_verified?: boolean
   avatar_url?: string | null
   cover_image_url?: string
   bio?: string
@@ -116,6 +117,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   const [connectionState, setConnectionState] = useState<'idle' | 'sent' | 'received' | 'accepted'>('idle')
   const [connectionRequestId, setConnectionRequestId] = useState<string | null>(null)
   const [verificationBusy, setVerificationBusy] = useState(false)
+  const [achievementsOpen, setAchievementsOpen] = useState(true)
 
   // Post creation
   const [newPostContent, setNewPostContent] = useState('')
@@ -329,6 +331,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   }
 
   const displayName = profile.full_name || profile.username || 'User'
+  const isVerifiedMember = Boolean((isOwnProfile && user?.emailVerified) || profile.email_verified)
   const visibleConditions = (profile.hide_conditions_on_profile ? [] : profile.conditions || []).filter(
     (condition) => condition !== 'Private',
   )
@@ -479,6 +482,12 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         <div className="mb-3">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold text-brand-background">{displayName}</h1>
+            {isVerifiedMember && (
+              <Badge className="bg-brand-accent3/20 text-brand-accent3">
+                <i className="ri-check-double-line" aria-hidden="true" />
+                Verified member
+              </Badge>
+            )}
             {profile.status && (
               <Badge className="bg-brand-accent3/20 text-brand-accent3">
                 {profile.status}
@@ -691,22 +700,35 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
             )}
             {achievements && profile.restricted !== true && (
               <Card>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-brand-background">
+                <button
+                  type="button"
+                  onClick={() => setAchievementsOpen((open) => !open)}
+                  aria-expanded={achievementsOpen}
+                  className="flex w-full flex-wrap items-center justify-between gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                >
+                  <span className="flex items-center gap-2 text-sm font-semibold text-brand-background">
                     <i className="ri-medal-line text-brand-accent3" aria-hidden="true" /> Achievements
-                  </h3>
-                  <div className="flex items-center gap-2">
+                  </span>
+                  <span className="flex items-center gap-2">
                     {achievements.checkin_streak > 0 && (
                       <Badge className="bg-brand-accent2/15 text-brand-accent2">
                         <i className="ri-fire-line" aria-hidden="true" /> {achievements.checkin_streak}-day streak
                       </Badge>
                     )}
                     <Badge className="bg-brand-accent3/15 text-brand-accent3">
-                      Lv {achievements.level} · {achievements.level_title}
+                      Lv {achievements.level} - {achievements.level_title}
                     </Badge>
-                  </div>
-                </div>
+                    <i
+                      className={`ri-arrow-down-s-line text-lg text-brand-background/55 transition-transform ${
+                        achievementsOpen ? 'rotate-180' : ''
+                      }`}
+                      aria-hidden="true"
+                    />
+                  </span>
+                </button>
 
+                {achievementsOpen && (
+                  <>
                 {achievements.is_owner && achievements.next_level_points && (
                   <div className="mt-3">
                     <div className="flex items-center justify-between text-xs text-brand-background/55">
@@ -750,9 +772,11 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                   ))}
                 </div>
                 <p className="mt-3 text-[11px] text-brand-background/40">
-                  {achievements.earned_count} of {achievements.total_count} earned · badges reward care and showing up,
+                  {achievements.earned_count} of {achievements.total_count} earned. Badges reward care and showing up,
                   never popularity.
                 </p>
+                  </>
+                )}
               </Card>
             )}
 
