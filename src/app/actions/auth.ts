@@ -4,6 +4,7 @@ import { cookies, headers } from 'next/headers'
 import { SESSION_COOKIE, invalidateSession } from '@/server/auth/session'
 import * as AuthService from '@/server/auth/service'
 import { AuthError } from '@/server/auth/service'
+import { requireUser } from '@/server/auth/current-user'
 import { verifyTurnstile } from '@/server/auth/turnstile'
 import {
   signUpSchema,
@@ -93,6 +94,18 @@ export async function requestPasswordResetAction(input: unknown): Promise<Action
   try {
     await AuthService.requestPasswordReset(parsed.data.email)
     // Always succeed to avoid leaking which emails exist.
+    return { ok: true }
+  } catch (error) {
+    return toError(error)
+  }
+}
+
+export async function resendVerificationAction(): Promise<ActionResult> {
+  try {
+    const user = await requireUser()
+    if (user.emailVerified) return { ok: true }
+    const sent = await AuthService.resendVerification(user.userId, user.email)
+    if (!sent.ok) return { ok: false, error: 'Could not send verification email. Please try again.' }
     return { ok: true }
   } catch (error) {
     return toError(error)

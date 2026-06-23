@@ -62,18 +62,18 @@ export async function signIn(input: SignInInput, meta?: SessionMeta): Promise<Au
   return { userId: user.id, token, expiresAt }
 }
 
-async function sendVerificationEmail(userId: string, email: string): Promise<void> {
+async function sendVerificationEmail(userId: string, email: string): Promise<{ ok: boolean }> {
   const token = randomToken(24)
   await getEnv().KV.put(VERIFY_PREFIX + token, userId, { expirationTtl: VERIFY_TTL })
-  await sendEmail({
+  return sendEmail({
     to: email,
     subject: 'Verify your KinSpace email',
     html: verificationEmailHtml(`${appUrl()}/api/auth/verify?token=${token}`),
   })
 }
 
-export async function resendVerification(userId: string, email: string): Promise<void> {
-  await sendVerificationEmail(userId, email)
+export async function resendVerification(userId: string, email: string): Promise<{ ok: boolean }> {
+  return sendVerificationEmail(userId, email)
 }
 
 export async function verifyEmail(token: string): Promise<boolean> {

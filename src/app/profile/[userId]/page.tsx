@@ -3,6 +3,7 @@
 import { use, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { resendVerificationAction } from '@/app/actions/auth'
 import ProfileAvatar from '@/components/ProfileAvatar'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
@@ -114,6 +115,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   const [activeTab, setActiveTab] = useState<'overview' | 'groups' | 'activity'>('overview')
   const [connectionState, setConnectionState] = useState<'idle' | 'sent' | 'received' | 'accepted'>('idle')
   const [connectionRequestId, setConnectionRequestId] = useState<string | null>(null)
+  const [verificationBusy, setVerificationBusy] = useState(false)
 
   // Post creation
   const [newPostContent, setNewPostContent] = useState('')
@@ -158,6 +160,20 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
       // best effort
     } finally {
       setBlockBusy(false)
+    }
+  }
+
+  const resendVerificationEmail = async () => {
+    if (!isOwnProfile || user?.emailVerified || verificationBusy) return
+    setVerificationBusy(true)
+    try {
+      const result = await resendVerificationAction()
+      if (result.ok) toast('Verification email sent. Check your inbox.', 'success')
+      else toast(result.error, 'error')
+    } catch {
+      toast('Could not send verification email. Please try again.', 'error')
+    } finally {
+      setVerificationBusy(false)
     }
   }
 
@@ -422,6 +438,17 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                   <i className={uploadingCover ? 'ri-loader-4-line animate-spin text-sm' : 'ri-camera-line text-sm'} />
                   {uploadingCover ? 'Uploading…' : 'Cover photo'}
                 </button>
+                {!user?.emailVerified && (
+                  <button
+                    type="button"
+                    onClick={resendVerificationEmail}
+                    disabled={verificationBusy}
+                    className="flex items-center gap-1.5 rounded-full bg-brand-accent2 px-3 py-1.5 text-xs font-semibold text-brand-ink shadow-sm transition-colors hover:bg-brand-accent2/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 disabled:opacity-60"
+                  >
+                    <i className={verificationBusy ? 'ri-loader-4-line animate-spin text-sm' : 'ri-mail-check-line text-sm'} />
+                    {verificationBusy ? 'Sending...' : 'Verify email'}
+                  </button>
+                )}
                 <Link
                   href="/settings"
                   className="flex items-center gap-1.5 rounded-full bg-brand-primary/60 px-3 py-1.5 text-xs font-medium text-brand-background backdrop-blur-sm transition-colors hover:bg-brand-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60"
