@@ -342,7 +342,7 @@ export default function AdminPage() {
                         {u.verified ? (
                           <Badge tone="sage" className="shrink-0">Verified</Badge>
                         ) : (
-                          <Badge tone="gold" className="shrink-0">Pending</Badge>
+                          <Badge tone="gold" className="shrink-0">Email unverified</Badge>
                         )}
                       </span>
                       <span className="shrink-0 text-xs text-brand-ink/50">{formatRelativeTime(u.joined)}</span>
