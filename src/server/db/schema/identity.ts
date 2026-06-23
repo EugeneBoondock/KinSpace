@@ -93,6 +93,7 @@ export const profiles = sqliteTable(
     spaceMotto: text('space_motto'),
     spaceVibe: text('space_vibe'),
     spacePinnedNote: text('space_pinned_note'),
+    spaceBackgroundImageUrl: text('space_background_image_url'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

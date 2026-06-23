@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useEffect, useRef } from 'react'
+import { use, useState, useEffect, useRef, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { resendVerificationAction } from '@/app/actions/auth'
@@ -45,6 +45,7 @@ interface Profile {
   space_motto?: string | null
   space_vibe?: string | null
   space_pinned_note?: string | null
+  space_background_image_url?: string | null
   followers?: number
   following?: number
   postsCount?: number
@@ -102,53 +103,87 @@ type SpaceDraft = {
   space_motto: string
   space_vibe: string
   space_pinned_note: string
+  space_background_image_url: string
 }
 
-const SPACE_THEMES: Record<SpaceThemeKey, { label: string; cover: string; ring: string; card: string }> = {
+const SPACE_THEMES: Record<
+  SpaceThemeKey,
+  { label: string; page: string; cover: string; ring: string; card: string; cardValue: string; softValue: string; lineValue: string; wash: string }
+> = {
   forest: {
     label: 'Forest',
+    page: 'from-[#06130f] via-[#0d241c] to-[#183a2d]',
     cover: 'from-[#0f2a1d] via-brand-primary to-[#1d3b2e]',
     ring: 'border-emerald-200/80 shadow-[0_0_28px_rgba(142,211,178,0.28)]',
-    card: 'border-emerald-200/15 bg-emerald-950/20',
+    card: 'border-[color:var(--space-line)] bg-[color:var(--space-card)] backdrop-blur-xl',
+    cardValue: 'rgba(19, 55, 43, 0.76)',
+    softValue: 'rgba(236, 253, 245, 0.07)',
+    lineValue: 'rgba(167, 243, 208, 0.18)',
+    wash: 'bg-[radial-gradient(circle_at_20%_15%,rgba(110,231,183,0.14),transparent_32%),radial-gradient(circle_at_90%_8%,rgba(251,191,36,0.10),transparent_28%)]',
   },
   ocean: {
     label: 'Ocean',
+    page: 'from-[#061827] via-[#0d344a] to-[#0b5d77]',
     cover: 'from-[#073052] via-[#164f6e] to-[#78b7d3]',
     ring: 'border-sky-200/80 shadow-[0_0_28px_rgba(125,211,252,0.28)]',
-    card: 'border-sky-200/15 bg-sky-950/20',
+    card: 'border-[color:var(--space-line)] bg-[color:var(--space-card)] backdrop-blur-xl',
+    cardValue: 'rgba(8, 47, 73, 0.76)',
+    softValue: 'rgba(224, 242, 254, 0.08)',
+    lineValue: 'rgba(186, 230, 253, 0.2)',
+    wash: 'bg-[radial-gradient(circle_at_20%_12%,rgba(125,211,252,0.18),transparent_34%),radial-gradient(circle_at_82%_4%,rgba(186,230,253,0.12),transparent_28%)]',
   },
   dream: {
     label: 'Dream',
+    page: 'from-[#12091f] via-[#241438] to-[#111827]',
     cover: 'from-[#251144] via-[#412059] to-[#1d233f]',
     ring: 'border-violet-200/80 shadow-[0_0_28px_rgba(196,181,253,0.28)]',
-    card: 'border-violet-200/15 bg-violet-950/20',
+    card: 'border-[color:var(--space-line)] bg-[color:var(--space-card)] backdrop-blur-xl',
+    cardValue: 'rgba(46, 16, 101, 0.66)',
+    softValue: 'rgba(237, 233, 254, 0.08)',
+    lineValue: 'rgba(221, 214, 254, 0.2)',
+    wash: 'bg-[radial-gradient(circle_at_20%_12%,rgba(196,181,253,0.18),transparent_34%),radial-gradient(circle_at_82%_4%,rgba(244,114,182,0.10),transparent_28%)]',
   },
   sunset: {
     label: 'Sunset',
+    page: 'from-[#25100a] via-[#5d2419] to-[#7c2d12]',
     cover: 'from-[#492013] via-[#90412c] to-[#d28449]',
     ring: 'border-orange-200/80 shadow-[0_0_28px_rgba(251,191,36,0.28)]',
-    card: 'border-orange-200/15 bg-orange-950/20',
+    card: 'border-[color:var(--space-line)] bg-[color:var(--space-card)] backdrop-blur-xl',
+    cardValue: 'rgba(67, 20, 7, 0.72)',
+    softValue: 'rgba(255, 237, 213, 0.08)',
+    lineValue: 'rgba(254, 215, 170, 0.2)',
+    wash: 'bg-[radial-gradient(circle_at_18%_12%,rgba(251,146,60,0.18),transparent_34%),radial-gradient(circle_at_86%_6%,rgba(252,211,77,0.13),transparent_30%)]',
   },
   paper: {
     label: 'Earthy',
+    page: 'from-[#17110b] via-[#37291b] to-[#5b442b]',
     cover: 'from-[#3a2c20] via-[#6b5437] to-[#b39062]',
     ring: 'border-stone-100/80 shadow-[0_0_28px_rgba(214,184,138,0.28)]',
-    card: 'border-stone-100/15 bg-stone-900/20',
+    card: 'border-[color:var(--space-line)] bg-[color:var(--space-card)] backdrop-blur-xl',
+    cardValue: 'rgba(68, 52, 34, 0.76)',
+    softValue: 'rgba(250, 244, 230, 0.09)',
+    lineValue: 'rgba(231, 214, 184, 0.22)',
+    wash: 'bg-[radial-gradient(circle_at_18%_12%,rgba(214,184,138,0.18),transparent_34%),radial-gradient(circle_at_86%_6%,rgba(167,139,100,0.12),transparent_30%)]',
   },
   mono: {
     label: 'Mono',
+    page: 'from-[#050505] via-[#18181b] to-[#3f3f46]',
     cover: 'from-[#111111] via-[#2b2b2b] to-[#e8e3d8]',
     ring: 'border-zinc-100/80 shadow-[0_0_28px_rgba(244,244,245,0.2)]',
-    card: 'border-zinc-100/15 bg-zinc-950/25',
+    card: 'border-[color:var(--space-line)] bg-[color:var(--space-card)] backdrop-blur-xl',
+    cardValue: 'rgba(24, 24, 27, 0.78)',
+    softValue: 'rgba(244, 244, 245, 0.08)',
+    lineValue: 'rgba(244, 244, 245, 0.2)',
+    wash: 'bg-[radial-gradient(circle_at_18%_12%,rgba(244,244,245,0.11),transparent_34%),radial-gradient(circle_at_86%_6%,rgba(161,161,170,0.10),transparent_30%)]',
   },
 }
 
-const SPACE_ACCENTS: Record<SpaceAccentKey, { label: string; chip: string; text: string }> = {
-  sage: { label: 'Sage', chip: 'bg-emerald-300', text: 'text-emerald-200' },
-  gold: { label: 'Gold', chip: 'bg-amber-300', text: 'text-amber-200' },
-  coral: { label: 'Coral', chip: 'bg-orange-300', text: 'text-orange-200' },
-  violet: { label: 'Violet', chip: 'bg-violet-300', text: 'text-violet-200' },
-  sky: { label: 'Sky', chip: 'bg-sky-300', text: 'text-sky-200' },
+const SPACE_ACCENTS: Record<SpaceAccentKey, { label: string; chip: string; hex: string; soft: string; glow: string }> = {
+  sage: { label: 'Sage', chip: 'bg-emerald-300', hex: '#6ee7b7', soft: 'rgba(110, 231, 183, 0.16)', glow: 'rgba(110, 231, 183, 0.34)' },
+  gold: { label: 'Gold', chip: 'bg-amber-300', hex: '#fcd34d', soft: 'rgba(252, 211, 77, 0.18)', glow: 'rgba(252, 211, 77, 0.36)' },
+  coral: { label: 'Coral', chip: 'bg-orange-300', hex: '#fdba74', soft: 'rgba(253, 186, 116, 0.18)', glow: 'rgba(253, 186, 116, 0.36)' },
+  violet: { label: 'Violet', chip: 'bg-violet-300', hex: '#c4b5fd', soft: 'rgba(196, 181, 253, 0.18)', glow: 'rgba(196, 181, 253, 0.36)' },
+  sky: { label: 'Sky', chip: 'bg-sky-300', hex: '#7dd3fc', soft: 'rgba(125, 211, 252, 0.18)', glow: 'rgba(125, 211, 252, 0.36)' },
 }
 
 const SPACE_FONTS: Record<SpaceFontKey, { label: string; className: string }> = {
@@ -164,6 +199,7 @@ const DEFAULT_SPACE: SpaceDraft = {
   space_motto: '',
   space_vibe: '',
   space_pinned_note: '',
+  space_background_image_url: '',
 }
 
 function readProfileSpace(profile: Profile): SpaceDraft {
@@ -174,6 +210,7 @@ function readProfileSpace(profile: Profile): SpaceDraft {
     space_motto: profile.space_motto ?? '',
     space_vibe: profile.space_vibe ?? '',
     space_pinned_note: profile.space_pinned_note ?? '',
+    space_background_image_url: profile.space_background_image_url ?? '',
   }
 }
 
@@ -220,7 +257,9 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
   // Cover photo upload
   const [uploadingCover, setUploadingCover] = useState(false)
+  const [uploadingBackground, setUploadingBackground] = useState(false)
   const coverInputRef = useRef<HTMLInputElement>(null)
+  const backgroundInputRef = useRef<HTMLInputElement>(null)
 
   const isOwnProfile = user?.userId === userId
   const [blocked, setBlocked] = useState(false)
@@ -228,7 +267,16 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
   useEffect(() => {
     if (profile?.id) setSpaceDraft(readProfileSpace(profile))
-  }, [profile?.id])
+  }, [
+    profile?.id,
+    profile?.space_theme,
+    profile?.space_accent,
+    profile?.space_font,
+    profile?.space_motto,
+    profile?.space_vibe,
+    profile?.space_pinned_note,
+    profile?.space_background_image_url,
+  ])
 
   useEffect(() => {
     if (!user || isOwnProfile) {
@@ -434,10 +482,24 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   const visibleConditions = (profile.hide_conditions_on_profile ? [] : profile.conditions || []).filter(
     (condition) => condition !== 'Private',
   )
-  const space = readProfileSpace(profile)
+  const space = isOwnProfile ? spaceDraft : readProfileSpace(profile)
   const spaceTheme = SPACE_THEMES[space.space_theme]
   const spaceAccent = SPACE_ACCENTS[space.space_accent]
   const spaceFont = SPACE_FONTS[space.space_font]
+  const spaceVars = {
+    '--space-accent': spaceAccent.hex,
+    '--space-accent-soft': spaceAccent.soft,
+    '--space-accent-glow': spaceAccent.glow,
+    '--space-card': spaceTheme.cardValue,
+    '--space-card-soft': spaceTheme.softValue,
+    '--space-line': spaceTheme.lineValue,
+    background: 'transparent',
+  } as CSSProperties
+  const themedCardClass = `${spaceTheme.card} shadow-[0_24px_70px_rgba(0,0,0,0.26)]`
+  const themedPanelClass = 'border-[color:var(--space-line)] bg-[color:var(--space-card-soft)]'
+  const accentTextClass = 'text-[color:var(--space-accent)]'
+  const accentBgClass = 'bg-[color:var(--space-accent-soft)]'
+  const accentBorderClass = 'border-[color:var(--space-accent)]'
 
   const tabs = [
     { key: 'overview' as const, label: 'Overview', icon: 'ri-user-line' },
@@ -503,6 +565,24 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
     }
   }
 
+  async function handleBackgroundUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file || !user || !isOwnProfile) return
+
+    setUploadingBackground(true)
+    try {
+      const backgroundUrl = await StorageService.uploadProfileCover(user.userId, file)
+      setSpaceDraft((current) => ({ ...current, space_background_image_url: backgroundUrl }))
+      toast('Background image ready. Save My Space to keep it.', 'info')
+    } catch (error) {
+      console.error('Failed to upload background:', error)
+      toast('Background upload failed', 'error')
+    } finally {
+      setUploadingBackground(false)
+      if (backgroundInputRef.current) backgroundInputRef.current.value = ''
+    }
+  }
+
   async function saveMySpace() {
     if (!user || !isOwnProfile || spaceSaving) return
     setSpaceSaving(true)
@@ -513,6 +593,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
       space_motto: spaceDraft.space_motto.trim().slice(0, 160),
       space_vibe: spaceDraft.space_vibe.trim().slice(0, 80),
       space_pinned_note: spaceDraft.space_pinned_note.trim().slice(0, 220),
+      space_background_image_url: spaceDraft.space_background_image_url,
     }
     try {
       await DatabaseService.updateProfile(user.userId, next)
@@ -527,7 +608,20 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   }
 
   return (
-    <main className="page-shell min-h-screen">
+    <main className="page-shell relative isolate min-h-screen overflow-hidden" style={spaceVars}>
+      <div className={`pointer-events-none fixed inset-0 -z-30 bg-gradient-to-br ${spaceTheme.page}`} />
+      {space.space_background_image_url && (
+        <div className="pointer-events-none fixed inset-0 -z-20">
+          <img
+            src={space.space_background_image_url}
+            alt=""
+            className="h-full w-full object-cover opacity-45"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/55 to-black/70" />
+        </div>
+      )}
+      <div className={`pointer-events-none fixed inset-0 -z-10 ${spaceTheme.wash}`} />
+
       <div className="mx-auto w-full max-w-5xl">
         {/* Cover Area */}
         <div className={`relative h-36 overflow-hidden bg-gradient-to-br ${spaceTheme.cover} sm:h-44`}>
@@ -544,7 +638,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
             <button
               onClick={() => router.back()}
               aria-label="Go back"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-primary/60 text-brand-background backdrop-blur-sm transition-colors hover:bg-brand-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--space-line)] bg-[color:var(--space-card)] text-brand-background backdrop-blur-sm transition-colors hover:bg-[color:var(--space-card-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--space-accent)]"
             >
               <i className="ri-arrow-left-line text-lg" />
             </button>
@@ -562,17 +656,17 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                 <button
                   onClick={() => coverInputRef.current?.click()}
                   disabled={uploadingCover}
-                  className="flex items-center gap-1.5 rounded-full bg-brand-primary/60 px-3 py-1.5 text-xs font-medium text-brand-background backdrop-blur-sm transition-colors hover:bg-brand-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-full border border-[color:var(--space-line)] bg-[color:var(--space-card)] px-3 py-1.5 text-xs font-medium text-brand-background backdrop-blur-sm transition-colors hover:bg-[color:var(--space-card-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--space-accent)] disabled:opacity-50"
                 >
                   <i className={uploadingCover ? 'ri-loader-4-line animate-spin text-sm' : 'ri-camera-line text-sm'} />
-                  {uploadingCover ? 'Uploading…' : 'Cover photo'}
+                  {uploadingCover ? 'Uploading...' : 'Cover photo'}
                 </button>
                 {!user?.emailVerified && (
                   <button
                     type="button"
                     onClick={resendVerificationEmail}
                     disabled={verificationBusy}
-                    className="flex items-center gap-1.5 rounded-full bg-brand-accent2 px-3 py-1.5 text-xs font-semibold text-brand-ink shadow-sm transition-colors hover:bg-brand-accent2/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 disabled:opacity-60"
+                    className="flex items-center gap-1.5 rounded-full bg-[color:var(--space-accent)] px-3 py-1.5 text-xs font-semibold text-brand-ink shadow-sm transition-colors hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 disabled:opacity-60"
                   >
                     <i className={verificationBusy ? 'ri-loader-4-line animate-spin text-sm' : 'ri-mail-check-line text-sm'} />
                     {verificationBusy ? 'Sending...' : 'Verify email'}
@@ -580,7 +674,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                 )}
                 <Link
                   href="/settings"
-                  className="flex items-center gap-1.5 rounded-full bg-brand-primary/60 px-3 py-1.5 text-xs font-medium text-brand-background backdrop-blur-sm transition-colors hover:bg-brand-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60"
+                  className="flex items-center gap-1.5 rounded-full border border-[color:var(--space-line)] bg-[color:var(--space-card)] px-3 py-1.5 text-xs font-medium text-brand-background backdrop-blur-sm transition-colors hover:bg-[color:var(--space-card-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--space-accent)]"
                 >
                   <i className="ri-edit-line text-sm" />
                   Edit profile
@@ -609,14 +703,20 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
           <div className="flex flex-wrap items-center gap-2">
             <h1 className={`text-2xl font-bold text-brand-background ${spaceFont.className}`}>{displayName}</h1>
             {isVerifiedMember && (
-              <Badge className="bg-brand-accent3/20 text-brand-accent3">
+              <Badge className={`${accentBgClass} ${accentTextClass}`}>
                 <i className="ri-check-double-line" aria-hidden="true" />
                 Verified member
               </Badge>
             )}
             {profile.status && (
-              <Badge className="bg-brand-accent3/20 text-brand-accent3">
+              <Badge className={`${accentBgClass} ${accentTextClass}`}>
                 {profile.status}
+              </Badge>
+            )}
+            {space.space_vibe && (
+              <Badge className={`${accentBgClass} ${accentTextClass}`}>
+                <i className="ri-sparkling-line" aria-hidden="true" />
+                {space.space_vibe}
               </Badge>
             )}
           </div>
@@ -628,11 +728,11 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         {/* Bio - thought bubble */}
         {profile.bio && (
           <div className="relative mb-3">
-            <div className="relative rounded-2xl border border-brand-background/10 bg-brand-background/[0.06] px-4 py-2.5">
+            <div className={`relative rounded-2xl border px-4 py-2.5 ${themedPanelClass}`}>
               <p className="text-sm italic leading-relaxed text-brand-background/75">&ldquo;{profile.bio}&rdquo;</p>
             </div>
-            <div className="absolute -bottom-1.5 left-5 h-3 w-3 rounded-full border border-brand-background/10 bg-brand-background/[0.06]" />
-            <div className="absolute -bottom-3.5 left-3 h-1.5 w-1.5 rounded-full border border-brand-background/10 bg-brand-background/[0.06]" />
+            <div className="absolute -bottom-1.5 left-5 h-3 w-3 rounded-full border border-[color:var(--space-line)] bg-[color:var(--space-card-soft)]" />
+            <div className="absolute -bottom-3.5 left-3 h-1.5 w-1.5 rounded-full border border-[color:var(--space-line)] bg-[color:var(--space-card-soft)]" />
           </div>
         )}
 
@@ -681,19 +781,19 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         {/* Stats Row */}
         <div className="mb-5 flex items-center gap-6">
           <div className="text-center">
-            <p className="text-lg font-bold text-brand-background">{groups.length}</p>
+            <p className={`text-lg font-bold ${accentTextClass}`}>{groups.length}</p>
             <p className="text-xs text-brand-background/45">Groups</p>
           </div>
           <div className="text-center">
-            <p className="text-lg font-bold text-brand-background">{posts.length}</p>
+            <p className={`text-lg font-bold ${accentTextClass}`}>{posts.length}</p>
             <p className="text-xs text-brand-background/45">Posts</p>
           </div>
           <div className="text-center">
-            <p className="text-lg font-bold text-brand-background">{profile.interests?.length ?? 0}</p>
+            <p className={`text-lg font-bold ${accentTextClass}`}>{profile.interests?.length ?? 0}</p>
             <p className="text-xs text-brand-background/45">Interests</p>
           </div>
           <Link href="/strands" className="text-center transition-opacity hover:opacity-80">
-            <p className="text-lg font-bold text-brand-background">{strandCount}</p>
+            <p className={`text-lg font-bold ${accentTextClass}`}>{strandCount}</p>
             <p className="text-xs text-brand-background/45">Strands</p>
           </Link>
         </div>
@@ -791,7 +891,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         )}
 
         {/* Tabs */}
-        <div className="mb-5 flex rounded-full border border-brand-background/10 bg-brand-background/5 p-1">
+        <div className="mb-5 flex rounded-full border border-[color:var(--space-line)] bg-[color:var(--space-card-soft)] p-1 backdrop-blur-xl">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -799,7 +899,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
               aria-pressed={activeTab === tab.key}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-2 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 ${
                 activeTab === tab.key
-                  ? 'bg-brand-background/20 font-semibold text-brand-background shadow-sm'
+                  ? 'bg-[color:var(--space-accent-soft)] font-semibold text-brand-background shadow-[0_0_18px_var(--space-accent-glow)]'
                   : 'text-brand-background/60 hover:text-brand-background/90'
               }`}
             >
@@ -813,7 +913,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         {activeTab === 'overview' && (
           <div className="space-y-4">
             {profile.restricted === true && !isOwnProfile && (
-              <Card>
+              <Card className={themedCardClass}>
                 <div className="flex flex-col items-center gap-2 py-6 text-center">
                   <i className="ri-lock-2-line text-2xl text-brand-background/40" aria-hidden="true" />
                   <p className="text-sm font-semibold text-brand-background">This profile is private</p>
@@ -825,7 +925,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
               </Card>
             )}
             {achievements && profile.restricted !== true && (
-              <Card>
+              <Card className={themedCardClass}>
                 <button
                   type="button"
                   onClick={() => setAchievementsOpen((open) => !open)}
@@ -833,15 +933,15 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                   className="flex w-full flex-wrap items-center justify-between gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold text-brand-background">
-                    <i className="ri-medal-line text-brand-accent3" aria-hidden="true" /> Achievements
+                    <i className={`ri-medal-line ${accentTextClass}`} aria-hidden="true" /> Achievements
                   </span>
                   <span className="flex items-center gap-2">
                     {achievements.checkin_streak > 0 && (
-                      <Badge className="bg-brand-accent2/15 text-brand-accent2">
+                      <Badge className={`${accentBgClass} ${accentTextClass}`}>
                         <i className="ri-fire-line" aria-hidden="true" /> {achievements.checkin_streak}-day streak
                       </Badge>
                     )}
-                    <Badge className="bg-brand-accent3/15 text-brand-accent3">
+                    <Badge className={`${accentBgClass} ${accentTextClass}`}>
                       Lv {achievements.level} - {achievements.level_title}
                     </Badge>
                     <i
@@ -863,7 +963,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                     </div>
                     <div className="mt-1 h-2 overflow-hidden rounded-full bg-brand-background/10">
                       <div
-                        className="h-full rounded-full bg-brand-accent3"
+                        className="h-full rounded-full bg-[color:var(--space-accent)]"
                         style={{
                           width: `${Math.round(
                             ((achievements.points - achievements.level_floor) /
@@ -907,12 +1007,16 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
             )}
 
             {profile.restricted !== true &&
-              (isOwnProfile || space.space_motto || space.space_vibe || space.space_pinned_note) && (
-                <Card className={spaceTheme.card}>
+              (isOwnProfile ||
+                space.space_motto ||
+                space.space_vibe ||
+                space.space_pinned_note ||
+                space.space_background_image_url) && (
+                <Card className={themedCardClass}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <h3 className="flex items-center gap-2 text-sm font-semibold text-brand-background">
-                        <i className="ri-sparkling-line text-brand-accent2" aria-hidden="true" /> My Space
+                        <i className={`ri-sparkling-line ${accentTextClass}`} aria-hidden="true" /> My Space
                       </h3>
                       <p className="mt-1 text-xs text-brand-background/50">
                         {isOwnProfile ? 'Shape your corner of KinSpace.' : `${displayName}’s corner of KinSpace.`}
@@ -920,7 +1024,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                     </div>
                     <div className="flex items-center gap-2">
                       {space.space_vibe && (
-                        <Badge className={`${spaceAccent.text} bg-brand-background/10`}>
+                        <Badge className={`${accentBgClass} ${accentTextClass}`}>
                           {space.space_vibe}
                         </Badge>
                       )}
@@ -929,7 +1033,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                           type="button"
                           onClick={() => setSpaceOpen((open) => !open)}
                           aria-expanded={spaceOpen}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-brand-background/15 bg-brand-background/[0.06] px-3 text-xs font-semibold text-brand-background/75 transition-colors hover:bg-brand-background/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[color:var(--space-line)] bg-[color:var(--space-card-soft)] px-3 text-xs font-semibold text-brand-background/75 transition-colors hover:bg-[color:var(--space-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--space-accent)]"
                         >
                           <i className="ri-palette-line" aria-hidden="true" />
                           Customize
@@ -945,14 +1049,14 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                   {(space.space_motto || space.space_pinned_note) && (
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       {space.space_motto && (
-                        <div className="rounded-2xl border border-brand-background/10 bg-brand-background/[0.05] p-4">
+                        <div className={`rounded-2xl border p-4 ${themedPanelClass}`}>
                           <p className={`text-sm leading-relaxed text-brand-background/80 ${spaceFont.className}`}>
                             “{space.space_motto}”
                           </p>
                         </div>
                       )}
                       {space.space_pinned_note && (
-                        <div className="rounded-2xl border border-brand-background/10 bg-brand-background/[0.05] p-4">
+                        <div className={`rounded-2xl border p-4 ${themedPanelClass}`}>
                           <p className="mb-1 text-xs font-semibold text-brand-background/45">Pinned memory</p>
                           <p className={`text-sm leading-relaxed text-brand-background/80 ${spaceFont.className}`}>
                             {space.space_pinned_note}
@@ -963,7 +1067,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                   )}
 
                   {isOwnProfile && spaceOpen && (
-                    <div className="mt-4 space-y-4 border-t border-brand-background/10 pt-4">
+                    <div className="mt-4 space-y-4 border-t border-[color:var(--space-line)] pt-4">
                       <div>
                         <p className="mb-2 text-xs font-semibold text-brand-background/55">Theme</p>
                         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -975,14 +1079,64 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                                 onClick={() => setSpaceDraft((current) => ({ ...current, space_theme: key }))}
                                 className={`rounded-2xl border p-2 text-xs font-semibold text-brand-background transition-colors ${
                                   spaceDraft.space_theme === key
-                                    ? 'border-brand-accent2 bg-brand-accent2/18'
-                                    : 'border-brand-background/10 bg-brand-background/[0.04] hover:bg-brand-background/[0.08]'
+                                    ? `${accentBorderClass} bg-[color:var(--space-accent-soft)] shadow-[0_0_18px_var(--space-accent-glow)]`
+                                    : 'border-[color:var(--space-line)] bg-[color:var(--space-card-soft)] hover:bg-[color:var(--space-accent-soft)]'
                                 }`}
                               >
                                 <span className={`mb-2 block h-8 rounded-xl bg-gradient-to-br ${option.cover}`} />
                                 {option.label}
                               </button>
                             ),
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-xs font-semibold text-brand-background/55">Background image</p>
+                        <div className={`flex flex-wrap items-center gap-3 rounded-2xl border p-3 ${themedPanelClass}`}>
+                          <input
+                            ref={backgroundInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            className="hidden"
+                            onChange={handleBackgroundUpload}
+                          />
+                          <div className="h-14 w-20 overflow-hidden rounded-xl border border-[color:var(--space-line)] bg-black/20">
+                            {spaceDraft.space_background_image_url ? (
+                              <img
+                                src={spaceDraft.space_background_image_url}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <i className="ri-image-line text-lg text-brand-background/40" aria-hidden="true" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-brand-background">
+                              {spaceDraft.space_background_image_url ? 'Image selected' : 'No background image'}
+                            </p>
+                            <p className="text-xs text-brand-background/45">Preview updates instantly. Save to keep it.</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => backgroundInputRef.current?.click()}
+                            disabled={uploadingBackground}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[color:var(--space-line)] bg-[color:var(--space-card-soft)] px-3 text-xs font-semibold text-brand-background transition-colors hover:bg-[color:var(--space-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--space-accent)] disabled:opacity-60"
+                          >
+                            <i className={uploadingBackground ? 'ri-loader-4-line animate-spin' : 'ri-upload-2-line'} aria-hidden="true" />
+                            {uploadingBackground ? 'Uploading...' : 'Upload'}
+                          </button>
+                          {spaceDraft.space_background_image_url && (
+                            <button
+                              type="button"
+                              onClick={() => setSpaceDraft((current) => ({ ...current, space_background_image_url: '' }))}
+                              className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-brand-background/65 transition-colors hover:bg-brand-background/10 hover:text-brand-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--space-accent)]"
+                            >
+                              Clear
+                            </button>
                           )}
                         </div>
                       </div>
@@ -998,8 +1152,8 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                                 onClick={() => setSpaceDraft((current) => ({ ...current, space_accent: key }))}
                                 className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold text-brand-background transition-colors ${
                                   spaceDraft.space_accent === key
-                                    ? 'border-brand-accent2 bg-brand-accent2/18'
-                                    : 'border-brand-background/10 bg-brand-background/[0.04] hover:bg-brand-background/[0.08]'
+                                    ? `${accentBorderClass} bg-[color:var(--space-accent-soft)] shadow-[0_0_18px_var(--space-accent-glow)]`
+                                    : 'border-[color:var(--space-line)] bg-[color:var(--space-card-soft)] hover:bg-[color:var(--space-accent-soft)]'
                                 }`}
                               >
                                 <span className={`h-3 w-3 rounded-full ${option.chip}`} aria-hidden="true" />
@@ -1021,8 +1175,8 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                                 onClick={() => setSpaceDraft((current) => ({ ...current, space_font: key }))}
                                 className={`rounded-full border px-3 py-2 text-xs font-semibold text-brand-background transition-colors ${option.className} ${
                                   spaceDraft.space_font === key
-                                    ? 'border-brand-accent2 bg-brand-accent2/18'
-                                    : 'border-brand-background/10 bg-brand-background/[0.04] hover:bg-brand-background/[0.08]'
+                                    ? `${accentBorderClass} bg-[color:var(--space-accent-soft)] shadow-[0_0_18px_var(--space-accent-glow)]`
+                                    : 'border-[color:var(--space-line)] bg-[color:var(--space-card-soft)] hover:bg-[color:var(--space-accent-soft)]'
                                 }`}
                               >
                                 {option.label}
@@ -1040,7 +1194,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                           }
                           placeholder="Profile vibe"
                           aria-label="Profile vibe"
-                          className="bg-brand-background/[0.06] text-brand-background placeholder:text-brand-background/35"
+                          className="border-[color:var(--space-line)] bg-[color:var(--space-card-soft)] text-brand-background placeholder:text-brand-background/35 focus:border-[color:var(--space-accent)] focus:ring-[color:var(--space-accent-soft)]"
                         />
                         <Input
                           value={spaceDraft.space_motto}
@@ -1049,7 +1203,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                           }
                           placeholder="Personal motto"
                           aria-label="Personal motto"
-                          className="bg-brand-background/[0.06] text-brand-background placeholder:text-brand-background/35"
+                          className="border-[color:var(--space-line)] bg-[color:var(--space-card-soft)] text-brand-background placeholder:text-brand-background/35 focus:border-[color:var(--space-accent)] focus:ring-[color:var(--space-accent-soft)]"
                         />
                       </div>
                       <Textarea
@@ -1063,7 +1217,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                         rows={3}
                         placeholder="Pinned memory or note"
                         aria-label="Pinned memory or note"
-                        className="resize-none bg-brand-background/[0.06] text-brand-background placeholder:text-brand-background/35"
+                        className="resize-none border-[color:var(--space-line)] bg-[color:var(--space-card-soft)] text-brand-background placeholder:text-brand-background/35 focus:border-[color:var(--space-accent)] focus:ring-[color:var(--space-accent-soft)]"
                       />
                       <div className="flex justify-end">
                         <Button size="sm" onClick={saveMySpace} isLoading={spaceSaving} disabled={spaceSaving}>
@@ -1077,9 +1231,9 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
             {/* Create Post (own profile only) */}
             {isOwnProfile && (
-              <Card>
+              <Card className={themedCardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-background">
-                  <i className="ri-quill-pen-line text-brand-accent2" /> Share an update
+                  <i className={`ri-quill-pen-line ${accentTextClass}`} /> Share an update
                 </h3>
                 <Textarea
                   value={newPostContent}
@@ -1107,19 +1261,19 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
               <div className="grid grid-cols-2 gap-3">
                 <Link
                   href="/groups?create=1"
-                  className="flex flex-col items-center gap-2 rounded-2xl border border-brand-background/10 bg-brand-background/[0.08] py-4 text-center backdrop-blur-sm transition-colors hover:bg-brand-background/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                  className={`flex flex-col items-center gap-2 rounded-2xl border py-4 text-center backdrop-blur-sm transition-colors hover:bg-[color:var(--space-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--space-accent)] ${themedPanelClass}`}
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent2/15">
-                    <i className="ri-group-line text-lg text-brand-accent2" />
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accentBgClass}`}>
+                    <i className={`ri-group-line text-lg ${accentTextClass}`} />
                   </div>
                   <span className="text-xs font-semibold text-brand-background">Create a group</span>
                 </Link>
                 <Link
                   href="/resources?submit=1"
-                  className="flex flex-col items-center gap-2 rounded-2xl border border-brand-background/10 bg-brand-background/[0.08] py-4 text-center backdrop-blur-sm transition-colors hover:bg-brand-background/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                  className={`flex flex-col items-center gap-2 rounded-2xl border py-4 text-center backdrop-blur-sm transition-colors hover:bg-[color:var(--space-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--space-accent)] ${themedPanelClass}`}
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent3/15">
-                    <i className="ri-book-open-line text-lg text-brand-accent3" />
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accentBgClass}`}>
+                    <i className={`ri-book-open-line text-lg ${accentTextClass}`} />
                   </div>
                   <span className="text-xs font-semibold text-brand-background">Add a resource</span>
                 </Link>
@@ -1128,9 +1282,9 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
             {/* About - only the owner sees this nudge when bio is empty */}
             {!profile.bio && isOwnProfile && (
-              <Card>
+              <Card className={themedCardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-background">
-                  <i className="ri-information-line text-brand-accent2" /> About you
+                  <i className={`ri-information-line ${accentTextClass}`} /> About you
                 </h3>
                 <p className="text-sm text-brand-background/60">
                   Add a short bio so the community gets a sense of who you are. A sentence or two is plenty.
@@ -1143,9 +1297,9 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
             {/* Conditions */}
             {visibleConditions.length > 0 && (
-              <Card>
+              <Card className={themedCardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-background">
-                  <i className="ri-heart-pulse-line text-brand-accent1" /> {isOwnProfile ? 'What you’re living with' : 'What they’re living with'}
+                  <i className={`ri-heart-pulse-line ${accentTextClass}`} /> {isOwnProfile ? 'What you’re living with' : 'What they’re living with'}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {visibleConditions.map((condition, idx) => (
@@ -1162,9 +1316,9 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
             {/* Recent Activity Preview */}
             {posts.length > 0 && (
-              <Card>
+              <Card className={themedCardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-background">
-                  <i className="ri-time-line text-brand-accent3" /> Recent activity
+                  <i className={`ri-time-line ${accentTextClass}`} /> Recent activity
                 </h3>
                 <div className="space-y-3">
                   {posts.slice(0, 3).map((post) => (
@@ -1185,9 +1339,9 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
             {/* Interests */}
             {profile.interests && profile.interests.length > 0 && (
-              <Card>
+              <Card className={themedCardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-background">
-                  <i className="ri-star-line text-brand-accent2" /> Interests
+                  <i className={`ri-star-line ${accentTextClass}`} /> Interests
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {profile.interests.map((interest) => (
@@ -1199,15 +1353,15 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
               </Card>
             )}
             {gameScores.length > 0 && profile.restricted !== true && (
-              <Card>
+              <Card className={themedCardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-background">
-                  <i className="ri-gamepad-line text-brand-accent3" /> Game scores
+                  <i className={`ri-gamepad-line ${accentTextClass}`} /> Game scores
                 </h3>
                 <div className="space-y-2">
                   {gameScores.map((score) => (
                     <div
                       key={score.game_key}
-                      className="flex items-center justify-between gap-3 rounded-xl bg-brand-background/[0.04] px-3 py-2"
+                      className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 ${themedPanelClass}`}
                     >
                       <span className="text-sm font-medium text-brand-background">{gameLabel(score.game_key)}</span>
                       <span className="flex items-center gap-3 text-xs text-brand-background/55">
@@ -1231,10 +1385,10 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                 <Link
                   key={group.id}
                   href={`/groups/${group.id}`}
-                  className="flex items-center gap-3 rounded-2xl border border-brand-background/10 bg-brand-background/[0.08] p-4 backdrop-blur-sm transition-colors hover:bg-brand-background/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                  className={`flex items-center gap-3 rounded-2xl border p-4 backdrop-blur-sm transition-colors hover:bg-[color:var(--space-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--space-accent)] ${themedPanelClass}`}
                 >
-                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-brand-accent1/20">
-                    <i className={`${group.icon || 'ri-group-line'} text-lg text-brand-accent1`} />
+                  <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${accentBgClass}`}>
+                    <i className={`${group.icon || 'ri-group-line'} text-lg ${accentTextClass}`} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-brand-background">{group.name || 'Group'}</p>
@@ -1258,7 +1412,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
           <div className="space-y-3">
             {posts.length > 0 ? (
               posts.map((post) => (
-                <Card key={post.id} variant="light">
+                <Card key={post.id} variant="light" className={themedCardClass}>
                   <div className="mb-2 flex items-center gap-2">
                     <ProfileAvatar
                       alt={displayName}

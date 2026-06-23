@@ -39,6 +39,7 @@ export type PublicProfile = {
   spaceMotto: string | null
   spaceVibe: string | null
   spacePinnedNote: string | null
+  spaceBackgroundImageUrl: string | null
   createdAt: Date
 }
 
@@ -64,6 +65,7 @@ export function toPublicProfile(row: Profile): PublicProfile {
     spaceMotto: row.spaceMotto,
     spaceVibe: row.spaceVibe,
     spacePinnedNote: row.spacePinnedNote,
+    spaceBackgroundImageUrl: row.spaceBackgroundImageUrl,
     createdAt: row.createdAt,
   }
 }

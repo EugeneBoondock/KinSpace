@@ -91,6 +91,7 @@ const ALLOWED_PROFILE_FIELDS = new Set([
   'anonymousProfileVisibility', 'notifyMatches', 'notifyMessages', 'notifyGroups',
   'hideConditionsOnHome', 'hideConditionsOnProfile',
   'spaceTheme', 'spaceAccent', 'spaceFont', 'spaceMotto', 'spaceVibe', 'spacePinnedNote',
+  'spaceBackgroundImageUrl',
 ])
 
 function snakeToCamel(key: string): string {
