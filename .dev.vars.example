@@ -34,7 +34,7 @@ OPENAI_MODEL_FULL=gpt-5.4
 EMAIL_PROVIDER=brevo
 RESEND_API_KEY=
 BREVO_API_KEY=
-EMAIL_FROM="KinSpace <noreply@kinspace.co.za>"
+EMAIL_FROM="KinSpace <info@kinspace.co.za>"
 
 # ── Payments: Paystack (https://dashboard.paystack.com/#/settings/developers) ─
 PAYSTACK_SECRET_KEY=

@@ -30,7 +30,7 @@ export function buildBrevoPayload(args: SendArgs, from: string) {
  */
 export async function sendEmail(args: SendArgs): Promise<{ ok: boolean }> {
   const env = getEnv()
-  const from = env.EMAIL_FROM ?? 'KinSpace <hello@kinspace.co.za>'
+  const from = env.EMAIL_FROM ?? 'KinSpace <info@kinspace.co.za>'
   const provider = (env.EMAIL_PROVIDER ?? 'resend').toLowerCase()
 
   if (provider === 'resend' && env.RESEND_API_KEY) {
