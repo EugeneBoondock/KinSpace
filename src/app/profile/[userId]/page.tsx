@@ -92,9 +92,31 @@ const gameLabels: Record<string, string> = {
   wordsearch: 'Word Search',
 }
 
-type SpaceThemeKey = 'forest' | 'ocean' | 'dream' | 'sunset' | 'paper' | 'mono'
-type SpaceAccentKey = 'sage' | 'gold' | 'coral' | 'violet' | 'sky'
-type SpaceFontKey = 'clean' | 'serif' | 'note'
+type SpaceThemeKey =
+  | 'forest'
+  | 'ocean'
+  | 'dream'
+  | 'sunset'
+  | 'paper'
+  | 'mono'
+  | 'meadow'
+  | 'midnight'
+  | 'rose'
+  | 'lagoon'
+type SpaceAccentKey =
+  | 'sage'
+  | 'gold'
+  | 'coral'
+  | 'rose'
+  | 'ruby'
+  | 'violet'
+  | 'lavender'
+  | 'sky'
+  | 'blue'
+  | 'mint'
+  | 'lime'
+  | 'graphite'
+type SpaceFontKey = 'clean' | 'soft' | 'serif' | 'classic' | 'note' | 'mono' | 'modern' | 'display' | 'quiet'
 
 type SpaceDraft = {
   space_theme: SpaceThemeKey
@@ -176,6 +198,50 @@ const SPACE_THEMES: Record<
     lineValue: 'rgba(244, 244, 245, 0.2)',
     wash: 'bg-[radial-gradient(circle_at_18%_12%,rgba(244,244,245,0.11),transparent_34%),radial-gradient(circle_at_86%_6%,rgba(161,161,170,0.10),transparent_30%)]',
   },
+  meadow: {
+    label: 'Meadow',
+    page: 'from-[#08150c] via-[#214019] to-[#536b2d]',
+    cover: 'from-[#132712] via-[#3f652a] to-[#b4c77d]',
+    ring: 'border-lime-200/80 shadow-[0_0_28px_rgba(190,242,100,0.24)]',
+    card: 'border-[color:var(--space-line)] bg-[color:var(--space-card)] backdrop-blur-xl',
+    cardValue: 'rgba(38, 55, 27, 0.78)',
+    softValue: 'rgba(236, 252, 203, 0.08)',
+    lineValue: 'rgba(217, 249, 157, 0.2)',
+    wash: 'bg-[radial-gradient(circle_at_16%_12%,rgba(190,242,100,0.16),transparent_34%),radial-gradient(circle_at_84%_8%,rgba(134,239,172,0.12),transparent_30%)]',
+  },
+  midnight: {
+    label: 'Midnight',
+    page: 'from-[#050816] via-[#121b3d] to-[#26325f]',
+    cover: 'from-[#080f24] via-[#1f2b54] to-[#5668ad]',
+    ring: 'border-indigo-200/80 shadow-[0_0_28px_rgba(165,180,252,0.26)]',
+    card: 'border-[color:var(--space-line)] bg-[color:var(--space-card)] backdrop-blur-xl',
+    cardValue: 'rgba(23, 31, 60, 0.78)',
+    softValue: 'rgba(224, 231, 255, 0.08)',
+    lineValue: 'rgba(199, 210, 254, 0.2)',
+    wash: 'bg-[radial-gradient(circle_at_18%_12%,rgba(129,140,248,0.17),transparent_34%),radial-gradient(circle_at_86%_6%,rgba(96,165,250,0.11),transparent_30%)]',
+  },
+  rose: {
+    label: 'Rose',
+    page: 'from-[#21070e] via-[#4a1727] to-[#7b2942]',
+    cover: 'from-[#3c0d1c] via-[#79233c] to-[#f4a2b8]',
+    ring: 'border-rose-200/80 shadow-[0_0_28px_rgba(253,164,175,0.26)]',
+    card: 'border-[color:var(--space-line)] bg-[color:var(--space-card)] backdrop-blur-xl',
+    cardValue: 'rgba(64, 30, 42, 0.78)',
+    softValue: 'rgba(255, 228, 230, 0.08)',
+    lineValue: 'rgba(253, 164, 175, 0.22)',
+    wash: 'bg-[radial-gradient(circle_at_18%_12%,rgba(253,164,175,0.17),transparent_34%),radial-gradient(circle_at_86%_6%,rgba(244,114,182,0.12),transparent_30%)]',
+  },
+  lagoon: {
+    label: 'Lagoon',
+    page: 'from-[#041512] via-[#0f3b3c] to-[#17606a]',
+    cover: 'from-[#092b2b] via-[#0f5d62] to-[#67d7d0]',
+    ring: 'border-teal-200/80 shadow-[0_0_28px_rgba(94,234,212,0.26)]',
+    card: 'border-[color:var(--space-line)] bg-[color:var(--space-card)] backdrop-blur-xl',
+    cardValue: 'rgba(19, 55, 57, 0.78)',
+    softValue: 'rgba(204, 251, 241, 0.08)',
+    lineValue: 'rgba(94, 234, 212, 0.22)',
+    wash: 'bg-[radial-gradient(circle_at_18%_12%,rgba(94,234,212,0.16),transparent_34%),radial-gradient(circle_at_86%_6%,rgba(103,232,249,0.11),transparent_30%)]',
+  },
 }
 
 const SPACE_ACCENTS: Record<
@@ -215,6 +281,28 @@ const SPACE_ACCENTS: Record<
     strong: 'rgba(96, 56, 40, 0.92)',
     line: 'rgba(253, 186, 116, 0.25)',
   },
+  rose: {
+    label: 'Rose',
+    chip: 'bg-rose-300',
+    hex: '#fda4af',
+    soft: 'rgba(253, 164, 175, 0.18)',
+    glow: 'rgba(253, 164, 175, 0.36)',
+    card: 'rgba(64, 30, 42, 0.84)',
+    raised: 'rgba(83, 38, 53, 0.88)',
+    strong: 'rgba(101, 46, 64, 0.92)',
+    line: 'rgba(253, 164, 175, 0.25)',
+  },
+  ruby: {
+    label: 'Ruby',
+    chip: 'bg-red-300',
+    hex: '#fca5a5',
+    soft: 'rgba(252, 165, 165, 0.18)',
+    glow: 'rgba(252, 165, 165, 0.36)',
+    card: 'rgba(65, 28, 33, 0.84)',
+    raised: 'rgba(85, 35, 41, 0.88)',
+    strong: 'rgba(105, 44, 50, 0.92)',
+    line: 'rgba(252, 165, 165, 0.25)',
+  },
   violet: {
     label: 'Violet',
     chip: 'bg-violet-300',
@@ -225,6 +313,17 @@ const SPACE_ACCENTS: Record<
     raised: 'rgba(53, 40, 82, 0.88)',
     strong: 'rgba(66, 50, 101, 0.92)',
     line: 'rgba(196, 181, 253, 0.25)',
+  },
+  lavender: {
+    label: 'Lavender',
+    chip: 'bg-purple-300',
+    hex: '#d8b4fe',
+    soft: 'rgba(216, 180, 254, 0.18)',
+    glow: 'rgba(216, 180, 254, 0.36)',
+    card: 'rgba(48, 34, 68, 0.84)',
+    raised: 'rgba(61, 43, 86, 0.88)',
+    strong: 'rgba(76, 54, 106, 0.92)',
+    line: 'rgba(216, 180, 254, 0.25)',
   },
   sky: {
     label: 'Sky',
@@ -237,12 +336,62 @@ const SPACE_ACCENTS: Record<
     strong: 'rgba(39, 74, 98, 0.92)',
     line: 'rgba(125, 211, 252, 0.25)',
   },
+  blue: {
+    label: 'Blue',
+    chip: 'bg-blue-300',
+    hex: '#93c5fd',
+    soft: 'rgba(147, 197, 253, 0.18)',
+    glow: 'rgba(147, 197, 253, 0.36)',
+    card: 'rgba(27, 47, 76, 0.84)',
+    raised: 'rgba(34, 60, 96, 0.88)',
+    strong: 'rgba(42, 73, 116, 0.92)',
+    line: 'rgba(147, 197, 253, 0.25)',
+  },
+  mint: {
+    label: 'Mint',
+    chip: 'bg-teal-300',
+    hex: '#5eead4',
+    soft: 'rgba(94, 234, 212, 0.18)',
+    glow: 'rgba(94, 234, 212, 0.36)',
+    card: 'rgba(22, 58, 57, 0.84)',
+    raised: 'rgba(28, 74, 72, 0.88)',
+    strong: 'rgba(35, 90, 87, 0.92)',
+    line: 'rgba(94, 234, 212, 0.25)',
+  },
+  lime: {
+    label: 'Lime',
+    chip: 'bg-lime-300',
+    hex: '#bef264',
+    soft: 'rgba(190, 242, 100, 0.18)',
+    glow: 'rgba(190, 242, 100, 0.34)',
+    card: 'rgba(46, 58, 31, 0.84)',
+    raised: 'rgba(59, 74, 39, 0.88)',
+    strong: 'rgba(72, 90, 48, 0.92)',
+    line: 'rgba(190, 242, 100, 0.25)',
+  },
+  graphite: {
+    label: 'Graphite',
+    chip: 'bg-zinc-300',
+    hex: '#e4e4e7',
+    soft: 'rgba(228, 228, 231, 0.14)',
+    glow: 'rgba(228, 228, 231, 0.24)',
+    card: 'rgba(31, 31, 35, 0.86)',
+    raised: 'rgba(42, 42, 47, 0.9)',
+    strong: 'rgba(55, 55, 62, 0.94)',
+    line: 'rgba(228, 228, 231, 0.24)',
+  },
 }
 
 const SPACE_FONTS: Record<SpaceFontKey, { label: string; className: string }> = {
   clean: { label: 'Clean', className: '' },
+  soft: { label: 'Soft', className: '[font-family:ui-rounded,system-ui,sans-serif]' },
   serif: { label: 'Serif', className: 'font-serif' },
+  classic: { label: 'Classic', className: '[font-family:Georgia,serif] font-semibold' },
   note: { label: 'Note', className: 'font-serif italic' },
+  mono: { label: 'Mono', className: 'font-mono' },
+  modern: { label: 'Modern', className: '[font-family:Trebuchet_MS,Arial,sans-serif]' },
+  display: { label: 'Display', className: 'font-sans font-black' },
+  quiet: { label: 'Quiet', className: 'font-sans font-light' },
 }
 
 const DEFAULT_SPACE: SpaceDraft = {
@@ -1137,7 +1286,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                     <div className="mt-4 space-y-4 border-t border-[color:var(--space-line)] pt-4">
                       <div>
                         <p className="mb-2 text-xs font-semibold text-brand-background/55">Theme</p>
-                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                           {(Object.entries(SPACE_THEMES) as Array<[SpaceThemeKey, (typeof SPACE_THEMES)[SpaceThemeKey]]>).map(
                             ([key, option]) => (
                               <button
