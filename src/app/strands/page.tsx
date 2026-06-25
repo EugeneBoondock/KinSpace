@@ -41,6 +41,7 @@ type PersonResult = {
   user_id: string
   username?: string | null
   full_name?: string | null
+  is_anonymous?: boolean | null
   avatar_url?: string | null
   bio?: string | null
   location?: string | null
@@ -236,35 +237,46 @@ export default function StrandsPage() {
               <EmptyState
                 icon={<i className="ri-user-search-line text-4xl" aria-hidden="true" />}
                 title="No one found"
-                description="Try a different name, @username, or city. People who keep their profile anonymous won’t appear here."
+                description="Try a different name, username, or city."
               />
             ) : (
               <div className="page-card-grid">
                 {searchResults.map((person) => {
-                  const name = person.full_name || person.username || 'Community member'
+                  const isAnonymous = Boolean(person.is_anonymous)
+                  const name = isAnonymous
+                    ? person.username || 'Community member'
+                    : person.full_name || person.username || 'Community member'
+                  const avatar = (
+                    <MemberAvatar
+                      profile={person as unknown as Record<string, unknown>}
+                      alt={name}
+                      avatarUrl={isAnonymous ? null : person.avatar_url}
+                      fullName={isAnonymous ? null : person.full_name}
+                      userId={person.user_id}
+                      username={person.username ?? undefined}
+                      className="h-12 w-12 rounded-2xl object-cover"
+                    />
+                  )
                   return (
                     <Card key={person.user_id} interactive>
                       <div className="flex items-start gap-3">
-                        <Link
-                          href={`/profile/${person.user_id}`}
-                          aria-label={`View ${name}’s profile`}
-                          className="shrink-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
-                        >
-                          <MemberAvatar
-                            profile={person as unknown as Record<string, unknown>}
-                            alt={name}
-                            avatarUrl={person.avatar_url}
-                            fullName={person.full_name}
-                            userId={person.user_id}
-                            username={person.username ?? undefined}
-                            className="h-12 w-12 rounded-2xl object-cover"
-                          />
-                        </Link>
+                        {isAnonymous ? (
+                          <div className="shrink-0 rounded-2xl">{avatar}</div>
+                        ) : (
+                          <Link
+                            href={`/profile/${person.user_id}`}
+                            aria-label={`View ${name}’s profile`}
+                            className="shrink-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                          >
+                            {avatar}
+                          </Link>
+                        )}
                         <div className="min-w-0 flex-1">
                           <MemberName
                             profile={person as unknown as Record<string, unknown>}
                             userId={person.user_id}
                             name={name}
+                            isAnonymous={isAnonymous}
                             className="font-semibold text-brand-background hover:text-brand-accent2"
                           />
                           {person.username && (

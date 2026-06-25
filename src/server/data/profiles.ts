@@ -265,27 +265,68 @@ export async function getConnectionCandidates(ctx: Ctx, _userId: string, limitCo
 
 // ── People search (name / @username / location) ──────────────────────────────
 
+function normalizePeopleSearch(query: string) {
+  const raw = (query ?? '').trim().toLowerCase()
+  const handle = raw.replace(/^@+/, '')
+  return { raw, handle, isHandleSearch: raw.startsWith('@') }
+}
+
+function includesSearchValue(value: string | null | undefined, query: string): boolean {
+  return Boolean(query && value?.toLowerCase().includes(query))
+}
+
+function profileMatchesPeopleSearch(row: typeof profiles.$inferSelect, query: ReturnType<typeof normalizePeopleSearch>) {
+  if (!query.handle || query.handle.length < 2) return false
+  if (includesSearchValue(row.username, query.handle)) return true
+  if (query.isHandleSearch || row.isAnonymous) return false
+  return includesSearchValue(row.fullName, query.raw) || includesSearchValue(row.location, query.raw)
+}
+
+function toSearchPeopleProfile(row: typeof profiles.$inferSelect) {
+  const publicProfile = toPublicProfile(row)
+  if (!row.isAnonymous) return publicProfile
+  return {
+    ...publicProfile,
+    fullName: null,
+    pseudonym: null,
+    avatarUrl: null,
+    coverImageUrl: null,
+    bio: null,
+    pronouns: null,
+    spaceMotto: null,
+    spaceVibe: null,
+    spacePinnedNote: null,
+    spaceBackgroundImageUrl: null,
+  }
+}
+
 /**
  * Free-text people search for the Strands "find people" surface. Matches on
  * full name, username, or city (case-insensitive). Authenticated-only. Returns
  * PUBLIC profiles plus the searcher's strand status with each person so the UI
  * can render the right action without an extra round-trip. `location` is
- * deliberately included here (city-level, user-entered) to power location
- * discovery; self, anonymous, un-onboarded, and blocked rows are excluded.
+ * included only for non-anonymous profiles; anonymous rows are searchable by
+ * username only and are returned as username-only results.
  */
 export async function searchPeople(ctx: Ctx, query: string, limitCount = 24) {
   const actorId = requireActor(ctx)
-  const q = (query ?? '').trim().toLowerCase()
-  if (q.length < 2) return []
+  const search = normalizePeopleSearch(query)
+  if (search.handle.length < 2) return []
   // Escape LIKE wildcards in user input so a stray % / _ can't widen the match.
-  const pattern = `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`
+  const usernamePattern = `%${search.handle.replace(/[\\%_]/g, (m) => `\\${m}`)}%`
+  const textPattern = `%${search.raw.replace(/[\\%_]/g, (m) => `\\${m}`)}%`
+  const nonAnonymousTextMatch = and(
+    eq(profiles.isAnonymous, false),
+    or(
+      sql`lower(${profiles.fullName}) like ${textPattern} escape '\\'`,
+      sql`lower(${profiles.location}) like ${textPattern} escape '\\'`))
+  const where = search.isHandleSearch
+    ? sql`lower(${profiles.username}) like ${usernamePattern} escape '\\'`
+    : or(sql`lower(${profiles.username}) like ${usernamePattern} escape '\\'`, nonAnonymousTextMatch)
 
   const [rows, blocked, sent, received] = await Promise.all([
     ctx.db.query.profiles.findMany({
-      where: or(
-        sql`lower(${profiles.fullName}) like ${pattern} escape '\\'`,
-        sql`lower(${profiles.username}) like ${pattern} escape '\\'`,
-        sql`lower(${profiles.location}) like ${pattern} escape '\\'`),
+      where,
       limit: 120,
     }),
     blockedRelatedIds(ctx.db, actorId),
@@ -298,8 +339,7 @@ export async function searchPeople(ctx: Ctx, query: string, limitCount = 24) {
 
   return rows
     .filter((row) => row.userId !== actorId)
-    .filter((row) => !row.isAnonymous)
-    .filter((row) => row.onboardingComplete !== false)
+    .filter((row) => profileMatchesPeopleSearch(row, search))
     .filter((row) => !blocked.has(row.userId))
     .slice(0, limitCount)
     .map((row) => {
@@ -317,8 +357,8 @@ export async function searchPeople(ctx: Ctx, query: string, limitCount = 24) {
         requestId = r.id
       }
       return {
-        ...toPublicProfile(row),
-        location: row.location ?? null,
+        ...toSearchPeopleProfile(row),
+        location: row.isAnonymous ? null : row.location ?? null,
         strandStatus,
         requestId,
       }
