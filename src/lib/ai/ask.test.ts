@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert'
 import test from 'node:test'
 
 import {
+  buildCrisisAskAnswer,
   formatAskContextForPrompt,
   isUsableAskSource,
   type AskContext,
@@ -36,6 +37,27 @@ test('formats server-labeled KinSpace structured sources for Ask', () => {
   assert.match(output, /Private timeline/)
   assert.match(output, /KinSpace timeline/)
   assert.match(output, /2 symptom events/)
+})
+
+test('builds a deterministic Ask crisis answer for active risk', () => {
+  const answer = buildCrisisAskAnswer('I want to die and I do not feel safe tonight')
+
+  assert.ok(answer)
+  assert.match(answer.answer_markdown, /0800 567 567/)
+  assert.match(answer.answer_markdown, /0800 12 13 14/)
+  assert.match(answer.answer_markdown, /10111/)
+  assert.match(answer.plain_language_summary, /real person/)
+  assert.deepEqual(answer.sources, [])
+  assert.deepEqual(answer.reddit_threads, [])
+  assert.doesNotMatch(answer.answer_markdown, /\[[0-9]+\]/)
+})
+
+test('builds a deterministic Ask crisis answer for passive risk', () => {
+  const answer = buildCrisisAskAnswer('everyone would be better off without me')
+
+  assert.ok(answer)
+  assert.match(answer.answer_markdown, /not be alone/)
+  assert.match(answer.answer_markdown, /findahelpline/)
 })
 
 test('rejects blocked pages as Ask sources', () => {

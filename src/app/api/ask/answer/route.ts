@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
-import { answerAsk, type AskContext } from '@/lib/ai/ask'
+import { answerAsk, buildCrisisAskAnswer, type AskContext } from '@/lib/ai/ask'
 import { getDb } from '@/server/db/client'
 import { askQuestions, profiles } from '@/server/db/schema'
 import { getSessionUserId } from '@/server/http/auth'
@@ -74,23 +74,11 @@ async function buildStructuredSources(db: ReturnType<typeof getDb>, userId: stri
 }
 
 export async function POST(request: NextRequest) {
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ ok: false, error: 'AI is not configured.' }, { status: 500 })
-  }
-
   const userId = await getSessionUserId(request)
   if (!userId) return NextResponse.json({ ok: false, error: 'Please sign in.' }, { status: 401 })
 
   const limited = await rateLimit(`ask:${userId}`, 20, 60)
   if (!limited.allowed) return NextResponse.json({ ok: false, error: 'Slow down a moment.' }, { status: 429 })
-
-  const quota = await checkAndConsume(userId, 'ai_ask')
-  if (!quota.allowed) {
-    return NextResponse.json(
-      { ok: false, error: 'You’ve reached your monthly question limit. Upgrade for more.', upgrade: true },
-      { status: 402 },
-    )
-  }
 
   let body: RequestBody
   try {
@@ -117,6 +105,56 @@ export async function POST(request: NextRequest) {
   const question = questionDetails ? `${questionTitle}\n\nDetails: ${questionDetails}` : questionTitle
   if (!question) return NextResponse.json({ ok: false, error: 'A question is required.' }, { status: 400 })
   if (question.length > 2000) return NextResponse.json({ ok: false, error: 'Question is too long.' }, { status: 400 })
+
+  const crisisAnswer = buildCrisisAskAnswer(question)
+  if (crisisAnswer) {
+    if (questionId && !body.dryRun && savedQuestion) {
+      await db
+        .update(askQuestions)
+        .set({
+          aiAnswer: crisisAnswer.answer_markdown,
+          aiPlainSummary: crisisAnswer.plain_language_summary,
+          aiRedFlags: crisisAnswer.red_flags,
+          aiSelfCare: crisisAnswer.self_care_suggestions,
+          aiSeeProfessional: crisisAnswer.when_to_see_a_professional,
+          tags: crisisAnswer.tags,
+          aiSources: crisisAnswer.sources,
+          aiRedditThreads: crisisAnswer.reddit_threads,
+          status: 'answered',
+          updatedAt: new Date(),
+        })
+        .where(eq(askQuestions.id, questionId))
+        .catch((error) => console.error('Failed to persist ask crisis answer:', error))
+    }
+
+    return NextResponse.json({
+      ok: true,
+      answer: {
+        answer_markdown: crisisAnswer.answer_markdown,
+        plain_language_summary: crisisAnswer.plain_language_summary,
+        red_flags: crisisAnswer.red_flags,
+        self_care_suggestions: crisisAnswer.self_care_suggestions,
+        when_to_see_a_professional: crisisAnswer.when_to_see_a_professional,
+        tags: crisisAnswer.tags,
+        sources: crisisAnswer.sources,
+        reddit_threads: crisisAnswer.reddit_threads,
+      },
+      relatedQuestions: [],
+      crisis: true,
+    })
+  }
+
+  const quota = await checkAndConsume(userId, 'ai_ask')
+  if (!quota.allowed) {
+    return NextResponse.json(
+      { ok: false, error: 'You’ve reached your monthly question limit. Upgrade for more.', upgrade: true },
+      { status: 402 },
+    )
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json({ ok: false, error: 'AI is not configured.' }, { status: 500 })
+  }
 
   const context: AskContext = {
     relatedQuestions: [],

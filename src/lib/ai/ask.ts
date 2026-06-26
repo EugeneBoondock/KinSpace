@@ -8,6 +8,7 @@
 import OpenAI from 'openai'
 import { fetchPage, searchWeb, type WebPage } from './web-research'
 import { searchLiterature } from './literature'
+import { detectCrisisSeverity, SA_CRISIS_LINES, SA_CRISIS_REPLY } from '../crisis-detect'
 
 type PromptSource = { title: string; domain: string; url: string; excerpt: string; kind: string }
 
@@ -31,7 +32,7 @@ export type AskAnswer = {
 
 export type AskContext = {
   /** The user's self-reported profile, if they are signed in. May be empty. */
-  /** Past questions on KinSpace that look similar — used for "others asked" UI. */
+  /** Past questions on KinSpace that look similar, used for "others asked" UI. */
   relatedQuestions: Array<{ id: string; question: string; created_at?: unknown }>
   structuredSources?: Array<{ label: string; source: string; summary: string; confidence?: string }>
 }
@@ -98,7 +99,7 @@ async function gatherWebSources(question: string, max = 4): Promise<WebPage[]> {
   return pages
 }
 
-const SYSTEM_PROMPT = `You are KinSpace Ask — a warm, careful health companion that helps people make sense of symptoms and health questions WITHOUT replacing a clinician.
+const SYSTEM_PROMPT = `You are KinSpace Ask: a warm, careful health companion that helps people make sense of symptoms and health questions WITHOUT replacing a clinician.
 
 Your job: take the member's question, the details they typed, public KinSpace questions that look similar, labeled KinSpace structured data we pass in, and the web sources we collected, then respond with a steady, plain-language answer.
 
@@ -109,7 +110,7 @@ Absolute rules:
 - Treat every source as provisional. Each source is tagged PEER-REVIEWED, PREPRINT, CLINICAL TRIAL, or WEB. Weight PEER-REVIEWED and CLINICAL TRIAL sources highest; prefer clinical sites (Mayo Clinic, NHS, NIH, CDC, Cleveland Clinic, WHO) over random blogs; and NEVER present a PREPRINT as established fact (note it is not yet peer-reviewed).
 - Use only the question text, details the member typed, public related questions, labeled KinSpace structured data listed in this request, and numbered sources. Never use, infer, or reveal data that is not listed.
 - Treat KinSpace structured data as self-reported member data, not clinical proof.
-- If this looks like a medical emergency (chest pain + breathlessness, suicidal ideation, severe bleeding, stroke signs, anaphylaxis, etc.), say so first — "This sounds like something to get checked right now" — and give the best next step.
+- If this looks like a medical emergency (chest pain + breathlessness, suicidal ideation, severe bleeding, stroke signs, anaphylaxis, etc.), say so first: "This sounds like something to get checked right now", and give the best next step.
 - Cite sources with [1], [2] etc. matching the numbered sources we pass you.
 - Tone: warmth without cheerfulness. Honest. Brief.
 
@@ -134,7 +135,7 @@ function formatSourcesForPrompt(sources: PromptSource[]): string {
   return sources
     .map((source, index) => {
       const body = source.excerpt.slice(0, 2000)
-      return `[${index + 1}] (${sourceLabel(source.kind)}) ${source.title} — ${source.domain}\nURL: ${source.url}\n---\n${body}\n`
+      return `[${index + 1}] (${sourceLabel(source.kind)}) ${source.title} - ${source.domain}\nURL: ${source.url}\n---\n${body}\n`
     })
     .join('\n\n')
 }
@@ -142,7 +143,7 @@ function formatSourcesForPrompt(sources: PromptSource[]): string {
 function formatRedditForPrompt(hits: RedditHit[]): string {
   if (hits.length === 0) return '(no Reddit discussion found)'
   return hits
-    .map((hit, index) => `[r${index + 1}] r/${hit.subreddit} — ${hit.title}\n${hit.snippet}`)
+    .map((hit, index) => `[r${index + 1}] r/${hit.subreddit} - ${hit.title}\n${hit.snippet}`)
     .join('\n\n')
 }
 
@@ -168,6 +169,46 @@ export function formatAskContextForPrompt(context: AskContext): string {
   return parts.length > 0 ? parts.join('\n') : '(no related KinSpace questions found)'
 }
 
+export function buildCrisisAskAnswer(question: string): AskAnswer | null {
+  const severity = detectCrisisSeverity(question)
+  if (severity === 'none') return null
+
+  const urgentLine =
+    severity === 'active'
+      ? 'This sounds like a moment to get real human support now.'
+      : 'This sounds painful enough that you should not be alone with it.'
+
+  return {
+    answer_markdown: [
+      urgentLine,
+      '',
+      SA_CRISIS_REPLY,
+      '',
+      `South Africa: call ${SA_CRISIS_LINES.sadag.display} (SADAG, 24h), SMS ${SA_CRISIS_LINES.sadag.sms}, call ${SA_CRISIS_LINES.suicide.display}, or call ${SA_CRISIS_LINES.emergency.display}.`,
+      '',
+      'If you can, move near another person, put distance between yourself and anything you could use to hurt yourself, and tell someone: “I’m not safe alone right now.”',
+    ].join('\n'),
+    plain_language_summary: 'Please reach a real person now. If you might hurt yourself, call a crisis line or emergency services right away.',
+    red_flags: [
+      'You might act on these thoughts',
+      'You have a plan or access to something you could use to hurt yourself',
+      'You are alone and feel unable to stay safe',
+    ],
+    self_care_suggestions: [
+      'Move into the same room as another person if you can',
+      'Call or message someone you trust and use the words “I’m not safe alone right now”',
+      'Put distance between yourself and anything you could use to hurt yourself',
+    ],
+    when_to_see_a_professional: [
+      'Call a crisis line or emergency services now if you might act on these thoughts',
+      'Contact your doctor, therapist, or clinic today if these thoughts keep returning',
+    ],
+    tags: ['crisis-support', 'self-harm', 'urgent-help'],
+    sources: [],
+    reddit_threads: [],
+  }
+}
+
 export async function answerAsk(
   question: string,
   context: AskContext,
@@ -178,7 +219,7 @@ export async function answerAsk(
     searchLiterature(question, { journals: 3, trials: 2 }),
   ])
 
-  // Authoritative literature first, then general web — numbered together so the
+  // Authoritative literature first, then general web, numbered together so the
   // model cites [1]..[n] across all of them, weighting peer-reviewed highest.
   const unifiedSources: PromptSource[] = [
     ...literature.map((item) => ({

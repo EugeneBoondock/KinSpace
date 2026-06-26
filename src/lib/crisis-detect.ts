@@ -1,7 +1,7 @@
 // Single source of truth for crisis detection across the app (client + server).
 // Replaces three divergent detectors that only caught explicit phrases. Research
 // on AI mental-health tools shows the biggest failure is missing PASSIVE/indirect
-// ideation and degrading as risk escalates — so we detect both, return a tier
+// ideation and degrading as risk escalates, so we detect both, return a tier
 // (not a boolean), and pair it with SA-first resources. This is a deterministic,
 // human-authored safety layer ABOVE the model; the model is never the only net.
 
@@ -35,7 +35,7 @@ const ACTIVE_SIGNALS = [
   'kms',
 ]
 
-// Passive / indirect ideation — the signals bots usually miss.
+// Passive / indirect ideation: the signals bots usually miss.
 const PASSIVE_SIGNALS = [
   'no point anymore',
   'no point in living',
@@ -68,7 +68,7 @@ const PASSIVE_SIGNALS = [
 
 /** Highest-severity crisis signal found in a message: 'active' > 'passive' > 'none'. */
 export function detectCrisisSeverity(text: string): CrisisSeverity {
-  const lower = (text || '').toLowerCase()
+  const lower = (text || '').toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
   if (ACTIVE_SIGNALS.some((phrase) => lower.includes(phrase))) return 'active'
   if (PASSIVE_SIGNALS.some((phrase) => lower.includes(phrase))) return 'passive'
   return 'none'
@@ -79,7 +79,7 @@ export function isCrisisText(text: string): boolean {
   return detectCrisisSeverity(text) !== 'none'
 }
 
-// SA-first crisis copy — the ONE place this wording lives, so no screen ever
+// SA-first crisis copy: the ONE place this wording lives, so no screen ever
 // shows a US-only number again.
 export const SA_CRISIS_LINES = {
   sadag: { label: 'SADAG mental health line (24/7)', tel: '0800567567', display: '0800 567 567', sms: '31393' },
@@ -90,7 +90,7 @@ export const SA_CRISIS_LINES = {
 
 /** A warm, SA-first spoken/written crisis response (no method info, points to a human). */
 export const SA_CRISIS_REPLY =
-  "I'm really glad you told me this. If you might act on these thoughts, please reach a person right now — " +
+  'I’m really glad you told me this. If you might act on these thoughts, please reach a person right now. ' +
   'in South Africa call SADAG on 0800 567 567 (24h) or SMS 31393, the Suicide Crisis Helpline on 0800 12 13 14, ' +
   'or emergency services on 10111 (112 from a cellphone). Outside South Africa, findahelpline.com lists local lines. ' +
-  "If you can, move toward someone you trust and tell them you need help right now. I'm not a clinician, but I'm here with you and you don't have to carry this alone."
+  'If you can, move toward someone you trust and tell them you need help right now. I’m not a clinician, but I’m here with you and you don’t have to carry this alone.'

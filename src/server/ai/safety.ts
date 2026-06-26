@@ -1,5 +1,5 @@
 import { CRISIS_RESOURCES } from '@/lib/crisis-resources'
-import { isCrisisText } from '@/lib/crisis-detect'
+import { isCrisisText, SA_CRISIS_REPLY } from '@/lib/crisis-detect'
 
 /**
  * Code-level safety guardrails for all AI features. These are intentionally
@@ -34,20 +34,12 @@ export function detectCrisisInMessages(messages: Array<{ role: string; content: 
 }
 
 export const MEDICAL_DISCLAIMER =
-  'KinSpace offers peer support and general, plain-language information — not medical advice, diagnosis, or treatment. ' +
+  'KinSpace offers peer support and general, plain-language information, not medical advice, diagnosis, or treatment. ' +
   'Always consult a qualified health professional about your situation, and call emergency services if you are in danger.'
 
 /** Plain-text crisis block appended to AI replies when distress is detected. */
 export function crisisMessage(): string {
-  const za = CRISIS_RESOURCES.filter((r) => r.region === 'ZA' && r.phone)
-    .map((r) => `• ${r.name}: ${r.phone}`)
-    .join('\n')
-  return (
-    "I'm really glad you told me, and I want to make sure you're safe. " +
-    'If you might act on these feelings, please reach out to someone right now:\n\n' +
-    `${za}\n\n` +
-    "You deserve support from a real person who can stay with you through this. I'm here too, but a trained human can help in ways I can't."
-  )
+  return SA_CRISIS_REPLY
 }
 
 export { CRISIS_RESOURCES }
