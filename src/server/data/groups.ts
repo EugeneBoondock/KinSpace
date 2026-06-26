@@ -3,6 +3,7 @@ import type { Ctx } from './_shared'
 import { requireActor, normalizeKeywords, getProfileSummaries } from './_shared'
 import { groups, groupMembers, profiles } from '@/server/db/schema'
 import { createNotification } from '@/server/notify'
+import { requireFeatureAccess } from '@/server/billing/access'
 
 /** True if the user is an admin (or the creator) of the group. */
 async function isGroupAdmin(ctx: Ctx, groupId: string, userId: string): Promise<boolean> {
@@ -118,6 +119,7 @@ export async function getRecommendedGroups(ctx: Ctx, _userId: string, limitCount
  */
 export async function createGroup(ctx: Ctx, _userId: string, data: GroupInput) {
   const actor = requireActor(ctx)
+  await requireFeatureAccess(ctx, 'support_circles')
   const groupId = crypto.randomUUID()
 
   await ctx.db.insert(groups).values({
@@ -251,6 +253,7 @@ export async function updateGroup(
     iconUrl?: string | null
   }) {
   const actor = requireActor(ctx)
+  await requireFeatureAccess(ctx, 'support_circles')
 
   const group = await ctx.db.query.groups.findFirst({ where: eq(groups.id, groupId) })
   if (!group) throw new Error('Group not found')
@@ -387,6 +390,7 @@ export async function getGroupDetail(ctx: Ctx, groupId: string) {
 /** Promote/demote a member ('admin' | 'member'). Admin-only; can't demote the creator. */
 export async function setMemberRole(ctx: Ctx, groupId: string, targetUserId: string, role: 'admin' | 'member') {
   const actor = requireActor(ctx)
+  await requireFeatureAccess(ctx, 'support_circles')
   if (!(await isGroupAdmin(ctx, groupId, actor))) throw new Error('Only admins can change roles')
   const group = await ctx.db.query.groups.findFirst({ where: eq(groups.id, groupId) })
   if (!group) throw new Error('Group not found')
@@ -413,6 +417,7 @@ export async function setMemberStatus(
   targetUserId: string,
   status: 'active' | 'muted' | 'banned') {
   const actor = requireActor(ctx)
+  await requireFeatureAccess(ctx, 'support_circles')
   if (!(await isGroupAdmin(ctx, groupId, actor))) throw new Error('Only admins can moderate members')
   const group = await ctx.db.query.groups.findFirst({ where: eq(groups.id, groupId) })
   if (!group) throw new Error('Group not found')
@@ -444,6 +449,7 @@ export async function setMemberStatus(
 /** Hard-remove a member. Admin-only; never the creator. */
 export async function removeMember(ctx: Ctx, groupId: string, targetUserId: string) {
   const actor = requireActor(ctx)
+  await requireFeatureAccess(ctx, 'support_circles')
   if (!(await isGroupAdmin(ctx, groupId, actor))) throw new Error('Only admins can remove members')
   const group = await ctx.db.query.groups.findFirst({ where: eq(groups.id, groupId) })
   if (!group) throw new Error('Group not found')
@@ -466,6 +472,7 @@ export async function removeMember(ctx: Ctx, groupId: string, targetUserId: stri
  */
 export async function approveJoinRequest(ctx: Ctx, groupId: string, targetUserId: string) {
   const actor = requireActor(ctx)
+  await requireFeatureAccess(ctx, 'support_circles')
   if (!(await isGroupAdmin(ctx, groupId, actor))) throw new Error('Only admins can approve requests')
   const group = await ctx.db.query.groups.findFirst({ where: eq(groups.id, groupId) })
   if (!group) throw new Error('Group not found')
@@ -496,6 +503,7 @@ export async function approveJoinRequest(ctx: Ctx, groupId: string, targetUserId
  */
 export async function rejectJoinRequest(ctx: Ctx, groupId: string, targetUserId: string) {
   const actor = requireActor(ctx)
+  await requireFeatureAccess(ctx, 'support_circles')
   if (!(await isGroupAdmin(ctx, groupId, actor))) throw new Error('Only admins can manage requests')
 
   const request = await ctx.db.query.groupMembers.findFirst({
@@ -509,6 +517,7 @@ export async function rejectJoinRequest(ctx: Ctx, groupId: string, targetUserId:
 /** Invite someone by username, sends them a notification linking to the group. */
 export async function inviteToGroup(ctx: Ctx, groupId: string, username: string) {
   const actor = requireActor(ctx)
+  await requireFeatureAccess(ctx, 'support_circles')
   const membership = await ctx.db.query.groupMembers.findFirst({
     where: and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, actor)),
   })

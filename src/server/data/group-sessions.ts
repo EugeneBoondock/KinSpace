@@ -7,6 +7,7 @@ import {
   sessionMessages,
   groupMembers,
 } from '@/server/db/schema'
+import { requireFeatureAccess } from '@/server/billing/access'
 
 /** How long the talking stick stays with one holder before the floor reopens. */
 const FLOOR_HOLD_MS = 120 * 1000
@@ -202,6 +203,7 @@ export async function createGroupSession(
   data: { groupId: string; title: string; template: string; topic?: string }): Promise<{ id: string }> {
   const groupId = String(data.groupId || '')
   const actor = await requireActiveGroupMember(ctx, groupId)
+  await requireFeatureAccess(ctx, 'group_analytics')
 
   const title = String(data.title || '').trim()
   if (!title) throw new Error('Give the session a title')

@@ -1,7 +1,8 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, gt, sql } from 'drizzle-orm'
 import { getDb } from '../db/client'
 import { aiCreditBalances, aiCreditPurchases, subscriptions, usageCounters, users } from '../db/schema'
 import { type Tier, type Feature, getLimit, isUnlimited, LIMITS, UNLIMITED } from './tiers'
+import { effectiveTierFromSubscription, featureUsageStatus } from './access'
 
 /** Admins are never rate-limited on paid features. */
 async function isAdminUser(userId: string): Promise<boolean> {
@@ -37,11 +38,7 @@ export async function getSubscription(userId: string): Promise<SubscriptionState
   const row = await getDb().query.subscriptions.findFirst({ where: eq(subscriptions.userId, userId) })
   if (!row) return DEFAULT_STATE
 
-  // Expired non-renewing subscription falls back to free.
-  const periodEnded = row.currentPeriodEnd ? row.currentPeriodEnd.getTime() < Date.now() : false
-  const effectiveTier: Tier = row.status === 'active' || row.status === 'trialing' || !periodEnded
-    ? (row.tier as Tier)
-    : 'free'
+  const effectiveTier = effectiveTierFromSubscription(row)
 
   return {
     tier: effectiveTier,
@@ -73,10 +70,8 @@ export async function getQuota(userId: string, feature: Feature): Promise<QuotaR
   if (await isAdminUser(userId)) {
     return { allowed: true, remaining: Number.MAX_SAFE_INTEGER, limit: UNLIMITED, tier }
   }
-  const limit = getLimit(tier, feature)
-  if (isUnlimited(limit)) return { allowed: true, remaining: Number.MAX_SAFE_INTEGER, limit, tier }
   const used = await currentUsage(userId, feature)
-  return { allowed: used < limit, remaining: Math.max(0, limit - used), limit, tier }
+  return { ...featureUsageStatus(tier, feature, used), tier }
 }
 
 async function currentUsage(userId: string, feature: Feature): Promise<number> {
@@ -96,24 +91,60 @@ async function currentUsage(userId: string, feature: Feature): Promise<number> {
  * (without consuming) when the cap is reached. Call before an AI request.
  */
 export async function checkAndConsume(userId: string, feature: Feature): Promise<QuotaResult> {
-  const quota = await getQuota(userId, feature)
-  if (!quota.allowed) {
-    if (feature === 'ai_therapy' && (await consumeGuideCredit(userId))) {
-      return { ...quota, allowed: true, remaining: 0 }
-    }
-    return quota
+  const tier = await getTier(userId)
+  if (await isAdminUser(userId)) {
+    return { allowed: true, remaining: Number.MAX_SAFE_INTEGER, limit: UNLIMITED, tier }
   }
 
+  const limit = getLimit(tier, feature)
+  if (isUnlimited(limit)) {
+    return { allowed: true, remaining: Number.MAX_SAFE_INTEGER, limit, tier }
+  }
+
+  const used = await currentUsage(userId, feature)
+  const before = featureUsageStatus(tier, feature, used)
+  if (!before.allowed) {
+    if (feature === 'ai_therapy' && (await consumeGuideCredit(userId))) {
+      return { allowed: true, remaining: 0, limit, tier }
+    }
+    return { ...before, tier }
+  }
+
+  const remaining = await consumeQuotaSlot(userId, feature, limit)
+  if (remaining === null) {
+    if (feature === 'ai_therapy' && (await consumeGuideCredit(userId))) {
+      return { allowed: true, remaining: 0, limit, tier }
+    }
+    return { allowed: false, remaining: 0, limit, tier }
+  }
+
+  return { allowed: true, remaining, limit, tier }
+}
+
+async function consumeQuotaSlot(userId: string, feature: Feature, limit: number): Promise<number | null> {
   const period = currentPeriod()
-  await getDb()
+  const db = getDb()
+  const inserted = await db
     .insert(usageCounters)
     .values({ userId, period, feature, count: 1 })
-    .onConflictDoUpdate({
+    .onConflictDoNothing({
       target: [usageCounters.userId, usageCounters.period, usageCounters.feature],
-      set: { count: sql`${usageCounters.count} + 1`, updatedAt: new Date() },
     })
+    .returning({ count: usageCounters.count })
+  if (inserted[0]) return Math.max(0, limit - inserted[0].count)
 
-  return { ...quota, remaining: Math.max(0, quota.remaining - 1) }
+  const updated = await db
+    .update(usageCounters)
+    .set({ count: sql`${usageCounters.count} + 1`, updatedAt: new Date() })
+    .where(and(
+      eq(usageCounters.userId, userId),
+      eq(usageCounters.period, period),
+      eq(usageCounters.feature, feature),
+      sql`${usageCounters.count} < ${limit}`,
+    ))
+    .returning({ count: usageCounters.count })
+
+  return updated[0] ? Math.max(0, limit - updated[0].count) : null
 }
 
 export async function getGuideCreditBalance(userId: string): Promise<number> {
@@ -122,13 +153,12 @@ export async function getGuideCreditBalance(userId: string): Promise<number> {
 }
 
 async function consumeGuideCredit(userId: string): Promise<boolean> {
-  const current = await getGuideCreditBalance(userId)
-  if (current <= 0) return false
-  await getDb()
+  const rows = await getDb()
     .update(aiCreditBalances)
     .set({ credits: sql`max(0, ${aiCreditBalances.credits} - 1)`, updatedAt: new Date() })
-    .where(eq(aiCreditBalances.userId, userId))
-  return true
+    .where(and(eq(aiCreditBalances.userId, userId), gt(aiCreditBalances.credits, 0)))
+    .returning({ credits: aiCreditBalances.credits })
+  return Boolean(rows[0])
 }
 
 export async function grantGuideCredits(

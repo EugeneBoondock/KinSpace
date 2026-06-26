@@ -63,6 +63,12 @@ export async function POST(request: NextRequest) {
     if (message === 'Not authorized') {
       return NextResponse.json({ ok: false, error: 'Not authorized.' }, { status: 403 })
     }
+    if (message === 'PLAN_REQUIRED') {
+      return NextResponse.json(
+        { ok: false, error: 'Upgrade required for this feature.', upgrade: true },
+        { status: 402 },
+      )
+    }
     // Log the method name only - never the error object (may contain SQL/PHI).
     console.error(`rpc failed: ${method}`)
     return NextResponse.json({ ok: false, error: 'Request failed. Please try again.' }, { status: 500 })

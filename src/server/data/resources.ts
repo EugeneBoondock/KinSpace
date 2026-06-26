@@ -13,6 +13,7 @@ import {
   resourceContributionVotes,
   savedResources,
 } from '@/server/db/schema'
+import { requireFeatureCapacity } from '@/server/billing/access'
 
 /** Single resource/article by slug. Returns the row with id = slug, or null. */
 export async function getResource(ctx: Ctx, slug: string) {
@@ -84,6 +85,11 @@ export async function toggleSavedResource(ctx: Ctx, _userId: string, resourceId:
     await ctx.db.delete(savedResources).where(eq(savedResources.id, existing.id))
     return { saved: false }
   }
+
+  const savedRows = await ctx.db.query.savedResources.findMany({
+    where: eq(savedResources.userId, actorId),
+  })
+  await requireFeatureCapacity(ctx, 'saved_resources', savedRows.length)
 
   await ctx.db.insert(savedResources).values({
     id: crypto.randomUUID(),

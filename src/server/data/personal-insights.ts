@@ -12,6 +12,7 @@ import {
 } from '@/server/db/schema'
 import { analyzeMoodPattern } from './wellness'
 import { encryptField } from '@/server/crypto/field-encryption'
+import { requireFeatureAccess } from '@/server/billing/access'
 import {
   buildInsightReviewNote,
   buildPersonalInsights,
@@ -127,6 +128,7 @@ export async function getPersonalInsights(ctx: Ctx, days = 30): Promise<Personal
 
 export async function savePersonalInsightReviewNote(ctx: Ctx, _userId: string, days = 30) {
   const userId = requireActor(ctx)
+  await requireFeatureAccess(ctx, 'journal')
   const insights = await getPersonalInsights(ctx, days)
   const note = buildInsightReviewNote(insights)
   const id = crypto.randomUUID()
