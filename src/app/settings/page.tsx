@@ -14,6 +14,8 @@ import { invalidateCachedProfile } from '@/lib/profile-cache'
 import { resolveAvatarUrl } from '@/lib/profile-avatars'
 import { StorageService } from '@/lib/storage'
 import { isSfxEnabled, setSfxEnabled, playSfx } from '@/lib/audio/sfx'
+import { setTrackingConsent as saveTrackingConsent, type TrackingConsent } from '@/lib/tracking-consent'
+import { useTrackingConsent } from '@/lib/use-tracking-consent'
 import { Button, Card, Input, Textarea, Field, Badge, Skeleton } from '@/components/ui'
 import { exportMyDataAction, deleteAccountAction } from '@/app/actions/account'
 
@@ -100,6 +102,7 @@ export default function Settings() {
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
   // Sound preference is device-local (localStorage), saved instantly rather than via the profile save.
   const [soundOn, setSoundOn] = useState(true)
+  const trackingConsent = useTrackingConsent()
 
   useEffect(() => {
     setSoundOn(isSfxEnabled())
@@ -243,6 +246,12 @@ export default function Settings() {
   const showToast = (type: 'success' | 'error', message: string) => {
     setToast({ type, message })
     setTimeout(() => setToast(null), 3000)
+  }
+
+  const handleToggleAdMeasurement = () => {
+    const next: TrackingConsent = trackingConsent === 'granted' ? 'denied' : 'granted'
+    saveTrackingConsent(next)
+    showToast('success', next === 'granted' ? 'Ad measurement allowed' : 'Ad measurement off')
   }
 
   const handleSave = async () => {
@@ -1122,7 +1131,7 @@ export default function Settings() {
             <i className="ri-smartphone-line text-brand-accent1" /> Install the app
           </h2>
           <p className="mb-4 text-sm text-brand-background/55">
-            Add KinSpace to your home screen for one-tap access, reminders, and offline support — no app store needed.
+            Add KinSpace to your home screen for one-tap access, reminders, and offline support. No app store needed.
           </p>
           <InstallAppButton label="Install KinSpace" />
           <p className="mt-3 text-xs text-brand-background/40">
@@ -1185,7 +1194,7 @@ export default function Settings() {
               </div>
               <p className="text-sm font-semibold text-brand-background">Ad boundary</p>
               <p className="mt-1 text-xs leading-relaxed text-brand-background/50">
-                Meta Pixel tracks PageView only. Profile fields and messages stay out of ad events.
+                Runs only if you allow it. Health, disability, and message text stay out of ad events.
               </p>
             </div>
             <div className="rounded-xl bg-brand-background/[0.06] p-3">
@@ -1197,6 +1206,35 @@ export default function Settings() {
                 Delete your account and personal records after typing your account email.
               </p>
             </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-brand-background/10 bg-brand-background/[0.04] p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent3/15">
+                <i className="ri-advertisement-line text-brand-accent3" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-brand-background">Ad measurement</p>
+                <p className="text-xs leading-relaxed text-brand-background/50">
+                  Allow Meta Pixel PageView measurement. PageView can include this page URL. Health profile fields,
+                  disability details, messages, and notes stay out of pixel events.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={trackingConsent === 'granted'}
+              aria-label="Ad measurement"
+              onClick={handleToggleAdMeasurement}
+              className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
+                trackingConsent === 'granted' ? 'bg-brand-accent2' : 'bg-brand-background/20'
+              }`}
+            >
+              <div className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
+                trackingConsent === 'granted' ? 'left-6' : 'left-1'
+              }`} />
+            </button>
           </div>
 
           <div className="mt-4 flex flex-col gap-3 rounded-xl border border-brand-background/10 bg-brand-background/[0.04] p-3 sm:flex-row sm:items-center sm:justify-between">

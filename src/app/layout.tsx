@@ -9,6 +9,7 @@ import { ThemeProvider, themeInitScript } from "@/components/ThemeProvider";
 import MedicationShelf from "@/components/MedicationShelf";
 import CommandLauncher from "@/components/CommandLauncher";
 import MetaPixel from "@/components/MetaPixel";
+import TrackingConsentBanner from "@/components/TrackingConsentBanner";
 import Script from "next/script";
 
 const manrope = Manrope({
@@ -84,6 +85,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <MedicationShelf />
               <CommandLauncher />
               <ServiceWorkerRegistrar />
+              <TrackingConsentBanner />
             </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
