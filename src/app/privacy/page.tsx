@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     'How KinSpace collects, uses, and protects your data, including the special care we take with health information, and the rights you have under POPIA and the GDPR.',
 }
 
-const LAST_UPDATED = '22 June 2026'
+const LAST_UPDATED = '26 June 2026'
 
 export default function PrivacyPage() {
   return (
@@ -40,8 +40,8 @@ export default function PrivacyPage() {
             <li><strong>Account information</strong>, your email, a username, and authentication details.</li>
             <li><strong>Profile &amp; health information you choose to share</strong>, conditions you follow, symptoms or
               check-ins you log, treatments you rate, posts and messages you write.</li>
-            <li><strong>Usage information</strong>, basic, privacy-respecting data about how the app is used, so we can
-              keep it working and improve it.</li>
+            <li><strong>Usage information</strong>, basic data about how the app is used, so we can keep it working and
+              improve it, plus Meta Pixel PageView measurement if your browser allows it.</li>
             <li><strong>Location</strong>, only if you use the care map, and only to show services near you. We do not
               track your location in the background.</li>
           </ul>
@@ -80,6 +80,11 @@ export default function PrivacyPage() {
             We share data only with service providers who help us run KinSpace (for example, our cloud and database
             host), under contracts that require them to protect it. We may disclose information if required by law or to
             protect someone&rsquo;s safety. We never sell your data.
+          </p>
+          <p>
+            We use Meta Pixel for PageView advertising measurement, which can include the page URL visited. We do not
+            send your account email, profile health fields, disability details, therapy notes, posts, or messages to
+            Meta through pixel events.
           </p>
         </Section>
 
@@ -122,10 +127,12 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="12. Cookies &amp; local storage">
+        <Section title="12. Cookies, pixels &amp; local storage">
           <p>
             We use a small number of essential cookies and local storage to keep you signed in and to remember your
-            preferences (such as theme and reduced-motion). We do not use third-party advertising trackers.
+            preferences (such as theme and reduced-motion). We also use Meta Pixel PageView tracking to measure visits
+            from ads, including the URL of the page visited. You can limit this through your browser, device, or Meta ad
+            settings.
           </p>
         </Section>
 

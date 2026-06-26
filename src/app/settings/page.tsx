@@ -14,6 +14,7 @@ import { resolveAvatarUrl } from '@/lib/profile-avatars'
 import { StorageService } from '@/lib/storage'
 import { isSfxEnabled, setSfxEnabled, playSfx } from '@/lib/audio/sfx'
 import { Button, Card, Input, Textarea, Field, Badge, Skeleton } from '@/components/ui'
+import { exportMyDataAction, deleteAccountAction } from '@/app/actions/account'
 
 interface ProfileData {
   full_name: string
@@ -82,6 +83,9 @@ export default function Settings() {
   const [medicationInput, setMedicationInput] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [blockedUsers, setBlockedUsers] = useState<BlockedRow[]>([])
+  const [exportingData, setExportingData] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
   // Sound preference is device-local (localStorage), saved instantly rather than via the profile save.
   const [soundOn, setSoundOn] = useState(true)
 
@@ -316,12 +320,64 @@ export default function Settings() {
     }
   }
 
+  const handleExportData = async () => {
+    setExportingData(true)
+    try {
+      const result = await exportMyDataAction()
+      if (!result.ok) {
+        showToast('error', result.error)
+        return
+      }
+      const blob = new Blob([result.json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `kinspace-data-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      showToast('success', 'Your data export is ready')
+    } catch {
+      showToast('error', 'Could not export your data right now')
+    } finally {
+      setExportingData(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    const email = user?.email ?? ''
+    if (!email) {
+      showToast('error', 'Your account email could not be confirmed')
+      return
+    }
+    if (deleteConfirmation.trim().toLowerCase() !== email.toLowerCase()) {
+      showToast('error', 'Type your account email to confirm deletion')
+      return
+    }
+
+    setDeletingAccount(true)
+    try {
+      const result = await deleteAccountAction(deleteConfirmation)
+      if (!result.ok) {
+        showToast('error', result.error)
+        return
+      }
+      router.replace(result.redirect)
+    } catch {
+      showToast('error', 'Could not delete your account right now')
+    } finally {
+      setDeletingAccount(false)
+    }
+  }
+
   const currentAvatarUrl = resolveAvatarUrl({
     avatar_url: profile.avatar_url,
     full_name: profile.full_name,
     userId: user?.userId,
     username: profile.username,
   })
+  const accountEmail = user?.email ?? ''
 
   if (authLoading || loading) {
     return (
@@ -1028,6 +1084,90 @@ export default function Settings() {
               ))}
             </div>
           )}
+        </Card>
+
+        {/* Privacy vault */}
+        <Card>
+          <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-brand-background">
+            <i className="ri-shield-keyhole-line text-brand-accent2" /> Privacy vault
+          </h2>
+          <p className="mb-4 text-sm text-brand-background/55">
+            Control your health data, ad measurement, and account removal from one place.
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-brand-background/[0.06] p-3">
+              <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-accent2/15">
+                <i className="ri-file-download-line text-brand-accent2" aria-hidden="true" />
+              </div>
+              <p className="text-sm font-semibold text-brand-background">Data export</p>
+              <p className="mt-1 text-xs leading-relaxed text-brand-background/50">
+                Download your account, profile, posts, logs, reminders, saves, and group records.
+              </p>
+            </div>
+            <div className="rounded-xl bg-brand-background/[0.06] p-3">
+              <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-accent3/15">
+                <i className="ri-advertisement-line text-brand-accent3" aria-hidden="true" />
+              </div>
+              <p className="text-sm font-semibold text-brand-background">Ad boundary</p>
+              <p className="mt-1 text-xs leading-relaxed text-brand-background/50">
+                Meta Pixel tracks PageView only. Profile fields and messages stay out of ad events.
+              </p>
+            </div>
+            <div className="rounded-xl bg-brand-background/[0.06] p-3">
+              <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-accent1/15">
+                <i className="ri-delete-bin-6-line text-brand-accent1" aria-hidden="true" />
+              </div>
+              <p className="text-sm font-semibold text-brand-background">Removal</p>
+              <p className="mt-1 text-xs leading-relaxed text-brand-background/50">
+                Delete your account and personal records after typing your account email.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-brand-background/10 bg-brand-background/[0.04] p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-brand-background">Download a copy</p>
+              <p className="text-xs text-brand-background/45">Creates a JSON file on this device.</p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleExportData}
+              isLoading={exportingData}
+              leadingIcon={!exportingData ? <i className="ri-download-2-line" /> : undefined}
+            >
+              {exportingData ? 'Preparing' : 'Download'}
+            </Button>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-brand-accent1/30 bg-brand-accent1/10 p-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <Field
+                className="flex-1"
+                label="Delete account"
+                hint={accountEmail ? `Type ${accountEmail} to confirm.` : 'Sign in again before deleting.'}
+              >
+                <Input
+                  value={deleteConfirmation}
+                  onChange={(event) => setDeleteConfirmation(event.target.value)}
+                  placeholder={accountEmail || 'Account email'}
+                  autoComplete="off"
+                  aria-label="Delete account confirmation email"
+                />
+              </Field>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleDeleteAccount}
+                isLoading={deletingAccount}
+                disabled={!accountEmail || deleteConfirmation.trim().toLowerCase() !== accountEmail.toLowerCase()}
+                leadingIcon={!deletingAccount ? <i className="ri-delete-bin-line" /> : undefined}
+              >
+                {deletingAccount ? 'Deleting' : 'Delete account'}
+              </Button>
+            </div>
+          </div>
         </Card>
 
         {/* Save Button (bottom) */}
