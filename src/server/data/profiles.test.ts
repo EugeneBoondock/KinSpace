@@ -96,6 +96,37 @@ test('searchPeople treats SQL wildcard characters as literal text', async () => 
   assert.deepEqual(await searchPeople(makeCtx(rows), 'river_'), [])
 })
 
+test('searchPeople finds usernames when separators are omitted or mistyped', async () => {
+  const rows = [
+    profile({ userId: 'baretta', username: 'big_g_baretta' }),
+    profile({ userId: 'spring', username: 'sapphire.spring' }),
+    profile({ userId: 'river', username: 'river-walker' }),
+  ]
+
+  assert.deepEqual(
+    (await searchPeople(makeCtx(rows), 'biggbaretta')).map((row) => row.username),
+    ['big_g_baretta'],
+  )
+  assert.deepEqual(
+    (await searchPeople(makeCtx(rows), '@sapphire spring')).map((row) => row.username),
+    ['sapphire.spring'],
+  )
+  assert.deepEqual(
+    (await searchPeople(makeCtx(rows), 'river walker')).map((row) => row.username),
+    ['river-walker'],
+  )
+})
+
+test('searchPeople ignores punctuation-only handle searches', async () => {
+  const rows = [
+    profile({ userId: 'sapphire', username: 'sapphirespring' }),
+    profile({ userId: 'river', username: 'riverwalker' }),
+  ]
+
+  assert.deepEqual(await searchPeople(makeCtx(rows), '___'), [])
+  assert.deepEqual(await searchPeople(makeCtx(rows), '@..'), [])
+})
+
 test('searchPeople returns anonymous username matches as redacted results', async () => {
   const rows = [
     profile({

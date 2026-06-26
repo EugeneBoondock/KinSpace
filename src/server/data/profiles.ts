@@ -268,7 +268,17 @@ export async function getConnectionCandidates(ctx: Ctx, _userId: string, limitCo
 function normalizePeopleSearch(query: string) {
   const raw = (query ?? '').trim().toLowerCase()
   const handle = raw.replace(/^@+/, '')
-  return { raw, handle, isHandleSearch: raw.startsWith('@') }
+  const compactHandle = compactPeopleSearchHandle(handle)
+  const compactHandleSearch = isCompactHandleSearch(handle) ? compactHandle : ''
+  return { raw, handle, compactHandle: compactHandleSearch, isHandleSearch: raw.startsWith('@') }
+}
+
+function compactPeopleSearchHandle(value: string | null | undefined): string {
+  return String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+function isCompactHandleSearch(value: string): boolean {
+  return /^[a-z0-9][a-z0-9._\-\s]*[a-z0-9]$/.test(value)
 }
 
 function includesSearchValue(value: string | null | undefined, query: string): boolean {
@@ -276,8 +286,11 @@ function includesSearchValue(value: string | null | undefined, query: string): b
 }
 
 function profileMatchesPeopleSearch(row: typeof profiles.$inferSelect, query: ReturnType<typeof normalizePeopleSearch>) {
-  if (!query.handle || query.handle.length < 2) return false
+  if ((!query.handle || query.handle.length < 2) && query.compactHandle.length < 2) return false
   if (includesSearchValue(row.username, query.handle)) return true
+  if (query.compactHandle.length >= 2 && compactPeopleSearchHandle(row.username).includes(query.compactHandle)) {
+    return true
+  }
   if (query.isHandleSearch || row.isAnonymous) return false
   return includesSearchValue(row.fullName, query.raw) || includesSearchValue(row.location, query.raw)
 }
@@ -311,8 +324,14 @@ function toSearchPeopleProfile(row: typeof profiles.$inferSelect) {
 export async function searchPeople(ctx: Ctx, query: string, limitCount = 24) {
   const actorId = requireActor(ctx)
   const search = normalizePeopleSearch(query)
-  if (search.handle.length < 2) return []
-  const usernameMatch = sql`instr(lower(${profiles.username}), ${search.handle}) > 0`
+  if (search.handle.length < 2 && search.compactHandle.length < 2) return []
+  const compactUsername = sql`replace(replace(replace(replace(lower(${profiles.username}), '_', ''), '-', ''), '.', ''), ' ', '')`
+  const compactUsernameMatch =
+    search.compactHandle.length >= 2 ? sql`instr(${compactUsername}, ${search.compactHandle}) > 0` : sql`0`
+  const usernameMatch = or(
+    sql`instr(lower(${profiles.username}), ${search.handle}) > 0`,
+    compactUsernameMatch,
+  )
   const nonAnonymousTextMatch = and(
     eq(profiles.isAnonymous, false),
     or(
