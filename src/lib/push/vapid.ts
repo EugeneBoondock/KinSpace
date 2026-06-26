@@ -1,5 +1,10 @@
-// VAPID application-server PUBLIC key. This is designed to be embedded in the
-// client (it identifies our server to the browser's push service). The matching
-// PRIVATE key lives only as the VAPID_PRIVATE_JWK Worker secret.
-export const VAPID_PUBLIC_KEY =
-  'BNjhL46PMGASEyMpSlEmqxcWpCjHZrB8y4h0Jkb7EQVizXGmpalRBnBj1LG7d7UsRk4YPIw6r7oOA8NTi8oPRX4'
+type PublicKeyResponse = { ok?: boolean; publicKey?: string; error?: string }
+
+export async function getVapidPublicKey(): Promise<string> {
+  const res = await fetch('/api/push/public-key', { cache: 'no-store' })
+  const json = (await res.json().catch(() => null)) as PublicKeyResponse | null
+  if (!res.ok || !json?.ok || typeof json.publicKey !== 'string' || !json.publicKey) {
+    throw new Error(json?.error || 'Background reminders are not configured.')
+  }
+  return json.publicKey
+}

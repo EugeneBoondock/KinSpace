@@ -214,6 +214,22 @@ export default function MedicationShelf() {
         closedApp: 'On',
       }
     }
+    if (pushStatus === 'granted-refresh-needed') {
+      return {
+        tone: 'warning' as const,
+        label: 'Device alarms need refresh',
+        body: 'Refresh this device so closed-app medication reminders can ring again.',
+        closedApp: 'Refresh needed',
+      }
+    }
+    if (pushStatus === 'server-unconfigured') {
+      return {
+        tone: 'warning' as const,
+        label: 'Device alarms paused',
+        body: 'Background reminder service is not ready. Try again in a few minutes.',
+        closedApp: 'Paused',
+      }
+    }
     if (pushStatus === 'denied' || permission === 'denied') {
       return {
         tone: 'warning' as const,
@@ -273,8 +289,23 @@ export default function MedicationShelf() {
   }, [])
 
   useEffect(() => {
-    getPushStatus().then(setPushStatus).catch(() => undefined)
-  }, [])
+    if (!user) return
+    let cancelled = false
+    getPushStatus()
+      .then(async (status) => {
+        if (cancelled) return
+        setPushStatus(status)
+        if (status !== 'granted-refresh-needed') return
+
+        const result = await enablePush({ requestPermission: false })
+        if (cancelled) return
+        setPushStatus(result.ok ? 'granted-subscribed' : await getPushStatus())
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   // A reminder notification's "Taken" action deep-links here with ?meds=1.
   useEffect(() => {
@@ -288,7 +319,7 @@ export default function MedicationShelf() {
       const result = await enablePush()
       if (result.ok) {
         setPushStatus('granted-subscribed')
-        toast.push('Background reminders are on for this device.', 'success')
+        toast.push('Device alarms are on for this device.', 'success')
       } else {
         toast.push(result.error || 'Could not turn on background reminders.', 'error')
         setPushStatus(await getPushStatus())
@@ -751,6 +782,10 @@ export default function MedicationShelf() {
                     <Badge tone="neutral">Not supported on this browser</Badge>
                   ) : pushStatus === 'denied' ? (
                     <Badge tone="warning">Notifications blocked</Badge>
+                  ) : pushStatus === 'server-unconfigured' ? (
+                    <Button size="sm" variant="secondary" onClick={handleEnablePush} disabled={pushBusy} isLoading={pushBusy}>
+                      Try again
+                    </Button>
                   ) : pushStatus === 'granted-subscribed' ? (
                     <>
                       <Button size="sm" variant="secondary" onClick={handleTestPush} disabled={testingPush} isLoading={testingPush}>
@@ -768,7 +803,7 @@ export default function MedicationShelf() {
                       isLoading={pushBusy}
                       leadingIcon={!pushBusy ? <i className="ri-notification-badge-line" aria-hidden="true" /> : undefined}
                     >
-                      Turn on device alarms
+                      {pushStatus === 'granted-refresh-needed' ? 'Refresh device alarms' : 'Turn on device alarms'}
                     </Button>
                   )}
                   {permission !== 'unsupported' && (

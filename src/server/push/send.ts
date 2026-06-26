@@ -48,8 +48,46 @@ function getVapid(): { privateJWK: JsonWebKey; subject: string } | null {
   }
 }
 
+function decodeBase64Url(value: unknown): Uint8Array | null {
+  if (typeof value !== 'string' || !value) return null
+  try {
+    const base64 = `${value}${'='.repeat((4 - (value.length % 4)) % 4)}`
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+    return bytes
+  } catch {
+    return null
+  }
+}
+
+function encodeBase64Url(bytes: Uint8Array): string {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i])
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+export function vapidPublicKeyFromJwk(jwk: Pick<JsonWebKey, 'x' | 'y'> | null | undefined): string | null {
+  const x = decodeBase64Url(jwk?.x)
+  const y = decodeBase64Url(jwk?.y)
+  if (!x || !y || x.length !== 32 || y.length !== 32) return null
+
+  const publicKey = new Uint8Array(65)
+  publicKey[0] = 0x04
+  publicKey.set(x, 1)
+  publicKey.set(y, 33)
+  return encodeBase64Url(publicKey)
+}
+
+export function getVapidPublicKey(): string | null {
+  const vapid = getVapid()
+  return vapid ? vapidPublicKeyFromJwk(vapid.privateJWK) : null
+}
+
 export function isPushConfigured(): boolean {
-  return getVapid() !== null
+  return getVapidPublicKey() !== null
 }
 
 /**
