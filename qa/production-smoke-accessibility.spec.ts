@@ -126,16 +126,16 @@ test('runs production member smoke and accessibility checks', async ({ page }) =
     if (message.type() === 'error') errors.push(message.text())
   })
 
-  for (const route of ['/dashboard', '/ask', '/community', '/groups', '/resources', '/timeline', '/settings', '/games/2048']) {
+  for (const route of ['/dashboard', '/ask', '/community', '/groups', '/support', '/resources', '/timeline', '/settings', '/games/2048']) {
     await page.goto(route)
-    await expect(page.locator('body')).toContainText(/KinSpace|Daily check-in|Ask|Community|Groups|Resources|Timeline|Settings|2048/)
+    await expect(page.locator('body')).toContainText(/KinSpace|Daily check-in|Ask|Community|Groups|Lanterns|Resources|Timeline|Settings|2048/)
   }
 
   expect(errors).toEqual([])
 
   const checked: Record<string, Awaited<ReturnType<typeof axeViolations>>> = {}
 
-  for (const route of ['/dashboard', '/ask', '/community', '/resources', '/groups', '/settings']) {
+  for (const route of ['/dashboard', '/ask', '/community', '/resources', '/groups', '/support', '/settings']) {
     await page.goto(route)
     checked[route] = (await axeViolations(page)).filter((violation: Awaited<ReturnType<typeof axeViolations>>[number]) =>
       violation.impact === 'serious' || violation.impact === 'critical',
@@ -148,6 +148,7 @@ test('runs production member smoke and accessibility checks', async ({ page }) =
     '/community': [],
     '/resources': [],
     '/groups': [],
+    '/support': [],
     '/settings': [],
   })
 })

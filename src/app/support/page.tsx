@@ -34,6 +34,25 @@ type OpenLantern = {
 type Availability = { available: boolean; available_until: string | null; topics: string[]; note: string | null }
 
 const DURATIONS = [30, 60, 120] as const
+const SUPPORT_HANDOFF_TEXT =
+  'Can you call me or stay with me for a bit? I am having a hard moment and I do not want to be alone. If I sound unsafe, please call local emergency services or help me reach a crisis line.'
+const SAFETY_HANDOFF_STEPS = [
+  {
+    title: 'Get near another person',
+    detail: 'Move to a room, doorway, reception desk, neighbour, family member, or public place.',
+    icon: 'ri-map-pin-user-line',
+  },
+  {
+    title: 'Send the handoff text',
+    detail: 'One trusted person can call, come over, or stay on the line while you wait.',
+    icon: 'ri-send-plane-line',
+  },
+  {
+    title: 'Keep help reachable',
+    detail: 'Keep your phone nearby, breathe slowly, and leave crisis lines open.',
+    icon: 'ri-phone-line',
+  },
+] as const
 
 function CrisisNote() {
   return (
@@ -64,6 +83,75 @@ function CrisisUrgent() {
         <LinkButton href="/crisis" variant="secondary">All crisis lines</LinkButton>
       </div>
     </div>
+  )
+}
+
+function SafetyHandoffCard() {
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
+
+  const copySupportText = async () => {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
+      await navigator.clipboard.writeText(SUPPORT_HANDOFF_TEXT)
+      setCopyState('copied')
+      window.setTimeout(() => setCopyState('idle'), 2500)
+    } catch {
+      setCopyState('failed')
+    }
+  }
+
+  return (
+    <Card variant="light" className="space-y-4 border-brand-accent1/25">
+      <div className="flex gap-3">
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-brand-crisis/10 text-brand-crisis">
+          <i className="ri-lifebuoy-line text-xl" aria-hidden="true" />
+        </div>
+        <div className="min-w-0">
+          <CardTitle className="text-lg">Safety handoff</CardTitle>
+          <p className="mt-1 text-sm leading-relaxed text-brand-ink/65">
+            If waiting feels too long, bring a real person in now. This does not cancel your lantern.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-brand-line bg-brand-ink/[0.035] p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-ink/40">Text to send</p>
+        <p className="mt-2 text-sm leading-relaxed text-brand-ink/75">{SUPPORT_HANDOFF_TEXT}</p>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        {SAFETY_HANDOFF_STEPS.map((step) => (
+          <div key={step.title} className="rounded-2xl bg-brand-ink/[0.035] p-3">
+            <i className={`${step.icon} text-brand-accent2`} aria-hidden="true" />
+            <p className="mt-2 text-sm font-semibold text-brand-ink">{step.title}</p>
+            <p className="mt-1 text-xs leading-relaxed text-brand-ink/60">{step.detail}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <a href="tel:0800567567" className="btn-accent inline-flex h-9 items-center justify-center gap-2 rounded-full px-4 text-center text-xs font-semibold">
+          <i className="ri-phone-fill" aria-hidden="true" /> Call SADAG
+        </a>
+        <LinkButton href="/crisis" variant="secondary" size="sm" leadingIcon={<i className="ri-alarm-warning-line" aria-hidden="true" />}>
+          Crisis lines
+        </LinkButton>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={copySupportText}
+          leadingIcon={<i className={copyState === 'copied' ? 'ri-check-line' : 'ri-file-copy-line'} aria-hidden="true" />}
+        >
+          {copyState === 'copied' ? 'Copied' : 'Copy text'}
+        </Button>
+      </div>
+      {copyState === 'failed' && (
+        <p role="status" className="text-xs text-brand-crisis">
+          Could not copy. Select the text above and send it to someone you trust.
+        </p>
+      )}
+    </Card>
   )
 }
 
@@ -168,24 +256,25 @@ function SeekerPanel() {
     return (
       <div className="space-y-4">
         {request.crisis && <CrisisUrgent />}
+        <SafetyHandoffCard />
         <Card className="space-y-4 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-accent2/10">
-          <span className="breath-orb text-3xl">🏮</span>
-        </div>
-        <div>
-          <CardTitle className="text-lg">Your lantern is lit</CardTitle>
-          <p className="mt-1 text-sm text-brand-ink/65">
-            We&rsquo;re letting available members know you&rsquo;d like someone to talk to. This can take a few minutes.
-          </p>
-          {available != null && (
-            <p className="mt-2 text-xs text-brand-ink/45">
-              {available > 0 ? `${available} ${available === 1 ? 'member is' : 'members are'} around right now` : 'Sit tight, we’ll keep looking'}
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-accent2/10">
+            <span className="breath-orb text-3xl">🏮</span>
+          </div>
+          <div>
+            <CardTitle className="text-lg">Your lantern is lit</CardTitle>
+            <p className="mt-1 text-sm text-brand-ink/65">
+              We&rsquo;re letting available members know you&rsquo;d like someone to talk to. This can take a few minutes.
             </p>
-          )}
-        </div>
-        <Button variant="secondary" onClick={cancel} disabled={busy}>
-          Cancel
-        </Button>
+            {available != null && (
+              <p className="mt-2 text-xs text-brand-ink/45">
+                {available > 0 ? `${available} ${available === 1 ? 'member is' : 'members are'} around right now` : 'Sit tight, we’ll keep looking'}
+              </p>
+            )}
+          </div>
+          <Button variant="secondary" onClick={cancel} disabled={busy}>
+            Cancel
+          </Button>
         </Card>
       </div>
     )
@@ -207,47 +296,48 @@ function SeekerPanel() {
           </div>
         </Card>
       )}
-    <Card className="space-y-4">
-      <div>
-        <CardTitle className="text-lg">Reach out for support</CardTitle>
-        <p className="mt-1 text-sm text-brand-ink/65">
-          Light a lantern and a caring member can be there with you, one-to-one.
-          {available != null && available > 0 && (
-            <span className="font-medium text-brand-accent3"> {available} around right now.</span>
-          )}
-        </p>
-      </div>
-      <Textarea
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        rows={3}
-        aria-label="What's on your mind"
-        placeholder="What's on your mind? (optional), share as little or as much as you like"
-        className="resize-none"
-      />
-      <label className="flex items-start gap-2 text-sm text-brand-ink/70">
-        <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-brand-line" />
-        <span>
-          Stay anonymous in the public list of lanterns.
-          <span className="block text-xs text-brand-ink/45">
-            When someone answers, you chat directly, they&rsquo;ll see your profile then, even if you chose this.
+      <SafetyHandoffCard />
+      <Card className="space-y-4">
+        <div>
+          <CardTitle className="text-lg">Reach out for support</CardTitle>
+          <p className="mt-1 text-sm text-brand-ink/65">
+            Light a lantern and a caring member can be there with you, one-to-one.
+            {available != null && available > 0 && (
+              <span className="font-medium text-brand-accent3"> {available} around right now.</span>
+            )}
+          </p>
+        </div>
+        <Textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={3}
+          aria-label="What's on your mind"
+          placeholder="What's on your mind? (optional), share as little or as much as you like"
+          className="resize-none"
+        />
+        <label className="flex items-start gap-2 text-sm text-brand-ink/70">
+          <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-brand-line" />
+          <span>
+            Stay anonymous in the public list of lanterns.
+            <span className="block text-xs text-brand-ink/45">
+              When someone answers, you chat directly, they&rsquo;ll see your profile then, even if you chose this.
+            </span>
           </span>
-        </span>
-      </label>
-      {available === 0 && (
-        <p className="rounded-xl bg-brand-ink/[0.04] px-3 py-2 text-xs text-brand-ink/60">
-          It&rsquo;s quiet right now, your lantern will wait up to 30 minutes for someone. If you need support
-          sooner, the{' '}
-          <Link href="/therapy" className="font-medium text-brand-accent2 underline">AI guide</Link>,{' '}
-          <Link href="/community" className="font-medium text-brand-accent2 underline">community</Link>, and{' '}
-          <Link href="/crisis" className="font-medium text-brand-accent1 underline">crisis lines</Link> are here too.
-        </p>
-      )}
-      {error && <p className="text-sm text-brand-crisis">{error}</p>}
-      <Button onClick={light} disabled={busy} leadingIcon={<span aria-hidden="true">🏮</span>}>
-        {busy ? 'Lighting…' : 'Light a lantern'}
-      </Button>
-    </Card>
+        </label>
+        {available === 0 && (
+          <p className="rounded-xl bg-brand-ink/[0.04] px-3 py-2 text-xs text-brand-ink/60">
+            It&rsquo;s quiet right now, your lantern will wait up to 30 minutes for someone. If you need support
+            sooner, the{' '}
+            <Link href="/therapy" className="font-medium text-brand-accent2 underline">AI guide</Link>,{' '}
+            <Link href="/community" className="font-medium text-brand-accent2 underline">community</Link>, and{' '}
+            <Link href="/crisis" className="font-medium text-brand-accent1 underline">crisis lines</Link> are here too.
+          </p>
+        )}
+        {error && <p className="text-sm text-brand-crisis">{error}</p>}
+        <Button onClick={light} disabled={busy} leadingIcon={<span aria-hidden="true">🏮</span>}>
+          {busy ? 'Lighting…' : 'Light a lantern'}
+        </Button>
+      </Card>
     </div>
   )
 }
