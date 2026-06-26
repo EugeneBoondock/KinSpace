@@ -334,20 +334,29 @@ export default function ConditionDetailPage() {
 
   useEffect(() => {
     if (!slug) return
+    let cancelled = false
+    setLoading(true)
+    setCondition(null)
+    setExperiences([])
     async function load() {
       try {
         const conditionDoc = (await DatabaseService.getCondition(slug as string)) as ConditionDoc | null
+        if (cancelled) return
         setCondition(conditionDoc)
         const resolvedSlug = conditionDoc?.id ?? (slug as string)
         const experiencesList = await DatabaseService.getExperiencesForCondition(resolvedSlug, { limit: 12 })
+        if (cancelled) return
         setExperiences(experiencesList as Experience[])
       } catch (error) {
-        console.error('Failed to load condition:', error)
+        if (!cancelled) console.error('Failed to load condition:', error)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     load()
+    return () => {
+      cancelled = true
+    }
   }, [slug])
 
   // Study reloads when the cohort filter flips (Everyone vs People like me).
@@ -360,7 +369,9 @@ export default function ConditionDetailPage() {
       .then((doc) => {
         if (!cancelled) setStudy(doc as Record<string, unknown> | null)
       })
-      .catch((error) => console.error('Failed to load study:', error))
+      .catch((error) => {
+        if (!cancelled) console.error('Failed to load study:', error)
+      })
       .finally(() => {
         if (!cancelled) setStudyLoading(false)
       })
@@ -369,7 +380,7 @@ export default function ConditionDetailPage() {
     }
   }, [condition?.id, cohort])
 
-  // Load the condition's community discussion once the condition resolves.
+  // Load member discussion once the condition resolves.
   useEffect(() => {
     const resolvedSlug = condition?.id
     if (!resolvedSlug) return
@@ -378,7 +389,9 @@ export default function ConditionDetailPage() {
       .then((rows) => {
         if (!cancelled) setComments((rows as ConditionComment[]) || [])
       })
-      .catch((error) => console.error('Failed to load comments:', error))
+      .catch((error) => {
+        if (!cancelled) console.error('Failed to load comments:', error)
+      })
     return () => {
       cancelled = true
     }
@@ -405,7 +418,9 @@ export default function ConditionDetailPage() {
         const reports = (result as { reports?: ReportSearchResult[] } | null)?.reports
         setReportResults(Array.isArray(reports) ? reports : [])
       })
-      .catch((error) => console.error('Failed to search reports:', error))
+      .catch((error) => {
+        if (!cancelled) console.error('Failed to search reports:', error)
+      })
       .finally(() => {
         if (!cancelled) setReportSearchLoading(false)
       })
@@ -426,7 +441,9 @@ export default function ConditionDetailPage() {
         const questions = (result as { questions?: ResearchQuestion[] } | null)?.questions
         setResearchQuestions(Array.isArray(questions) ? questions : [])
       })
-      .catch((error) => console.error('Failed to load research questions:', error))
+      .catch((error) => {
+        if (!cancelled) console.error('Failed to load research questions:', error)
+      })
       .finally(() => {
         if (!cancelled) setResearchLoading(false)
       })
