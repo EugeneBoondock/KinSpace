@@ -132,7 +132,7 @@ self.addEventListener('push', (event) => {
   let payload = {}
   try {
     payload = event.data ? event.data.json() : {}
-  } catch (err) {
+  } catch {
     payload = { body: event.data && event.data.text ? event.data.text() : '' }
   }
   const title = payload.title || 'KinSpace'
