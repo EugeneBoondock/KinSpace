@@ -174,6 +174,133 @@ function ReportList({ label, items }: { label: string; items: string[] }) {
   )
 }
 
+function topNames(items: RankItem[], limit: number): string[] {
+  return items
+    .map((item) => item.name.trim())
+    .filter(Boolean)
+    .slice(0, limit)
+}
+
+function AccessAndDailyLifeCard({
+  conditionName,
+  symptoms,
+  triggers,
+  sideEffects,
+  conditionId,
+}: {
+  conditionName: string
+  symptoms: RankItem[]
+  triggers: RankItem[]
+  sideEffects: RankItem[]
+  conditionId: string
+}) {
+  const signals = [
+    ...topNames(symptoms, 3).map((name) => ({ label: name, tone: 'sage' as const })),
+    ...topNames(triggers, 2).map((name) => ({ label: name, tone: 'gold' as const })),
+    ...topNames(sideEffects, 2).map((name) => ({ label: name, tone: 'terracotta' as const })),
+  ].slice(0, 6)
+
+  const planningAreas = [
+    {
+      title: 'Energy and pacing',
+      body: 'Plan around fatigue, flare days, rest breaks, and recovery time before a day gets too full.',
+      icon: 'ri-battery-low-line',
+      tone: 'bg-brand-accent2/15 text-brand-accent2',
+    },
+    {
+      title: 'Mobility and pain',
+      body: 'Name what makes standing, movement, travel, errands, and clinic visits easier.',
+      icon: 'ri-walk-line',
+      tone: 'bg-brand-accent5/15 text-brand-accent5',
+    },
+    {
+      title: 'Sensory and cognitive load',
+      body: 'Reduce noise, light, forms, memory load, and decision pressure during care and work.',
+      icon: 'ri-focus-3-line',
+      tone: 'bg-brand-accent4/15 text-brand-accent4',
+    },
+    {
+      title: 'Care access',
+      body: 'Track cost, transport, appointment waits, medicine supply, and help at home as part of the plan.',
+      icon: 'ri-map-pin-time-line',
+      tone: 'bg-brand-accent3/15 text-brand-accent3',
+    },
+  ]
+
+  return (
+    <Card className="overflow-hidden border-brand-accent5/25 bg-brand-accent5/[0.06]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_16rem]">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-accent5/15 text-brand-accent5">
+              <i className="ri-wheelchair-line text-xl" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="eyebrow">Daily life and access</p>
+              <CardTitle className="mt-1 text-lg">{conditionName} outside the clinic</CardTitle>
+            </div>
+          </div>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-brand-background/65">
+            Care includes symptoms, treatment, disability, work, school, transport, money, help at home,
+            and the energy it takes to keep going.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {planningAreas.map((area) => (
+              <div key={area.title} className="rounded-2xl border border-brand-background/10 bg-brand-background/[0.05] p-4">
+                <div className="flex items-start gap-3">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${area.tone}`}>
+                    <i className={`${area.icon} text-lg`} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-brand-background">{area.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-brand-background/58">{area.body}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-brand-background/10 bg-brand-background/[0.06] p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-background/45">
+            Member signals to plan around
+          </p>
+          {signals.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {signals.map((signal) => (
+                <Badge key={signal.label} tone={signal.tone} className="capitalize">
+                  {signal.label}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm leading-relaxed text-brand-background/60">
+              Member data is still early. Your report can help the next person plan their day.
+            </p>
+          )}
+          <div className="mt-4 grid gap-2">
+            <LinkButton
+              href={`/contribute?condition=${conditionId}`}
+              variant="secondary"
+              fullWidth
+              leadingIcon={<i className="ri-survey-line" aria-hidden="true" />}
+            >
+              Add daily-life data
+            </LinkButton>
+            <LinkButton
+              href="/support"
+              variant="ghost"
+              fullWidth
+              leadingIcon={<i className="ri-lightbulb-flash-line" aria-hidden="true" />}
+            >
+              Talk to someone now
+            </LinkButton>
+          </div>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 export default function ConditionDetailPage() {
   const params = useParams<{ slug: string }>()
   const slug = params?.slug as string | undefined
@@ -530,6 +657,14 @@ export default function ConditionDetailPage() {
             </LinkButton>
           </div>
         </header>
+
+        <AccessAndDailyLifeCard
+          conditionName={condition.name as string}
+          symptoms={symptomItems}
+          triggers={triggerItems}
+          sideEffects={sideEffectItems}
+          conditionId={condition.id}
+        />
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
           <div className="space-y-5">
@@ -1251,8 +1386,8 @@ export default function ConditionDetailPage() {
             )}
 
             <Alert tone="info" title="A gentle reminder">
-              Effectiveness blends a clinical-evidence baseline with member-reported experiences. It is
-              general information, not a treatment recommendation, always talk with your care team before
+              Effectiveness combines a clinical-evidence baseline with member-reported experiences. It is
+              general information, not a treatment recommendation. Talk with your care team before
               changing treatments. KinSpace does not provide medical advice.
             </Alert>
           </aside>
