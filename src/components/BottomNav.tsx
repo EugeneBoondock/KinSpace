@@ -22,7 +22,7 @@ type NavGroup = {
   items: NavItem[]
 }
 
-// Primary destinations — the mobile tab bar AND the top of the sidebar.
+// Primary destinations for the mobile tab bar and the top of the sidebar.
 const primaryNav: NavItem[] = [
   { href: '/dashboard', label: 'Home', icon: 'ri-home-5-line', activeIcon: 'ri-home-5-fill' },
   { href: '/community', label: 'Community', icon: 'ri-chat-3-line', activeIcon: 'ri-chat-3-fill' },
@@ -48,6 +48,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'Care',
     items: [
+      { href: '/care', label: 'Care plan', icon: 'ri-road-map-line', activeIcon: 'ri-road-map-fill' },
       { href: '/symptom-checker', label: 'Symptom check', icon: 'ri-stethoscope-line', activeIcon: 'ri-stethoscope-fill' },
       { href: '/therapy', label: 'Guide', icon: 'ri-mental-health-line', activeIcon: 'ri-mental-health-fill' },
       { href: '/conditions', label: 'Conditions', icon: 'ri-flask-line', activeIcon: 'ri-flask-fill' },
@@ -239,6 +240,7 @@ export default function BottomNav() {
       )
     if (href === '/conditions') return p.startsWith('/conditions')
     if (href === '/support') return p.startsWith('/support')
+    if (href === '/care') return p.startsWith('/care')
     if (href === '/ask') return p.startsWith('/ask')
     if (href === '/therapy') return p.startsWith('/therapy')
     if (href === '/games') return p.startsWith('/games')

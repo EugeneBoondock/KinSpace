@@ -27,6 +27,7 @@ import * as pins from './pins'
 import * as blocks from './blocks'
 import * as push from './push'
 import * as brief from './brief'
+import * as careProgram from './care-program'
 
 export type DataMethod = (ctx: Ctx, ...args: any[]) => Promise<unknown>
 
@@ -62,6 +63,7 @@ export const dataMethods = {
   ...blocks,
   ...push,
   ...brief,
+  ...careProgram,
 } as unknown as Record<string, DataMethod>
 
 export type { Ctx }

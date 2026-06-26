@@ -8,6 +8,7 @@ import PageFrame from '@/components/PageFrame'
 import ProfileAvatar from '@/components/ProfileAvatar'
 import SpoonsToday from '@/components/SpoonsToday'
 import SymptomCheckin from '@/components/SymptomCheckin'
+import CareProgramPanel from '@/components/CareProgramPanel'
 import DailyBrief from '@/components/DailyBrief'
 import DailyQuestPanel from '@/components/DailyQuestPanel'
 import SocialStarterPanel from '@/components/SocialStarterPanel'
@@ -379,6 +380,7 @@ export default function DashboardPage() {
         </Card>
 
         <DailyQuestPanel />
+        <CareProgramPanel />
 
         <div className="page-grid lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,24rem)] lg:items-start">
           <div className="space-y-5">

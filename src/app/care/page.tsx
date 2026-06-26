@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/AuthContext'
 import { useToast } from '@/components/Toast'
 import PageFrame from '@/components/PageFrame'
 import BottomNav from '@/components/BottomNav'
+import CareProgramPanel from '@/components/CareProgramPanel'
 import { getNearbyFallbackPlaces, geocodeQueries } from '@/lib/map-client'
 import { getDistanceKm } from '@/lib/platform'
 import { Badge, Button, Card, EmptyState, Input, Skeleton } from '@/components/ui'
@@ -106,7 +107,7 @@ export default function CarePage() {
   useEffect(() => {
     if (!user) return
     let settled = false
-    const useDefault = () => {
+    const loadDefaultLocation = () => {
       if (settled) return
       settled = true
       void load(DEFAULT_CENTER)
@@ -120,13 +121,13 @@ export default function CarePage() {
           setLocationLabel('your location')
           void load(coords)
         },
-        useDefault,
+        loadDefaultLocation,
         { timeout: 8000, maximumAge: 600000 },
       )
-      const timer = setTimeout(useDefault, 8500)
+      const timer = setTimeout(loadDefaultLocation, 8500)
       return () => clearTimeout(timer)
     }
-    useDefault()
+    loadDefaultLocation()
   }, [user, load])
 
   async function handleLocationSearch(event: React.FormEvent) {
@@ -164,12 +165,14 @@ export default function CarePage() {
       <div className="page-grid space-y-6">
         <header className="space-y-2">
           <p className="eyebrow">Care navigation</p>
-          <h1 className="text-2xl font-bold text-brand-background sm:text-3xl">Find care near {locationLabel}</h1>
+          <h1 className="text-2xl font-bold text-brand-background sm:text-3xl">Your care program and nearby help</h1>
           <p className="max-w-2xl text-sm leading-relaxed text-brand-background/60">
-            Doctors, clinics, hospitals and pharmacies around you
-            {conditionContext ? `, while you look into ${conditionContext}` : ''}. Confirm details before you go.
+            Follow the weekly program, then find doctors, clinics, hospitals and pharmacies near {locationLabel}
+            {conditionContext ? ` while you look into ${conditionContext}` : ''}. Confirm details before you go.
           </p>
         </header>
+
+        <CareProgramPanel />
 
         <Card className="space-y-3">
           <form onSubmit={handleLocationSearch} className="flex flex-col gap-2 sm:flex-row">
@@ -230,7 +233,7 @@ export default function CarePage() {
                     <h2 className="break-words text-base font-semibold text-brand-background">{place.title}</h2>
                     <p className="mt-0.5 text-xs text-brand-background/50">
                       {KIND_LABEL[place.kind] ?? place.kind}
-                      {place.address ? ` · ${place.address}` : ''}
+                      {place.address ? ` at ${place.address}` : ''}
                     </p>
                   </div>
                   <Badge tone="neutral" className="shrink-0">
