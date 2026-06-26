@@ -15,6 +15,10 @@ export type PushPayload = {
   body: string
   url?: string
   tag?: string
+  /** Push service delivery priority hint. Use high for time-sensitive reminders. */
+  urgency?: 'very-low' | 'low' | 'normal' | 'high'
+  /** Push service time-to-live in seconds. Defaults to the builder's 24h max. */
+  ttl?: number
   /** Notification action buttons (e.g. Taken / Snooze). */
   actions?: Array<{ action: string; title: string }>
   /** Persistent until the user acts (key for medication adherence). */
@@ -58,6 +62,7 @@ export async function sendWebPush(
 ): Promise<PushSendResult> {
   const vapid = getVapid()
   if (!vapid) return { ok: false, status: 0, gone: false, endpoint: subscription.endpoint }
+  const ttl = typeof payload.ttl === 'number' && Number.isFinite(payload.ttl) ? payload.ttl : 24 * 60 * 60
 
   try {
     const { endpoint, headers, body } = await buildPushHTTPRequest({
@@ -70,6 +75,10 @@ export async function sendWebPush(
         // Plain JSON (also guarantees the payload is fully serializable).
         payload: JSON.parse(JSON.stringify(payload)),
         adminContact: vapid.subject,
+        options: {
+          urgency: payload.urgency ?? 'normal',
+          ttl: Math.max(60, Math.min(24 * 60 * 60, Math.floor(ttl))),
+        },
       },
     })
 

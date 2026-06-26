@@ -167,6 +167,8 @@ export async function runDueMedicationReminders(now: Date) {
           body,
           url: '/dashboard?meds=1',
           tag: `med-${item.reminder.id}-${item.snoozed ? 'snooze' : item.time}`,
+          urgency: 'high',
+          ttl: 30 * 60,
           requireInteraction: true,
           renotify: true,
           silent: false,

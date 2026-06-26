@@ -1079,9 +1079,12 @@ export async function sendDirectMessage(ctx: Ctx, toUserId: string, message: str
 /** All of the actor’s DM threads: partner profile, last message, unread count. */
 export async function getConversations(ctx: Ctx, _userId?: string) {
   const userId = requireActor(ctx)
-  const rows = await ctx.db.query.chatMessages.findMany({
-    where: or(eq(chatMessages.senderId, userId), eq(chatMessages.receiverId, userId)),
-  })
+  const [rows, blocked] = await Promise.all([
+    ctx.db.query.chatMessages.findMany({
+      where: or(eq(chatMessages.senderId, userId), eq(chatMessages.receiverId, userId)),
+    }),
+    blockedRelatedIds(ctx.db, userId),
+  ])
   const dmRows = rows.filter((row) => (row.roomId ?? '').startsWith('dm:'))
 
   type Thread = {
@@ -1095,6 +1098,7 @@ export async function getConversations(ctx: Ctx, _userId?: string) {
   for (const row of dmRows) {
     const partnerId = row.senderId === userId ? row.receiverId : row.senderId
     if (!partnerId) continue
+    if (blocked.has(partnerId)) continue
     const when = toDate(row.createdAt as never)
     const existing = threads.get(partnerId)
     const isUnread = row.receiverId === userId && !row.readAt
@@ -1126,6 +1130,7 @@ export async function getConversations(ctx: Ctx, _userId?: string) {
 export async function getDirectMessages(ctx: Ctx, otherUserId: string, limitCount = 100) {
   const userId = requireActor(ctx)
   if (!otherUserId) return { partner: null, messages: [] }
+  if (await isBlockBetween(ctx.db, userId, otherUserId)) return { partner: null, messages: [], blocked: true }
   const roomId = dmRoomId(userId, otherUserId)
 
   const rows = await ctx.db.query.chatMessages.findMany({ where: eq(chatMessages.roomId, roomId) })
@@ -1161,8 +1166,11 @@ export async function getDirectMessages(ctx: Ctx, otherUserId: string, limitCoun
 /** Count of unread DMs across all threads for the nav badge. */
 export async function getUnreadMessageCount(ctx: Ctx, _userId?: string): Promise<number> {
   const userId = requireActor(ctx)
-  const rows = await ctx.db.query.chatMessages.findMany({ where: eq(chatMessages.receiverId, userId) })
-  return rows.filter((row) => (row.roomId ?? '').startsWith('dm:') && !row.readAt).length
+  const [rows, blocked] = await Promise.all([
+    ctx.db.query.chatMessages.findMany({ where: eq(chatMessages.receiverId, userId) }),
+    blockedRelatedIds(ctx.db, userId),
+  ])
+  return rows.filter((row) => (row.roomId ?? '').startsWith('dm:') && !row.readAt && !blocked.has(row.senderId)).length
 }
 
 // ── Aggregate community signals ─────────────────────────────────────────────

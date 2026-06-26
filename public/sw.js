@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kinspace-v6'
+const CACHE_NAME = 'kinspace-v7'
 const OFFLINE_URL = '/offline'
 
 const PRECACHE_URLS = [
@@ -9,8 +9,8 @@ const PRECACHE_URLS = [
   '/manifest.json',
 ]
 
-const MED_REMINDER_REPEAT_DELAY_MS = 15 * 1000
-const MED_REMINDER_REPEAT_LIMIT = 4
+const MED_REMINDER_REPEAT_DELAY_MS = 9 * 1000
+const MED_REMINDER_REPEAT_LIMIT = 8
 const activeMedicationAlarms = new Set()
 
 function sleep(ms) {

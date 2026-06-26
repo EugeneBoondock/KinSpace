@@ -312,17 +312,13 @@ export async function searchPeople(ctx: Ctx, query: string, limitCount = 24) {
   const actorId = requireActor(ctx)
   const search = normalizePeopleSearch(query)
   if (search.handle.length < 2) return []
-  // Escape LIKE wildcards in user input so a stray % / _ can't widen the match.
-  const usernamePattern = `%${search.handle.replace(/[\\%_]/g, (m) => `\\${m}`)}%`
-  const textPattern = `%${search.raw.replace(/[\\%_]/g, (m) => `\\${m}`)}%`
+  const usernameMatch = sql`instr(lower(${profiles.username}), ${search.handle}) > 0`
   const nonAnonymousTextMatch = and(
     eq(profiles.isAnonymous, false),
     or(
-      sql`lower(${profiles.fullName}) like ${textPattern} escape '\\'`,
-      sql`lower(${profiles.location}) like ${textPattern} escape '\\'`))
-  const where = search.isHandleSearch
-    ? sql`lower(${profiles.username}) like ${usernamePattern} escape '\\'`
-    : or(sql`lower(${profiles.username}) like ${usernamePattern} escape '\\'`, nonAnonymousTextMatch)
+      sql`instr(lower(${profiles.fullName}), ${search.raw}) > 0`,
+      sql`instr(lower(${profiles.location}), ${search.raw}) > 0`))
+  const where = search.isHandleSearch ? usernameMatch : or(usernameMatch, nonAnonymousTextMatch)
 
   const [rows, blocked, sent, received] = await Promise.all([
     ctx.db.query.profiles.findMany({
@@ -452,9 +448,10 @@ type HydratedStrand = StrandRequest & {
 
 export async function getStrandSummary(ctx: Ctx, _userId?: string) {
   const userId = requireActor(ctx)
-  const [sent, received] = await Promise.all([
+  const [sent, received, blocked] = await Promise.all([
     getSentConnectionRequests(ctx, userId),
     getReceivedConnectionRequests(ctx, userId),
+    blockedRelatedIds(ctx.db, userId),
   ])
 
   const hydrate = async (requests: StrandRequest[], direction: 'sent' | 'received'): Promise<HydratedStrand[]> =>
@@ -465,7 +462,12 @@ export async function getStrandSummary(ctx: Ctx, _userId?: string) {
         return { ...request, direction, profile }
       }))
 
-  const [sentHydrated, receivedHydrated] = await Promise.all([hydrate(sent, 'sent'), hydrate(received, 'received')])
+  const visibleSent = sent.filter((request) => !blocked.has(request.targetUserId))
+  const visibleReceived = received.filter((request) => !blocked.has(request.requesterId))
+  const [sentHydrated, receivedHydrated] = await Promise.all([
+    hydrate(visibleSent, 'sent'),
+    hydrate(visibleReceived, 'received'),
+  ])
 
   // Dedup accepted by counterpart so a mutual pair never shows twice.
   const acceptedAll = sortByNewest(

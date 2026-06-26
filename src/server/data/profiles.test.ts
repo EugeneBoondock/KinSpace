@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { searchPeople } from './profiles'
+import { getStrandSummary, searchPeople } from './profiles'
 
 const NOW = new Date('2026-06-25T12:00:00Z')
 
@@ -86,6 +86,16 @@ test('searchPeople treats an @ prefix as part of username search', async () => {
   assert.deepEqual(results.map((row) => row.username), ['sapphirespring'])
 })
 
+test('searchPeople treats SQL wildcard characters as literal text', async () => {
+  const rows = [
+    profile({ userId: 'sapphire', username: 'sapphirespring' }),
+    profile({ userId: 'river', username: 'riverwalker' }),
+  ]
+
+  assert.deepEqual(await searchPeople(makeCtx(rows), 'sapp%'), [])
+  assert.deepEqual(await searchPeople(makeCtx(rows), 'river_'), [])
+})
+
 test('searchPeople returns anonymous username matches as redacted results', async () => {
   const rows = [
     profile({
@@ -123,4 +133,58 @@ test('searchPeople does not discover anonymous profiles by private fields', asyn
 
   assert.deepEqual(await searchPeople(makeCtx(rows), 'Secret City'), [])
   assert.deepEqual(await searchPeople(makeCtx(rows), 'Hidden Person'), [])
+})
+
+test('getStrandSummary hides blocked strand rows', async () => {
+  const sent = [
+    {
+      id: 'sent-blocked',
+      requesterId: 'viewer',
+      targetUserId: 'blocked',
+      status: 'pending',
+      createdAt: NOW,
+      updatedAt: NOW,
+    },
+    {
+      id: 'sent-friend',
+      requesterId: 'viewer',
+      targetUserId: 'friend',
+      status: 'accepted',
+      createdAt: NOW,
+      updatedAt: NOW,
+    },
+  ]
+  const received = [
+    {
+      id: 'received-blocked',
+      requesterId: 'blocked',
+      targetUserId: 'viewer',
+      status: 'pending',
+      createdAt: NOW,
+      updatedAt: NOW,
+    },
+  ]
+  const requestResults = [sent, received]
+  const ctx = {
+    userId: 'viewer',
+    db: {
+      query: {
+        connectionRequests: {
+          findMany: async () => requestResults.shift() ?? [],
+        },
+        userBlocks: {
+          findMany: async () => [{ blockerId: 'viewer', blockedId: 'blocked' }],
+        },
+        profiles: {
+          findFirst: async () => null,
+        },
+      },
+    },
+  } as never
+
+  const summary = await getStrandSummary(ctx)
+
+  assert.deepEqual(summary.pendingSent.map((row) => row.id), [])
+  assert.deepEqual(summary.pendingReceived.map((row) => row.id), [])
+  assert.deepEqual(summary.accepted.map((row) => row.id), ['sent-friend'])
 })
