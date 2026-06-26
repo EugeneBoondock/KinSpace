@@ -7,6 +7,7 @@ import BottomNav from '@/components/BottomNav'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { ensureNotificationPermission } from '@/lib/notify-client'
+import { notificationAction } from '@/lib/notification-routing'
 import { formatRelativeTime, toDate } from '@/lib/platform'
 import { Card, EmptyState, Skeleton } from '@/components/ui'
 
@@ -27,29 +28,11 @@ const typeIcons: Record<string, string> = {
   achievement: 'ri-medal-line',
   quiet_checkin: 'ri-heart-3-line',
   group_invite: 'ri-group-line',
+  group_join_request: 'ri-user-follow-line',
+  group_request_approved: 'ri-group-line',
   group_role: 'ri-shield-star-line',
   expertise: 'ri-lightbulb-flash-line',
   medication_reminder: 'ri-capsule-line',
-}
-
-function notificationAction(row: NotificationRow): { label: string; href: string } | null {
-  const data = row.data ?? {}
-  const fromUserId = (data.from_user_id ?? data.fromUserId) as string | undefined
-  if (row.type === 'dm' && fromUserId) return { label: 'Open conversation', href: `/messages?to=${fromUserId}` }
-  if (row.type === 'connection_request' || row.type === 'connection_accepted')
-    return { label: 'View your strands', href: '/strands' }
-  if (row.type === 'quiet_checkin') return { label: 'Go to your space', href: '/dashboard' }
-  if (row.type === 'medication_reminder') return { label: 'Open reminders', href: '/dashboard?meds=1' }
-  const groupId = (data.group_id ?? data.groupId) as string | undefined
-  if ((row.type === 'group_invite' || row.type === 'group_role') && groupId)
-    return { label: 'Open the group', href: `/groups/${groupId}` }
-  const postId = (data.post_id ?? data.postId) as string | undefined
-  if (row.type === 'expertise') {
-    if (groupId) return { label: 'Open the group', href: `/groups/${groupId}` }
-    if (postId) return { label: 'View the post', href: '/community' }
-    return { label: 'Go to community', href: '/community' }
-  }
-  return null
 }
 
 export default function NotificationsPage() {

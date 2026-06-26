@@ -22,6 +22,16 @@ function medicationAlarmKey(options) {
   return [options.tag || 'kinspace-activity', data.reminderId || '', data.dateKey || '', data.time || ''].join(':')
 }
 
+function resolveNotificationTargetUrl(raw) {
+  try {
+    const url = new URL(raw || '/dashboard', self.location.origin)
+    if (url.origin !== self.location.origin) return new URL('/dashboard', self.location.origin).href
+    return url.href
+  } catch {
+    return new URL('/dashboard', self.location.origin).href
+  }
+}
+
 async function showMedicationAlarm(title, options) {
   const alarmKey = medicationAlarmKey(options)
   const alarmOptions = {
@@ -167,12 +177,20 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   // Body tap (or any non-med notification): open/focus the relevant page.
-  const targetUrl = data.url || '/dashboard'
+  const targetUrl = resolveNotificationTargetUrl(data.url)
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
+        if ('navigate' in client) {
+          return client
+            .navigate(targetUrl)
+            .then((targetClient) => {
+              const focusTarget = targetClient || client
+              return 'focus' in focusTarget ? focusTarget.focus() : undefined
+            })
+            .catch(() => ('focus' in client ? client.focus() : undefined))
+        }
         if ('focus' in client) {
-          client.navigate(targetUrl).catch(() => undefined)
           return client.focus()
         }
       }

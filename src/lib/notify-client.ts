@@ -26,6 +26,14 @@ export function canShowSystemNotification(): boolean {
   return typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
 }
 
+function normaliseNotificationUrl(raw: unknown): string {
+  if (typeof raw === 'string') {
+    const value = raw.trim()
+    if (value.startsWith('/') && !value.startsWith('//')) return value
+  }
+  return '/notifications'
+}
+
 /**
  * Show a native notification, preferring the service worker registration (works
  * on mobile/installed PWAs) and falling back to the page-level Notification.
@@ -35,12 +43,14 @@ export async function showLocalNotification(
   options: { body?: string; data?: Record<string, unknown>; tag?: string } = {},
 ): Promise<void> {
   if (!canShowSystemNotification()) return
+  const data = options.data ?? {}
+  const url = normaliseNotificationUrl(data.url)
   const payload: NotificationOptions = {
     body: options.body,
     icon: '/images/gather_logo.png',
     badge: '/images/gather_logo.png',
     tag: options.tag,
-    data: { url: '/notifications', ...(options.data ?? {}) },
+    data: { ...data, url },
   }
   try {
     if ('serviceWorker' in navigator) {
@@ -52,7 +62,15 @@ export async function showLocalNotification(
     // fall through to the page-level Notification
   }
   try {
-    new Notification(title, payload)
+    const notification = new Notification(title, payload)
+    notification.onclick = () => {
+      try {
+        window.focus()
+      } catch {
+        // best-effort only
+      }
+      window.location.href = url
+    }
   } catch {
     // best-effort only
   }

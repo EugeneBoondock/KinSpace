@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { classNames, getInitials } from '@/lib/platform'
 import { alertNewNotification } from '@/lib/notify-client'
+import { buildSystemNotificationData } from '@/lib/notification-routing'
 
 type NavItem = {
   href: string
@@ -147,9 +148,14 @@ export default function BottomNav() {
             DatabaseService.getNotifications(user.userId)
               .then((rows) => {
                 const list = Array.isArray(rows) ? rows : []
-                const newest = list[0] as { title?: string; body?: string | null; type?: string } | undefined
+                const newest = list[0] as {
+                  title?: string
+                  body?: string | null
+                  type?: string
+                  data?: Record<string, unknown> | null
+                } | undefined
                 if (newest?.title) {
-                  void alertNewNotification(newest.title, newest.body ?? undefined, { type: newest.type })
+                  void alertNewNotification(newest.title, newest.body ?? undefined, buildSystemNotificationData(newest))
                 } else {
                   void alertNewNotification('New activity on KinSpace')
                 }
