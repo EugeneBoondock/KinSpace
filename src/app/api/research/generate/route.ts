@@ -5,6 +5,7 @@ import { fetchFreshItems } from '@/lib/ai/feeds'
 import { generateArticle } from '@/lib/ai/openai'
 import { getDb } from '@/server/db/client'
 import { resources, researchRequests } from '@/server/db/schema'
+import { notifyConditionMembersForArticle } from '@/server/research/condition-email'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -119,7 +120,16 @@ async function runDeepPipeline(db: Db, max: number) {
         .where(eq(researchRequests.id, entry.requestId))
         .catch(() => undefined)
     }
-    generated.push({ slug, title: result.article.title })
+    const email = await notifyConditionMembersForArticle(db, {
+      slug,
+      title: result.article.title,
+      excerpt: result.article.excerpt,
+      topic: result.article.topic,
+      tags: result.article.tags,
+      plainLanguageSummary: result.article.plain_language_summary,
+      bodyMarkdown: result.article.body_markdown,
+    }).catch(() => null)
+    generated.push({ slug, title: result.article.title, email })
   }
   return { ok: true, mode: 'deep-research', generated, skipped }
 }
@@ -164,7 +174,16 @@ async function runRssPipeline(db: Db, max: number) {
       pubDate: source.pubDate ?? null,
       publishedAt: new Date(),
     })
-    generated.push({ slug, title: article.title })
+    const email = await notifyConditionMembersForArticle(db, {
+      slug,
+      title: article.title,
+      excerpt: article.excerpt,
+      topic: article.topic,
+      tags: article.tags,
+      plainLanguageSummary: article.plain_language_summary,
+      bodyMarkdown: article.body_markdown,
+    }).catch(() => null)
+    generated.push({ slug, title: article.title, email })
   }
   return { ok: true, mode: 'rss', fetched: items.length, generated, skipped }
 }

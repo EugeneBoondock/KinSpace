@@ -88,7 +88,7 @@ const ALLOWED_PROFILE_FIELDS = new Set([
   'medications', 'status', 'interests', 'mentalHealthGoals', 'preferredCommunication',
   'emergencyContact', 'emergencyPhone', 'dailyMood', 'moodUpdatedAt', 'therapistPersona',
   'onboardingComplete', 'onboardingStatus', 'visibility', 'shareHealthWithGuide',
-  'anonymousProfileVisibility', 'notifyMatches', 'notifyMessages', 'notifyGroups',
+  'anonymousProfileVisibility', 'notifyMatches', 'notifyMessages', 'notifyGroups', 'notifyResearch',
   'hideConditionsOnHome', 'hideConditionsOnProfile',
   'spaceTheme', 'spaceAccent', 'spaceFont', 'spaceMotto', 'spaceVibe', 'spacePinnedNote',
   'spaceBackgroundImageUrl',

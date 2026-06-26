@@ -69,6 +69,7 @@ export const profiles = sqliteTable(
     notifyMatches: bool('notify_matches').notNull().default(true),
     notifyMessages: bool('notify_messages').notNull().default(true),
     notifyGroups: bool('notify_groups').notNull().default(true),
+    notifyResearch: bool('notify_research').notNull().default(true),
     /** When true (default), the Guide (therapy AI) receives the user's health
      * profile — conditions, medications, comorbidities, and community insights.
      * Users can opt out to keep those details out of every Guide conversation. */

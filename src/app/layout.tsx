@@ -8,6 +8,7 @@ import { ToastProvider } from "@/components/Toast";
 import { ThemeProvider, themeInitScript } from "@/components/ThemeProvider";
 import MedicationShelf from "@/components/MedicationShelf";
 import CommandLauncher from "@/components/CommandLauncher";
+import MetaPixel from "@/components/MetaPixel";
 import Script from "next/script";
 
 const manrope = Manrope({
@@ -86,6 +87,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
+        <MetaPixel />
         {/* Cloudflare Web Analytics, privacy-first traffic, no cookies. Renders
             only when the beacon token is configured (set NEXT_PUBLIC_CF_BEACON_TOKEN). */}
         {process.env.NEXT_PUBLIC_CF_BEACON_TOKEN && (

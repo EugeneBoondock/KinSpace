@@ -1,10 +1,10 @@
 // Cheap deep-research pipeline modeled after MessageCFO's but trimmed to 2 LLM
 // calls per article (plan + synthesize) with no iterative refinement loop.
 //
-//   1. Plan — one GPT call → array of 2 focused web queries
-//   2. Search — DuckDuckGo, top 3 urls per query
-//   3. Scrape — markdown.new (fallback to raw HTML) per url, dedup, max 5 total
-//   4. Synthesize — one GPT call → structured health article with citations
+//   1. Plan: one GPT call to an array of 2 focused web queries
+//   2. Search: DuckDuckGo, top 3 urls per query
+//   3. Scrape: markdown.new fallback to raw HTML per url, dedup, max 5 total
+//   4. Synthesize: one GPT call to a structured health article with citations
 //
 // Total LLM: 2 calls, budget ~3k tokens total. Keeps cost roughly 3-4x cheaper
 // than the MessageCFO equivalent which runs 5+ calls per article.
@@ -71,21 +71,23 @@ Respond with strict JSON in this shape:
   "queries": ["query 1", "query 2"]
 }`
 
-const SYNTHESIZE_SYSTEM = `You are a health journalist writing for the KinSpace community — people living with chronic conditions, mental-health challenges, and trauma recovery.
+const SYNTHESIZE_SYSTEM = `You are a health journalist writing for the KinSpace community: people living with chronic conditions, mental-health challenges, disability, and trauma recovery.
 
 Your job: turn web research into a warm, plain-language KinSpace article.
 
 Rules:
 1. Never give medical advice. Present findings, do not prescribe.
-2. Use 6th-grade reading level for the plain_language_summary. The body can be 8th–10th grade.
-3. Always flag uncertainty: sample sizes, study type, preliminary vs replicated.
-4. Respectful of the lived experience of the condition.
+2. Disabled readers are a core audience. Treat disability, access, energy limits, pain, mobility, sensory load, and cognitive load as part of the main story when relevant.
+3. Use 6th-grade reading level for the plain_language_summary. The body can be 8th to 10th grade.
+4. Always flag uncertainty: sample sizes, study type, preliminary vs replicated.
 5. Every claim that comes from a source must include a citation marker like [1], [2].
-6. Body must include markdown sections: "## Summary", "## What the research shows", "## What this might mean for you", "## Caveats".
-7. Never invent facts that are not in the provided sources. If sources are weak, say so. Sources are tagged PEER-REVIEWED / PREPRINT / CLINICAL TRIAL / WEB — weight peer-reviewed and clinical-trial sources highest, and explicitly note when something rests on a preprint (not yet peer-reviewed) or a single small study.
-8. Tags: 3–6 lowercase short phrases for search (e.g. "depression", "sleep", "vagus-nerve", "rct").
-9. topic: one short label like "Depression Research" or "Long COVID".
-10. Return STRICT JSON only — no prose outside JSON.`
+6. Body must include markdown sections: "## Summary", "## What the research shows", "## What this might mean for you", "## Access and daily life", "## Caveats".
+7. In "Access and daily life", cover energy limits, pain, mobility, sensory load, cognitive load, transport, cost, work, school, caregiving, and care access when sources support it. If the sources do not address those questions, say that gap plainly.
+8. Never invent facts that are not in the provided sources. If sources are weak, say so. Sources are tagged PEER-REVIEWED / PREPRINT / CLINICAL TRIAL / WEB. Weight peer-reviewed and clinical-trial sources highest, and explicitly note when something rests on a preprint, not yet peer-reviewed, or a single small study.
+9. Tags: 3 to 6 lowercase short phrases for search, like "depression", "sleep", "vagus-nerve", and "rct".
+10. topic: one short label like "Depression Research" or "Long COVID".
+11. Do not use em dashes.
+12. Return STRICT JSON only. Do not include prose outside JSON.`
 
 /**
  * Self-directed topic discovery: searches the web for current notable health
@@ -104,7 +106,7 @@ export async function discoverBreakthroughTopics(count = 2): Promise<string[]> {
     if (results.length === 0) return []
     const context = results
       .slice(0, 16)
-      .map((result, index) => `${index + 1}. ${result.title} — ${result.snippet}`)
+      .map((result, index) => `${index + 1}. ${result.title}: ${result.snippet}`)
       .join('\n')
 
     const openai = getClient()
@@ -185,7 +187,7 @@ function formatSourcesForPrompt(sources: ResearchSource[]): string {
   return sources
     .map((source, index) => {
       const body = source.excerpt.slice(0, 2500)
-      return `[${index + 1}] (${sourceLabel(source.kind)}) ${source.title} — ${source.domain}\nURL: ${source.url}\n---\n${body}\n`
+      return `[${index + 1}] (${sourceLabel(source.kind)}) ${source.title}: ${source.domain}\nURL: ${source.url}\n---\n${body}\n`
     })
     .join('\n\n')
 }
@@ -216,7 +218,7 @@ Respond with STRICT JSON only, matching:
 {
   "title": string,
   "excerpt": string,                 // one sentence, <= 180 chars
-  "body_markdown": string,            // 450-650 words, with [1]/[2] citations
+  "body_markdown": string,            // 500-750 words, required sections, with [1]/[2] citations
   "key_findings": string[],           // 3-5 bullets
   "plain_language_summary": string,   // 2-3 sentences, 6th-grade
   "caveats": string[],                // 1-3 items

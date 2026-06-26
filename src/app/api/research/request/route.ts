@@ -6,6 +6,7 @@ import { researchRequests, resources } from '@/server/db/schema'
 import { getSessionUserId } from '@/server/http/auth'
 import { rateLimit } from '@/server/http/rate-limit'
 import { checkAndConsume } from '@/server/billing/repo'
+import { notifyConditionMembersForArticle } from '@/server/research/condition-email'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -115,6 +116,16 @@ export async function POST(request: NextRequest) {
       .where(eq(researchRequests.id, requestId))
       .catch(() => undefined)
   }
+
+  await notifyConditionMembersForArticle(db, {
+    slug,
+    title: result.article.title,
+    excerpt: result.article.excerpt,
+    topic: result.article.topic,
+    tags: result.article.tags,
+    plainLanguageSummary: result.article.plain_language_summary,
+    bodyMarkdown: result.article.body_markdown,
+  }).catch(() => null)
 
   return NextResponse.json({ ok: true, articleId: slug, title: result.article.title })
 }

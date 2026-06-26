@@ -33,6 +33,7 @@ interface ProfileData {
   notify_matches: boolean
   notify_messages: boolean
   notify_groups: boolean
+  notify_research: boolean
   hide_conditions_on_profile: boolean
   avatar_url?: string | null
   [key: string]: unknown
@@ -56,6 +57,7 @@ const defaultProfile: ProfileData = {
   notify_matches: true,
   notify_messages: true,
   notify_groups: true,
+  notify_research: true,
   hide_conditions_on_profile: false,
 }
 
@@ -207,6 +209,7 @@ export default function Settings() {
             notify_matches: data.notify_matches !== false,
             notify_messages: data.notify_messages !== false,
             notify_groups: data.notify_groups !== false,
+            notify_research: data.notify_research !== false,
             share_health_with_guide: data.share_health_with_guide !== false,
             anonymous_profile_visibility: (data.anonymous_profile_visibility as string) || 'connections',
             hide_conditions_on_profile: data.hide_conditions_on_profile === true,
@@ -267,6 +270,7 @@ export default function Settings() {
         notify_matches: profile.notify_matches,
         notify_messages: profile.notify_messages,
         notify_groups: profile.notify_groups,
+        notify_research: profile.notify_research,
         hide_conditions_on_profile: profile.hide_conditions_on_profile,
         // Store encrypted health data (plaintext fields zeroed out by encryptFields)
         ...encryptedFields,
@@ -916,6 +920,32 @@ export default function Settings() {
               >
                 <div className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
                   profile.notify_groups ? 'left-6' : 'left-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* Research Toggle */}
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-background/[0.06] p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent4/15">
+                  <i className="ri-article-line text-brand-accent4" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-brand-background">Research emails</p>
+                  <p className="text-xs text-brand-background/45">New articles that match your profile conditions</p>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={profile.notify_research}
+                aria-label="Research email alerts"
+                onClick={() => setProfile((p) => ({ ...p, notify_research: !p.notify_research }))}
+                className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
+                  profile.notify_research ? 'bg-brand-accent2' : 'bg-brand-background/20'
+                }`}
+              >
+                <div className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
+                  profile.notify_research ? 'left-6' : 'left-1'
                 }`} />
               </button>
             </div>
