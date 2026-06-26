@@ -1,19 +1,27 @@
 import { eq, or } from 'drizzle-orm'
 import type { Ctx } from './_shared'
-import { requireActor } from './_shared'
+import { requireActor, toDate } from './_shared'
 import {
   moodCheckins,
   communityPosts,
   postComments,
   postReactions,
   postLikes,
+  commentReactions,
   connectionRequests,
   conditionReports,
   therapySessions,
   gameScores,
   achievementUnlocks,
+  profiles,
+  quietCheckins,
 } from '@/server/db/schema'
-import { computeAchievements, computeStreak, type AchievementStats } from '@/lib/achievements'
+import {
+  buildDailyQuestState,
+  computeAchievements,
+  computeStreak,
+  type AchievementStats,
+} from '@/lib/achievements'
 import { createNotification } from '@/server/notify'
 
 /**
@@ -57,6 +65,99 @@ export async function getAchievements(ctx: Ctx, userId?: string) {
   }
 
   return { ...computeAchievements(stats), is_owner: isOwner }
+}
+
+function isOnDay(value: unknown, day: string): boolean {
+  const when = toDate(value as never)
+  return Boolean(when && when.toISOString().slice(0, 10) === day)
+}
+
+function hasItems(value: unknown): boolean {
+  return Array.isArray(value) && value.length > 0
+}
+
+/**
+ * The owner-only daily return loop. It derives today's progress from existing
+ * rows so members see a clear reason to come back without adding a write-heavy
+ * mission table.
+ */
+export async function getDailyQuest(ctx: Ctx, _userId?: string) {
+  const userId = requireActor(ctx)
+  const todayUtc = new Date().toISOString().slice(0, 10)
+
+  const [
+    checkins,
+    posts,
+    comments,
+    reactions,
+    likes,
+    commentReactionRows,
+    conns,
+    reports,
+    sessions,
+    games,
+    profile,
+    quietRows,
+  ] = await Promise.all([
+    ctx.db.query.moodCheckins.findMany({ where: eq(moodCheckins.userId, userId) }),
+    ctx.db.query.communityPosts.findMany({ where: eq(communityPosts.userId, userId) }),
+    ctx.db.query.postComments.findMany({ where: eq(postComments.userId, userId) }),
+    ctx.db.query.postReactions.findMany({ where: eq(postReactions.userId, userId) }),
+    ctx.db.query.postLikes.findMany({ where: eq(postLikes.userId, userId) }),
+    ctx.db.query.commentReactions.findMany({ where: eq(commentReactions.userId, userId) }),
+    ctx.db.query.connectionRequests.findMany({
+      where: or(eq(connectionRequests.requesterId, userId), eq(connectionRequests.targetUserId, userId)),
+    }),
+    ctx.db.query.conditionReports.findMany({ where: eq(conditionReports.userId, userId) }),
+    ctx.db.query.therapySessions.findMany({ where: eq(therapySessions.userId, userId) }),
+    ctx.db.query.gameScores.findMany({ where: eq(gameScores.userId, userId) }),
+    ctx.db.query.profiles.findFirst({ where: eq(profiles.userId, userId) }),
+    ctx.db.query.quietCheckins.findMany({ where: eq(quietCheckins.fromUser, userId) }),
+  ])
+
+  const checkinDays = checkins.map((row) => String(row.day ?? '').slice(0, 10)).filter(Boolean)
+  const stats: AchievementStats = {
+    checkinStreak: computeStreak(checkinDays, todayUtc),
+    totalCheckins: checkinDays.length,
+    posts: posts.filter((row) => !row.isDeleted).length,
+    comments: comments.filter((row) => !row.isDeleted).length,
+    supportsGiven: reactions.length + likes.length,
+    connections: conns.filter((row) => row.status === 'accepted').length,
+    contributions: reports.length,
+    sessions: sessions.length,
+    gamesPlayed: games.length,
+  }
+  const summary = computeAchievements(stats)
+  const todayPosts = posts.filter((row) => !row.isDeleted && isOnDay(row.createdAt, todayUtc)).length
+  const todayComments = comments.filter((row) => !row.isDeleted && isOnDay(row.createdAt, todayUtc)).length
+  const todayReactions =
+    reactions.filter((row) => isOnDay(row.createdAt, todayUtc)).length +
+    likes.filter((row) => isOnDay(row.createdAt, todayUtc)).length +
+    commentReactionRows.filter((row) => isOnDay(row.createdAt, todayUtc)).length +
+    quietRows.filter((row) => isOnDay(row.createdAt, todayUtc)).length
+  const profileSignalCount = [
+    Boolean(profile?.avatarUrl),
+    Boolean(String(profile?.bio ?? '').trim()),
+    hasItems(profile?.conditions),
+    hasItems(profile?.interests),
+    hasItems(profile?.medications),
+    Boolean(profile?.therapistPersona),
+  ].filter(Boolean).length
+
+  return buildDailyQuestState({
+    date: todayUtc,
+    checkinDone: checkinDays.includes(todayUtc),
+    communityActions: todayPosts + todayComments + todayReactions,
+    gamesPlayed: games.filter((row) => isOnDay(row.createdAt, todayUtc)).length,
+    guideSessions: sessions.filter((row) => isOnDay(row.startedAt, todayUtc)).length,
+    profileSignalCount,
+    points: summary.points,
+    level: summary.level,
+    levelTitle: summary.level_title,
+    levelFloor: summary.level_floor,
+    nextLevelPoints: summary.next_level_points,
+    checkinStreak: summary.checkin_streak,
+  })
 }
 
 /**

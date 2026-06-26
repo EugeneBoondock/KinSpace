@@ -9,6 +9,7 @@ import ProfileAvatar from '@/components/ProfileAvatar'
 import SpoonsToday from '@/components/SpoonsToday'
 import SymptomCheckin from '@/components/SymptomCheckin'
 import DailyBrief from '@/components/DailyBrief'
+import DailyQuestPanel from '@/components/DailyQuestPanel'
 import SocialStarterPanel from '@/components/SocialStarterPanel'
 import ForYou from '@/components/ForYou'
 import { useAuth } from '@/lib/AuthContext'
@@ -217,6 +218,7 @@ export default function DashboardPage() {
         DatabaseService.recordMoodCheckin(user.userId, { mood: value }),
       ])
       updateCachedProfile(user.userId, { daily_mood: value, mood_updated_at: moodUpdatedAt })
+      window.dispatchEvent(new Event('kinspace:daily-quest-refresh'))
       // Offer a contextual chat with their Guide right after a check-in.
       setCheckinChat({ mood: value })
     } catch (error) {
@@ -376,10 +378,12 @@ export default function DashboardPage() {
           </div>
         </Card>
 
+        <DailyQuestPanel />
+
         <div className="page-grid lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,24rem)] lg:items-start">
           <div className="space-y-5">
             <DailyBrief />
-            <Card>
+            <Card id="daily-check-in">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-bold text-brand-background">Daily check-in</h2>

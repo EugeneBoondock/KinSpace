@@ -41,6 +41,50 @@ export type AchievementSummary = {
   total_count: number
 }
 
+export type DailyQuestInput = {
+  date: string
+  checkinDone: boolean
+  communityActions: number
+  gamesPlayed: number
+  guideSessions: number
+  profileSignalCount: number
+  points: number
+  level: number
+  levelTitle: string
+  levelFloor: number
+  nextLevelPoints: number | null
+  checkinStreak: number
+}
+
+export type DailyQuestTask = {
+  id: 'checkin' | 'community' | 'play' | 'guide' | 'profile'
+  title: string
+  description: string
+  href: string
+  icon: string
+  reward_points: number
+  current: number
+  goal: number
+  completed: boolean
+}
+
+export type DailyQuestSummary = {
+  date: string
+  tasks: DailyQuestTask[]
+  completed_count: number
+  total_count: number
+  progress: number
+  points_available: number
+  points_earned: number
+  level: number
+  level_title: string
+  level_progress: number
+  points: number
+  next_level_points: number | null
+  checkin_streak: number
+  next_action: DailyQuestTask | null
+}
+
 const LEVEL_TITLES = [
   'Newcomer',
   'Sprout',
@@ -128,6 +172,102 @@ export function computeAchievements(stats: AchievementStats): AchievementSummary
     badges,
     earned_count: badges.filter((badge) => badge.earned).length,
     total_count: badges.length,
+  }
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value))
+}
+
+function roundRatio(value: number): number {
+  return Math.round(clamp01(value) * 100) / 100
+}
+
+export function buildDailyQuestState(input: DailyQuestInput): DailyQuestSummary {
+  const profileCurrent = Math.max(0, Math.min(3, Math.round(input.profileSignalCount || 0)))
+  const tasks: DailyQuestTask[] = [
+    {
+      id: 'checkin',
+      title: 'Check in today',
+      description: 'Log how today feels and keep your streak warm.',
+      href: '/dashboard#daily-check-in',
+      icon: 'ri-heart-pulse-line',
+      reward_points: 5,
+      current: input.checkinDone ? 1 : 0,
+      goal: 1,
+      completed: input.checkinDone,
+    },
+    {
+      id: 'community',
+      title: 'Care for the room',
+      description: 'React, reply, or post something useful.',
+      href: '/community',
+      icon: 'ri-chat-heart-line',
+      reward_points: 3,
+      current: Math.max(0, input.communityActions),
+      goal: 1,
+      completed: input.communityActions > 0,
+    },
+    {
+      id: 'play',
+      title: 'Play a short game',
+      description: 'Take a two-minute reset with any game.',
+      href: '/games',
+      icon: 'ri-gamepad-line',
+      reward_points: 2,
+      current: Math.max(0, input.gamesPlayed),
+      goal: 1,
+      completed: input.gamesPlayed > 0,
+    },
+    {
+      id: 'guide',
+      title: 'Talk to your Guide',
+      description: 'Spend a few minutes reflecting with your Guide.',
+      href: '/therapy',
+      icon: 'ri-mental-health-line',
+      reward_points: 8,
+      current: Math.max(0, input.guideSessions),
+      goal: 1,
+      completed: input.guideSessions > 0,
+    },
+    {
+      id: 'profile',
+      title: 'Make it yours',
+      description: 'Add enough profile signal for better matches.',
+      href: '/settings',
+      icon: 'ri-user-settings-line',
+      reward_points: 0,
+      current: profileCurrent,
+      goal: 3,
+      completed: profileCurrent >= 3,
+    },
+  ]
+
+  const completed = tasks.filter((task) => task.completed)
+  const levelSpan =
+    input.nextLevelPoints === null
+      ? 0
+      : Math.max(1, input.nextLevelPoints - input.levelFloor)
+  const rawLevelProgress =
+    input.nextLevelPoints === null
+      ? 1
+      : (input.points - input.levelFloor) / levelSpan
+
+  return {
+    date: input.date,
+    tasks,
+    completed_count: completed.length,
+    total_count: tasks.length,
+    progress: roundRatio(completed.length / tasks.length),
+    points_available: tasks.reduce((total, task) => total + task.reward_points, 0),
+    points_earned: completed.reduce((total, task) => total + task.reward_points, 0),
+    level: input.level,
+    level_title: input.levelTitle,
+    level_progress: roundRatio(rawLevelProgress),
+    points: input.points,
+    next_level_points: input.nextLevelPoints,
+    checkin_streak: input.checkinStreak,
+    next_action: tasks.find((task) => !task.completed) ?? null,
   }
 }
 
