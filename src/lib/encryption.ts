@@ -12,6 +12,7 @@ type HealthFields = {
   comorbidities?: string[]
   medications?: string[]
   status?: string | null
+  accessNeeds?: string[]
 }
 
 export class EncryptionService {
@@ -36,18 +37,26 @@ export class EncryptionService {
       comorbidities: data.comorbidities ?? [],
       medications: data.medications ?? [],
       status: data.status ?? null,
+      access_needs: data.accessNeeds ?? [],
     }
   }
 
   static async decryptFields(
     profile: Record<string, unknown>,
     _key?: CryptoKey | null,
-  ): Promise<{ conditions: string[]; comorbidities: string[]; medications: string[]; status: string | null }> {
+  ): Promise<{
+    conditions: string[]
+    comorbidities: string[]
+    medications: string[]
+    status: string | null
+    accessNeeds: string[]
+  }> {
     return {
       conditions: Array.isArray(profile.conditions) ? (profile.conditions as string[]) : [],
       comorbidities: Array.isArray(profile.comorbidities) ? (profile.comorbidities as string[]) : [],
       medications: Array.isArray(profile.medications) ? (profile.medications as string[]) : [],
       status: typeof profile.status === 'string' ? profile.status : null,
+      accessNeeds: Array.isArray(profile.access_needs) ? (profile.access_needs as string[]) : [],
     }
   }
 }

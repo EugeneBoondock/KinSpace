@@ -939,7 +939,7 @@ export default function TherapyPage() {
           </form>
 
           <p className="text-center text-[10px]" style={{ color: theme.mutedColor }}>
-            {persona.name} remembers past sessions, your conditions, and today&apos;s mood.
+            {persona.name} remembers past sessions, your conditions, access needs, and today&rsquo;s mood.
             Nothing in this room is medical advice.
           </p>
         </div>

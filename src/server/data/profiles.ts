@@ -85,7 +85,7 @@ export async function listProfiles(ctx: Ctx, limit = 200) {
 const ALLOWED_PROFILE_FIELDS = new Set([
   'username', 'fullName', 'pseudonym', 'isAnonymous', 'avatarUrl', 'coverImageUrl',
   'bio', 'pronouns', 'age', 'location', 'timezone', 'conditions', 'comorbidities',
-  'medications', 'status', 'interests', 'mentalHealthGoals', 'preferredCommunication',
+  'medications', 'status', 'accessNeeds', 'interests', 'mentalHealthGoals', 'preferredCommunication',
   'emergencyContact', 'emergencyPhone', 'dailyMood', 'moodUpdatedAt', 'therapistPersona',
   'onboardingComplete', 'onboardingStatus', 'visibility', 'shareHealthWithGuide',
   'anonymousProfileVisibility', 'notifyMatches', 'notifyMessages', 'notifyGroups', 'notifyResearch',

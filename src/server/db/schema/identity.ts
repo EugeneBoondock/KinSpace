@@ -50,6 +50,7 @@ export const profiles = sqliteTable(
     medications: json<string[]>('medications').default([]),
     /** Free-text health status line. */
     status: text('status'),
+    accessNeeds: json<string[]>('access_needs').default([]),
     interests: json<string[]>('interests').default([]),
     mentalHealthGoals: json<string[]>('mental_health_goals').default([]),
     preferredCommunication: text('preferred_communication').default('chat'),

@@ -32,6 +32,7 @@ async function hydrateContext(db: Db, userId: string, personaOverride?: string |
   const shareHealth = profile.shareHealthWithGuide !== false
 
   const conditions = shareHealth ? (profile.conditions ?? []) : []
+  const accessNeeds = shareHealth ? (profile.accessNeeds ?? []) : []
 
   const allConditions = await db.query.conditions.findMany()
   const aliasToSlug = new Map<string, string>()
@@ -156,6 +157,7 @@ async function hydrateContext(db: Db, userId: string, personaOverride?: string |
     medications,
     healthShared: shareHealth,
     comorbidities: shareHealth ? (profile.comorbidities ?? []) : [],
+    accessNeeds,
     goals: profile.mentalHealthGoals ?? [],
     interests: profile.interests ?? [],
     preferredCommunication: profile.preferredCommunication ?? null,

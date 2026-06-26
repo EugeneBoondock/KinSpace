@@ -12,6 +12,7 @@ const baseContext: TherapyContext = {
   conditions: [],
   medications: [],
   comorbidities: [],
+  accessNeeds: [],
   goals: [],
   interests: [],
   conditionInsights: [],
@@ -29,4 +30,35 @@ test('builds GPT-5 therapy chat requests without custom sampling fields', () => 
   assert.equal(Object.hasOwn(request, 'temperature'), false)
   assert.equal(request.messages[0]?.role, 'system')
   assert.equal(request.messages[1]?.role, 'user')
+})
+
+test('includes access needs in shared Guide context', () => {
+  const request = buildTherapyChatCompletionRequest(
+    {
+      ...baseContext,
+      conditions: ['Fibromyalgia'],
+      accessNeeds: ['Rest breaks', 'Low glare'],
+    },
+    [{ role: 'user', content: 'I need help planning tomorrow.' }],
+    { model: 'gpt-5.4' },
+  )
+
+  const system = String(request.messages[0]?.content ?? '')
+  assert.match(system, /Access and daily-life support they named: Rest breaks, Low glare/)
+})
+
+test('does not include access needs when health sharing is off', () => {
+  const request = buildTherapyChatCompletionRequest(
+    {
+      ...baseContext,
+      healthShared: false,
+      accessNeeds: ['Rest breaks'],
+    },
+    [{ role: 'user', content: 'Can we talk?' }],
+    { model: 'gpt-5.4' },
+  )
+
+  const system = String(request.messages[0]?.content ?? '')
+  assert.doesNotMatch(system, /Rest breaks/)
+  assert.match(system, /chosen to keep their health profile private/)
 })

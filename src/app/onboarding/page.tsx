@@ -48,9 +48,20 @@ const CONDITION_SUGGESTIONS = [
   'Arthritis', 'Cancer', 'Grief', 'Autism',
 ]
 
-const STEPS = ['intro', 'reason', 'focus', 'mood', 'conditions', 'identity', 'done'] as const
+const ACCESS_NEED_SUGGESTIONS = [
+  'Rest breaks',
+  'Low glare',
+  'Less motion',
+  'Shorter text',
+  'Sensory quiet',
+  'Pain-aware planning',
+  'Mobility support',
+  'Transport help',
+]
+
+const STEPS = ['intro', 'reason', 'focus', 'mood', 'conditions', 'access', 'identity', 'done'] as const
 type StepId = (typeof STEPS)[number]
-const PROGRESS_STEPS: StepId[] = ['reason', 'focus', 'mood', 'conditions', 'identity']
+const PROGRESS_STEPS: StepId[] = ['reason', 'focus', 'mood', 'conditions', 'access', 'identity']
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -66,6 +77,7 @@ export default function OnboardingPage() {
   const [mood, setMood] = useState('')
   const [conditions, setConditions] = useState<string[]>([])
   const [conditionInput, setConditionInput] = useState('')
+  const [accessNeeds, setAccessNeeds] = useState<string[]>([])
   const [displayName, setDisplayName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [isAnonymous, setIsAnonymous] = useState(false)
@@ -110,6 +122,9 @@ export default function OnboardingPage() {
     if (t && !conditions.includes(t)) setConditions((prev) => [...prev, t])
     setConditionInput('')
   }
+
+  const toggleAccessNeed = (value: string) =>
+    setAccessNeeds((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]))
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -157,9 +172,9 @@ export default function OnboardingPage() {
       }
       if (displayName.trim()) updates.full_name = displayName.trim()
       if (avatarUrl) updates.avatar_url = avatarUrl
-      if (conditions.length) {
+      if (conditions.length || accessNeeds.length) {
         const key = await EncryptionService.getOrCreateUserKey(user.userId)
-        const encrypted = await EncryptionService.encryptFields({ conditions }, key)
+        const encrypted = await EncryptionService.encryptFields({ conditions, accessNeeds }, key)
         Object.assign(updates, encrypted)
       }
       await DatabaseService.updateProfile(user.userId, updates)
@@ -354,6 +369,39 @@ export default function OnboardingPage() {
           )}
 
           {/* ── Identity ── */}
+          {step === 'access' && (
+            <StepShell
+              title="What helps KinSpace fit your day?"
+              hint="Optional. Pick anything that makes care, reading, planning, or connection easier."
+            >
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {ACCESS_NEED_SUGGESTIONS.map((need) => {
+                  const selected = accessNeeds.includes(need)
+                  return (
+                    <button
+                      key={need}
+                      type="button"
+                      onClick={() => toggleAccessNeed(need)}
+                      aria-pressed={selected}
+                      className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm transition-all active:scale-95 ${
+                        selected
+                          ? 'border-brand-accent5 bg-brand-accent5/12 text-brand-ink ring-2 ring-brand-accent5/25'
+                          : 'border-brand-line bg-brand-surface/70 text-brand-ink/72 hover:border-brand-line-strong'
+                      }`}
+                    >
+                      <i className="ri-universal-access-line text-lg text-brand-accent5" aria-hidden="true" />
+                      <span className="font-medium">{need}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-xs leading-relaxed text-brand-ink/60">
+                This stays on your private profile. The Guide can use it only when health sharing is on.
+              </p>
+              <StepNav onBack={() => go(-1)} onNext={() => go(1)} nextLabel={accessNeeds.length ? 'Continue' : 'Skip'} />
+            </StepShell>
+          )}
+
           {step === 'identity' && (
             <StepShell title="Make it yours" hint="Pick a look and a name. You can stay anonymous in the community whenever you want.">
               <div className="flex flex-col items-center gap-3">

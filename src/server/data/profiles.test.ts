@@ -21,6 +21,7 @@ function profile(overrides: Record<string, unknown>) {
     conditions: [],
     comorbidities: [],
     medications: [],
+    accessNeeds: [],
     status: null,
     interests: [],
     mentalHealthGoals: [],
@@ -164,6 +165,22 @@ test('searchPeople does not discover anonymous profiles by private fields', asyn
 
   assert.deepEqual(await searchPeople(makeCtx(rows), 'Secret City'), [])
   assert.deepEqual(await searchPeople(makeCtx(rows), 'Hidden Person'), [])
+})
+
+test('searchPeople never returns access needs', async () => {
+  const rows = [
+    profile({
+      userId: 'sapphire',
+      username: 'sapphirespring',
+      accessNeeds: ['Rest breaks'],
+    }),
+  ]
+
+  const [result] = await searchPeople(makeCtx(rows), 'sapphire') as Array<Record<string, unknown>>
+
+  assert.equal(result.username, 'sapphirespring')
+  assert.equal('accessNeeds' in result, false)
+  assert.equal('access_needs' in result, false)
 })
 
 test('getStrandSummary hides blocked strand rows', async () => {

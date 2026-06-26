@@ -26,6 +26,7 @@ export type TherapyContext = {
   conditions: string[]
   medications: string[]
   comorbidities: string[]
+  accessNeeds: string[]
   /** When false, the user has opted out of sharing their health profile with the Guide. */
   healthShared?: boolean
   goals: string[]
@@ -61,6 +62,7 @@ function buildSystemPrompt(context: TherapyContext): string {
   const meds = context.medications.length > 0 ? context.medications.join(', ') : 'none shared'
   const comorbid =
     context.comorbidities.length > 0 ? context.comorbidities.join(', ') : 'none shared'
+  const accessNeeds = context.accessNeeds.length > 0 ? context.accessNeeds.join(', ') : 'none shared'
   const goals = context.goals.length > 0 ? context.goals.join('; ') : 'none shared'
   const interests = context.interests.length > 0 ? context.interests.join(', ') : 'none shared'
   const pronouns = context.pronouns ? `Pronouns: ${context.pronouns}.` : ''
@@ -128,7 +130,8 @@ ${
       ? `This person has chosen to keep their health profile private from you. You do not have their conditions, medications, or other health details. Do not ask them to list these, and do not assume any. Work only with what they choose to tell you in the room.`
       : `Self-reported conditions: ${conditions}
 Current medications they take: ${meds}
-Other conditions they listed: ${comorbid}`
+Other conditions they listed: ${comorbid}
+Access and daily-life support they named: ${accessNeeds}`
   }
 Mental-health goals they shared: ${goals}
 Interests that brighten them: ${interests}

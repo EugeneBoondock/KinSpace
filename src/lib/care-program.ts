@@ -110,7 +110,7 @@ export function buildCareProgramState(input: CareProgramInput): CareProgramState
       title: input.activeMedicationCount > 0 ? 'Protect your treatment rhythm' : 'Set your care signals',
       body: input.activeMedicationCount > 0
         ? 'Mark doses and keep your medication rhythm visible.'
-        : 'Add conditions, treatments, or goals so KinSpace can guide better.',
+        : 'Add conditions, access needs, treatments, or goals so KinSpace can guide better.',
       href: input.activeMedicationCount > 0 ? '/calendar' : '/settings',
       icon: input.activeMedicationCount > 0 ? 'ri-capsule-line' : 'ri-user-settings-line',
       progress: Math.round(bodyProgress * 100) / 100,

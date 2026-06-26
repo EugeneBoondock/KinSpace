@@ -29,6 +29,7 @@ interface ProfileData {
   conditions: string[]
   comorbidities: string[]
   medications: string[]
+  access_needs: string[]
   status: string
   is_anonymous: boolean
   anonymous_profile_visibility: string
@@ -53,6 +54,7 @@ const defaultProfile: ProfileData = {
   conditions: [],
   comorbidities: [],
   medications: [],
+  access_needs: [],
   status: '',
   is_anonymous: false,
   anonymous_profile_visibility: 'connections',
@@ -70,6 +72,17 @@ const communicationOptions = [
   { value: 'chat', label: 'Chat', icon: 'ri-chat-1-line' },
   { value: 'voice', label: 'Voice', icon: 'ri-mic-line' },
   { value: 'video', label: 'Video', icon: 'ri-vidicon-line' },
+]
+
+const accessNeedOptions = [
+  { value: 'Rest breaks', icon: 'ri-time-line' },
+  { value: 'Low glare', icon: 'ri-sun-foggy-line' },
+  { value: 'Less motion', icon: 'ri-leaf-line' },
+  { value: 'Shorter text', icon: 'ri-text-wrap' },
+  { value: 'Sensory quiet', icon: 'ri-volume-down-line' },
+  { value: 'Pain-aware planning', icon: 'ri-heart-pulse-line' },
+  { value: 'Mobility support', icon: 'ri-walk-line' },
+  { value: 'Transport help', icon: 'ri-bus-line' },
 ]
 
 const themeOptions = [
@@ -95,6 +108,7 @@ export default function Settings() {
   const [conditionInput, setConditionInput] = useState('')
   const [comorbidityInput, setComorbidityInput] = useState('')
   const [medicationInput, setMedicationInput] = useState('')
+  const [accessNeedInput, setAccessNeedInput] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [blockedUsers, setBlockedUsers] = useState<BlockedRow[]>([])
   const [exportingData, setExportingData] = useState(false)
@@ -198,6 +212,7 @@ export default function Settings() {
             conditions: (data.conditions as string[]) || [],
             comorbidities: (data.comorbidities as string[]) || [],
             medications: (data.medications as string[]) || [],
+            access_needs: (data.access_needs as string[]) || [],
             status: (data.status as string) || '',
           }
           try {
@@ -207,6 +222,7 @@ export default function Settings() {
               conditions: decrypted.conditions,
               comorbidities: decrypted.comorbidities,
               medications: decrypted.medications,
+              access_needs: decrypted.accessNeeds,
               status: decrypted.status || '',
             }
           } catch (decryptErr) {
@@ -276,6 +292,7 @@ export default function Settings() {
           conditions: profile.conditions,
           comorbidities: profile.comorbidities,
           medications: profile.medications,
+          accessNeeds: profile.access_needs,
           status: profile.status || null,
         },
         key,
@@ -312,7 +329,7 @@ export default function Settings() {
   }
 
   const handleAddTag = (
-    field: 'conditions' | 'comorbidities' | 'medications',
+    field: 'conditions' | 'comorbidities' | 'medications' | 'access_needs',
     value: string,
     setter: (v: string) => void
   ) => {
@@ -323,7 +340,7 @@ export default function Settings() {
   }
 
   const handleRemoveTag = (
-    field: 'conditions' | 'comorbidities' | 'medications',
+    field: 'conditions' | 'comorbidities' | 'medications' | 'access_needs',
     index: number
   ) => {
     setProfile((prev) => ({
@@ -628,10 +645,72 @@ export default function Settings() {
             <i className="ri-universal-access-line text-brand-accent5" /> Access and comfort
           </h2>
           <p className="mb-4 text-sm text-brand-background/55">
-            Tune KinSpace for glare, motion, and sensory load. These choices save on this device.
+            Save daily-life needs on your private profile and tune this device for glare, motion, and sound.
           </p>
 
           <div className="space-y-4">
+            <Field label="What helps KinSpace fit your day?" htmlFor="settings-access-need-input">
+              {profile.access_needs.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {profile.access_needs.map((need, index) => (
+                    <Badge key={need} className="gap-1 bg-brand-accent5/18 text-brand-background">
+                      {need}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag('access_needs', index)}
+                        aria-label={`Remove ${need}`}
+                        className="transition-colors hover:text-brand-accent5"
+                      >
+                        <i className="ri-close-line text-xs" aria-hidden="true" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  id="settings-access-need-input"
+                  type="text"
+                  value={accessNeedInput}
+                  onChange={(e) => setAccessNeedInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleAddTag('access_needs', accessNeedInput, setAccessNeedInput)
+                    }
+                  }}
+                  placeholder="Add rest breaks, low glare, transport help"
+                  className="flex-1"
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-label="Add access need"
+                  onClick={() => handleAddTag('access_needs', accessNeedInput, setAccessNeedInput)}
+                >
+                  <i className="ri-add-line" aria-hidden="true" />
+                </Button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {accessNeedOptions
+                  .filter((option) => !profile.access_needs.includes(option.value))
+                  .map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleAddTag('access_needs', option.value, setAccessNeedInput)}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-brand-background/[0.06] px-3 py-1.5 text-sm text-brand-background/72 transition-colors hover:bg-brand-background/[0.1] hover:text-brand-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                    >
+                      <i className={option.icon} aria-hidden="true" />
+                      {option.value}
+                    </button>
+                  ))}
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-brand-background/65">
+                The Guide can use this only when health sharing is on. Other members never see it.
+              </p>
+            </Field>
+
             <fieldset>
               <legend className="mb-2 text-sm font-medium text-brand-background/90">Color mode</legend>
               <div className="grid grid-cols-2 gap-2">

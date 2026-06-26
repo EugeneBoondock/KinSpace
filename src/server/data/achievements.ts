@@ -139,6 +139,7 @@ export async function getDailyQuest(ctx: Ctx, _userId?: string) {
     Boolean(profile?.avatarUrl),
     Boolean(String(profile?.bio ?? '').trim()),
     hasItems(profile?.conditions),
+    hasItems(profile?.accessNeeds),
     hasItems(profile?.interests),
     hasItems(profile?.medications),
     Boolean(profile?.therapistPersona),
