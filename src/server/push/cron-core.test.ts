@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  buildMedicationReminderNotification,
   nextReminderAlertAttempt,
   parseReminderAlertState,
   timeToMinutes,
@@ -42,6 +43,36 @@ describe('dueSlotsInWindow', () => {
   })
   it('ignores malformed times', () => {
     expect(dueSlotsInWindow(['nope', '08:00'], 480, 5)).toEqual(['08:00'])
+  })
+})
+
+describe('buildMedicationReminderNotification', () => {
+  it('builds a durable in-app reminder trail without medical advice', () => {
+    const note = buildMedicationReminderNotification({
+      medication: 'Metformin',
+      dose: '500 mg',
+      time: '08:00',
+    })
+
+    expect(note).toEqual({
+      type: 'medication_reminder',
+      title: 'Time for Metformin',
+      body: 'Metformin, 500 mg was due at 08:00. Mark it taken when you can.',
+    })
+    expect(note.body).not.toMatch(/should|dose change|stop|start/i)
+  })
+
+  it('labels snoozed reminders clearly', () => {
+    expect(
+      buildMedicationReminderNotification({
+        medication: 'Vitamin D',
+        snoozed: true,
+      }),
+    ).toEqual({
+      type: 'medication_reminder',
+      title: 'Snoozed reminder: Vitamin D',
+      body: 'Vitamin D is due again. Mark it taken when you can.',
+    })
   })
 })
 

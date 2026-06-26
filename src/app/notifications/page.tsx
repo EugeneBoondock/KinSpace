@@ -29,6 +29,7 @@ const typeIcons: Record<string, string> = {
   group_invite: 'ri-group-line',
   group_role: 'ri-shield-star-line',
   expertise: 'ri-lightbulb-flash-line',
+  medication_reminder: 'ri-capsule-line',
 }
 
 function notificationAction(row: NotificationRow): { label: string; href: string } | null {
@@ -38,6 +39,7 @@ function notificationAction(row: NotificationRow): { label: string; href: string
   if (row.type === 'connection_request' || row.type === 'connection_accepted')
     return { label: 'View your strands', href: '/strands' }
   if (row.type === 'quiet_checkin') return { label: 'Go to your space', href: '/dashboard' }
+  if (row.type === 'medication_reminder') return { label: 'Open reminders', href: '/dashboard?meds=1' }
   const groupId = (data.group_id ?? data.groupId) as string | undefined
   if ((row.type === 'group_invite' || row.type === 'group_role') && groupId)
     return { label: 'Open the group', href: `/groups/${groupId}` }

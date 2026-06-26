@@ -3,8 +3,10 @@ import { getDb } from '@/server/db/client'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { medicationReminders, profiles, pushSubscriptions } from '@/server/db/schema'
 import { normalizeReminderTimes } from '@/lib/medication-reminders'
+import { createNotification } from '@/server/notify'
 import {
   REMINDER_ALERT_WINDOW_MINUTES,
+  buildMedicationReminderNotification,
   dueSlotsInWindow,
   localMinutesInTimeZone,
   localDateKeyInTimeZone,
@@ -68,6 +70,7 @@ export async function runDueMedicationReminders(now: Date) {
 
   let dueCount = 0
   let sentCount = 0
+  let notifiedCount = 0
 
   for (const [userId, userReminders] of byUser) {
     const profile = await db.query.profiles.findFirst({
@@ -131,6 +134,29 @@ export async function runDueMedicationReminders(now: Date) {
     const subList = subs.map((s) => ({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }))
 
     for (const item of fresh) {
+      let notificationCreated = false
+      if (item.attempt === 1) {
+        const notification = buildMedicationReminderNotification({
+          medication: item.reminder.medication,
+          dose: item.reminder.dose,
+          time: item.time,
+          snoozed: item.snoozed,
+        })
+        await createNotification(db, userId, {
+          ...notification,
+          data: {
+            kind: 'med-reminder',
+            reminder_id: item.reminder.id,
+            time: item.time,
+            date_key: dateKey,
+            snoozed: Boolean(item.snoozed),
+            url: '/dashboard?meds=1',
+          },
+        })
+        notificationCreated = true
+        notifiedCount += 1
+      }
+
       if (subList.length > 0) {
         const dose = item.reminder.dose ? `, ${item.reminder.dose}` : ''
         const body = item.snoozed
@@ -164,13 +190,19 @@ export async function runDueMedicationReminders(now: Date) {
         for (const endpoint of results.filter((r) => r.gone).map((r) => r.endpoint)) {
           await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint))
         }
-        if (kv && delivered && !item.snoozed) {
+        if (kv && (results.length > 0 || notificationCreated) && !item.snoozed) {
           await kv.put(
             item.key,
             serializeReminderAlertState({ attempts: item.attempt, lastSentAt: now.getTime() }),
             { expirationTtl: ALERT_STATE_TTL_SECONDS },
           )
         }
+      } else if (kv && !item.snoozed) {
+        await kv.put(
+          item.key,
+          serializeReminderAlertState({ attempts: item.attempt, lastSentAt: now.getTime() }),
+          { expirationTtl: ALERT_STATE_TTL_SECONDS },
+        )
       }
       if (kv) {
         if (item.snoozed) await kv.delete(item.key)
@@ -178,5 +210,5 @@ export async function runDueMedicationReminders(now: Date) {
     }
   }
 
-  return { ok: true, due: dueCount, sent: sentCount }
+  return { ok: true, due: dueCount, sent: sentCount, notified: notifiedCount }
 }

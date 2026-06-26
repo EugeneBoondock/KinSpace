@@ -51,6 +51,12 @@ export type ReminderAlertState = {
   lastSentAt: number | null
 }
 
+export type MedicationReminderNotification = {
+  type: 'medication_reminder'
+  title: string
+  body: string
+}
+
 export const REMINDER_ALERT_WINDOW_MINUTES = 31
 export const REMINDER_ALERT_GAP_MINUTES = 4
 export const REMINDER_ALERT_MAX_ATTEMPTS = 4
@@ -144,6 +150,29 @@ export function wasReminderSlotTaken(
   if (localDateKeyInTimeZone(lastTakenAt, timeZone) !== dateKey) return false
 
   return localMinutesInTimeZone(lastTakenAt, timeZone) >= slotMinutes
+}
+
+export function buildMedicationReminderNotification({
+  medication,
+  dose,
+  time,
+  snoozed = false,
+}: {
+  medication: string
+  dose?: string | null
+  time?: string | null
+  snoozed?: boolean
+}): MedicationReminderNotification {
+  const cleanMedication = medication.trim() || 'Medication'
+  const cleanDose = dose?.trim() ? `, ${dose.trim()}` : ''
+  const cleanTime = time?.trim()
+  return {
+    type: 'medication_reminder',
+    title: snoozed ? `Snoozed reminder: ${cleanMedication}` : `Time for ${cleanMedication}`,
+    body: snoozed
+      ? `${cleanMedication}${cleanDose} is due again. Mark it taken when you can.`
+      : `${cleanMedication}${cleanDose}${cleanTime ? ` was due at ${cleanTime}` : ' is due'}. Mark it taken when you can.`,
+  }
 }
 
 /**
