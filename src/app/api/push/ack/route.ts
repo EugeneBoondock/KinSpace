@@ -5,6 +5,7 @@ import { getDb } from '@/server/db/client'
 import { medicationReminders } from '@/server/db/schema'
 import { getSessionUserId } from '@/server/http/auth'
 import { markMedicationReminderTaken } from '@/server/data/wellness'
+import { acknowledgeReminderSlot } from '@/server/push/ack'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -13,11 +14,11 @@ export const dynamic = 'force-dynamic'
 // once `until` has passed (see runDueMedicationReminders' snooze pass).
 const SNOOZE_MINUTES = 10
 
-type AckBody = { action?: string; reminderId?: string; time?: string | null }
+type AckBody = { action?: string; reminderId?: string; time?: string | null; dateKey?: string | null }
 
 /**
  * Acknowledge a medication reminder push from the Service Worker's notification
- * actions — no app window required. "Taken" logs the dose (idempotent per day);
+ * actions, no app window required. "Taken" logs the dose (idempotent per day);
  * "Snooze" re-arms the reminder via KV for the cron to re-fire shortly.
  */
 export async function POST(request: NextRequest) {
@@ -45,6 +46,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Not found.' }, { status: 404 })
   }
 
+  const dateKey = typeof body.dateKey === 'string' ? body.dateKey : ''
+  const time = typeof body.time === 'string' ? body.time : ''
+  await acknowledgeReminderSlot(reminderId, dateKey, time)
+
   if (action === 'taken') {
     await markMedicationReminderTaken({ db, userId }, userId, reminderId)
     return NextResponse.json({ ok: true, action: 'taken' })
@@ -65,7 +70,7 @@ export async function POST(request: NextRequest) {
       )
     }
   } catch {
-    // KV not bound (e.g. local dev) — snooze is best-effort, not fatal.
+    // KV not bound (e.g. local dev), snooze is best-effort, not fatal.
   }
   return NextResponse.json({ ok: true, action: 'snooze' })
 }

@@ -132,6 +132,12 @@ function storageKey(ackKey: string) {
   return `${ACK_PREFIX}${ackKey}`
 }
 
+function parseReminderAckKey(ackKey: string): { dateKey: string; reminderId: string; time: string } | null {
+  const [dateKey, reminderId, hour, minute] = ackKey.split(':')
+  if (!dateKey || !reminderId || !hour || !minute) return null
+  return { dateKey, reminderId, time: `${hour}:${minute}` }
+}
+
 function playReminderTone() {
   // Centralized so it honors the global sound toggle (Settings -> Sounds).
   playSfx('reminder')
@@ -146,7 +152,7 @@ function formatTimes(times: string[]) {
   return normalizeReminderTimes(times).join(', ')
 }
 
-// True when last_taken_at falls on today's local date — drives the clear
+// True when last_taken_at falls on today's local date, which drives the clear
 // "Taken today" vs "Not taken yet" distinction on the shelf.
 function isTakenToday(value?: string | null): boolean {
   if (!value) return false
@@ -277,6 +283,7 @@ export default function MedicationShelf() {
 
     const title = 'Medication reminder'
     const body = `${slot.reminder.medication}${slot.reminder.dose ? `, ${slot.reminder.dose}` : ''} at ${slot.time}`
+    const slotParts = parseReminderAckKey(slot.ackKey)
     const options: NotificationOptions & {
       actions?: Array<{ action: string; title: string }>
       renotify?: boolean
@@ -294,7 +301,13 @@ export default function MedicationShelf() {
       ],
       icon: '/images/gather_logo.png',
       badge: '/images/gather_logo.png',
-      data: { url: '/dashboard?meds=1', kind: 'med-reminder', reminderId: slot.reminder.id, time: slot.time },
+      data: {
+        url: '/dashboard?meds=1',
+        kind: 'med-reminder',
+        reminderId: slot.reminder.id,
+        time: slot.time,
+        dateKey: slotParts?.dateKey,
+      },
     }
 
     if ('serviceWorker' in navigator) {
@@ -561,7 +574,18 @@ export default function MedicationShelf() {
     if (!user) return
     try {
       await DatabaseService.markMedicationReminderTaken(user.userId, reminder.id)
-      if (ackKey) window.localStorage.setItem(storageKey(ackKey), String(Date.now()))
+      if (ackKey) {
+        window.localStorage.setItem(storageKey(ackKey), String(Date.now()))
+        const slotParts = parseReminderAckKey(ackKey)
+        if (slotParts && slotParts.reminderId === reminder.id) {
+          await DatabaseService.ackMedicationReminderSlot(
+            user.userId,
+            reminder.id,
+            slotParts.dateKey,
+            slotParts.time,
+          ).catch(() => undefined)
+        }
+      }
       setActiveAlert(null)
       await loadReminders()
       toast.push('Marked as taken.', 'success')

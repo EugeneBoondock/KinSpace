@@ -3,14 +3,25 @@ import { getDb } from '@/server/db/client'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { medicationReminders, profiles, pushSubscriptions } from '@/server/db/schema'
 import { normalizeReminderTimes } from '@/lib/medication-reminders'
-import { dueSlotsInWindow, localMinutesInTimeZone, localDateKeyInTimeZone } from './cron-core'
+import {
+  REMINDER_ALERT_WINDOW_MINUTES,
+  dueSlotsInWindow,
+  localMinutesInTimeZone,
+  localDateKeyInTimeZone,
+  nextReminderAlertAttempt,
+  parseReminderAlertState,
+  reminderAlertStateKey,
+  reminderSlotAckKey,
+  serializeReminderAlertState,
+  wasReminderSlotTaken,
+} from './cron-core'
 import { sendWebPushToAll, isPushConfigured } from './send'
 
 // SA-first default when a member hasn't recorded a timezone (set on push opt-in).
 const DEFAULT_TZ = 'Africa/Johannesburg'
 // Slightly wider than the 5-minute cron so a slot is never skipped between ticks.
 const WINDOW_MIN = 6
-const DEDUP_TTL_SECONDS = 60 * 60 * 26 // ~1 day; clears for the next day's dose
+const ALERT_STATE_TTL_SECONDS = 60 * 60 * 26 // about 1 day
 
 type ReminderRow = typeof medicationReminders.$inferSelect
 
@@ -18,6 +29,13 @@ type KvLike = {
   get: (key: string) => Promise<string | null>
   put: (key: string, value: string, options?: { expirationTtl?: number }) => Promise<void>
   delete: (key: string) => Promise<void>
+}
+
+function toDate(value: unknown): Date | null {
+  if (!value) return null
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
+  const date = new Date(String(value))
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
 /**
@@ -62,7 +80,8 @@ export async function runDueMedicationReminders(now: Date) {
 
     const dueForUser: Array<{ reminder: ReminderRow; time: string; snoozed?: boolean }> = []
     for (const reminder of userReminders) {
-      for (const time of dueSlotsInWindow(normalizeReminderTimes(reminder.times ?? []), nowMinutes, WINDOW_MIN)) {
+      const alertWindow = kv ? REMINDER_ALERT_WINDOW_MINUTES : WINDOW_MIN
+      for (const time of dueSlotsInWindow(normalizeReminderTimes(reminder.times ?? []), nowMinutes, alertWindow)) {
         dueForUser.push({ reminder, time })
       }
       // Snoozed re-fire: a "Snooze" ack wrote medsnooze:<id> with an `until`. Once
@@ -76,24 +95,34 @@ export async function runDueMedicationReminders(now: Date) {
               dueForUser.push({ reminder, time: parsed.time || '', snoozed: true })
             }
           } catch {
-            await kv.delete(`medsnooze:${reminder.id}`) // bad payload — clear it
+            await kv.delete(`medsnooze:${reminder.id}`) // bad payload, clear it
           }
         }
       }
     }
     if (dueForUser.length === 0) continue
 
-    // Drop slots already handled today (KV dedup). Snoozed re-fires bypass the
-    // day-dedup (they're keyed to the snooze entry, cleared after one send).
-    const fresh: Array<{ reminder: ReminderRow; time: string; key: string; snoozed?: boolean }> = []
+    const fresh: Array<{ reminder: ReminderRow; time: string; key: string; attempt: number; snoozed?: boolean }> = []
     for (const item of dueForUser) {
       if (item.snoozed) {
-        fresh.push({ ...item, key: `medsnooze:${item.reminder.id}` })
+        fresh.push({ ...item, key: `medsnooze:${item.reminder.id}`, attempt: 1 })
         continue
       }
-      const key = `medpush:${item.reminder.id}:${dateKey}:${item.time}`
-      if (kv && (await kv.get(key))) continue
-      fresh.push({ ...item, key })
+      const key = reminderAlertStateKey(item.reminder.id, dateKey, item.time)
+      const state = kv ? parseReminderAlertState(await kv.get(key)) : { attempts: 0, lastSentAt: null }
+      const acknowledged = kv ? Boolean(await kv.get(reminderSlotAckKey(item.reminder.id, dateKey, item.time))) : false
+      const taken = wasReminderSlotTaken(toDate(item.reminder.lastTakenAt), dateKey, item.time, tz)
+      const attempt = nextReminderAlertAttempt({
+        time: item.time,
+        nowMinutes,
+        nowMs: now.getTime(),
+        state,
+        acknowledged,
+        taken,
+        windowMinutes: kv ? REMINDER_ALERT_WINDOW_MINUTES : WINDOW_MIN,
+      })
+      if (attempt === null) continue
+      fresh.push({ ...item, key, attempt })
     }
     if (fresh.length === 0) continue
     dueCount += fresh.length
@@ -121,19 +150,30 @@ export async function runDueMedicationReminders(now: Date) {
             { action: 'taken', title: 'Taken' },
             { action: 'snooze', title: 'Snooze 10m' },
           ],
-          data: { kind: 'med-reminder', reminderId: item.reminder.id, time: item.time },
+          data: {
+            kind: 'med-reminder',
+            reminderId: item.reminder.id,
+            time: item.time,
+            dateKey,
+            attempt: item.attempt,
+            snoozed: Boolean(item.snoozed),
+          },
         })
-        if (results.some((r) => r.ok)) sentCount += 1
+        const delivered = results.some((r) => r.ok)
+        if (delivered) sentCount += 1
         for (const endpoint of results.filter((r) => r.gone).map((r) => r.endpoint)) {
           await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint))
         }
+        if (kv && delivered && !item.snoozed) {
+          await kv.put(
+            item.key,
+            serializeReminderAlertState({ attempts: item.attempt, lastSentAt: now.getTime() }),
+            { expirationTtl: ALERT_STATE_TTL_SECONDS },
+          )
+        }
       }
-      // Snoozed slots fire once (clear the key); regular slots are deduped for the
-      // rest of the day so they never double-send between 5-minute ticks. Marked
-      // handled even with no devices, so we don't recompute endlessly today.
       if (kv) {
         if (item.snoozed) await kv.delete(item.key)
-        else await kv.put(item.key, '1', { expirationTtl: DEDUP_TTL_SECONDS })
       }
     }
   }

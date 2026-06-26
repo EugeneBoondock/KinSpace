@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kinspace-v5'
+const CACHE_NAME = 'kinspace-v6'
 const OFFLINE_URL = '/offline'
 
 const PRECACHE_URLS = [
@@ -8,6 +8,48 @@ const PRECACHE_URLS = [
   '/images/gather_logo1.png',
   '/manifest.json',
 ]
+
+const MED_REMINDER_REPEAT_DELAY_MS = 15 * 1000
+const MED_REMINDER_REPEAT_LIMIT = 4
+const activeMedicationAlarms = new Set()
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function medicationAlarmKey(options) {
+  const data = options.data || {}
+  return [options.tag || 'kinspace-activity', data.reminderId || '', data.dateKey || '', data.time || ''].join(':')
+}
+
+async function showMedicationAlarm(title, options) {
+  const alarmKey = medicationAlarmKey(options)
+  const alarmOptions = {
+    ...options,
+    data: { ...(options.data || {}), alarmKey },
+  }
+
+  activeMedicationAlarms.add(alarmKey)
+  try {
+    await self.registration.showNotification(title, alarmOptions)
+
+    for (let attempt = 1; attempt <= MED_REMINDER_REPEAT_LIMIT; attempt += 1) {
+      await sleep(MED_REMINDER_REPEAT_DELAY_MS)
+      if (!activeMedicationAlarms.has(alarmKey)) break
+
+      const visible = await self.registration.getNotifications({ tag: alarmOptions.tag })
+      if (visible.length === 0) break
+
+      await self.registration.showNotification(title, {
+        ...alarmOptions,
+        timestamp: Date.now(),
+        data: { ...(alarmOptions.data || {}), repeat: attempt },
+      })
+    }
+  } finally {
+    activeMedicationAlarms.delete(alarmKey)
+  }
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -100,12 +142,14 @@ self.addEventListener('push', (event) => {
     actions: Array.isArray(payload.actions) ? payload.actions.slice(0, 2) : [],
     data: { url: payload.url || '/notifications', ...(payload.data || {}) },
   }
-  event.waitUntil(self.registration.showNotification(title, options))
+  const isMedicationReminder = options.data && options.data.kind === 'med-reminder'
+  event.waitUntil(isMedicationReminder ? showMedicationAlarm(title, options) : self.registration.showNotification(title, options))
 })
 
 self.addEventListener('notificationclick', (event) => {
-  event.notification.close()
   const data = event.notification.data || {}
+  if (data.alarmKey) activeMedicationAlarms.delete(data.alarmKey)
+  event.notification.close()
 
   // Medication reminder action buttons: acknowledge to the server directly, with
   // no app window needed. "Taken" logs the dose; "Snooze 10m" re-arms it via the
@@ -116,7 +160,7 @@ self.addEventListener('notificationclick', (event) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ action: event.action, reminderId: data.reminderId, time: data.time }),
+        body: JSON.stringify({ action: event.action, reminderId: data.reminderId, time: data.time, dateKey: data.dateKey }),
       }).catch(() => undefined)
     )
     return

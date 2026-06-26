@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { timeToMinutes, dueSlotsInWindow, localMinutesInTimeZone, localDateKeyInTimeZone } from './cron-core'
+import {
+  nextReminderAlertAttempt,
+  parseReminderAlertState,
+  timeToMinutes,
+  dueSlotsInWindow,
+  localMinutesInTimeZone,
+  localDateKeyInTimeZone,
+  wasReminderSlotTaken,
+} from './cron-core'
 
 describe('timeToMinutes', () => {
   it('parses valid HH:MM', () => {
@@ -49,5 +57,109 @@ describe('timezone helpers', () => {
     const d = new Date('2026-06-22T22:30:00Z')
     expect(localDateKeyInTimeZone(d, 'Africa/Johannesburg')).toBe('2026-06-23')
     expect(localDateKeyInTimeZone(d, 'UTC')).toBe('2026-06-22')
+  })
+})
+
+describe('parseReminderAlertState', () => {
+  it('reads stored attempt counts', () => {
+    expect(parseReminderAlertState('{"attempts":2,"lastSentAt":1782108000000}')).toEqual({
+      attempts: 2,
+      lastSentAt: 1782108000000,
+    })
+  })
+
+  it('keeps legacy sent markers as one attempt', () => {
+    expect(parseReminderAlertState('1')).toEqual({ attempts: 1, lastSentAt: null })
+  })
+})
+
+describe('nextReminderAlertAttempt', () => {
+  const nowMs = Date.parse('2026-06-22T06:05:00Z')
+
+  it('starts the alert run when the slot is due', () => {
+    expect(
+      nextReminderAlertAttempt({
+        time: '08:00',
+        nowMinutes: 8 * 60,
+        nowMs,
+        state: { attempts: 0, lastSentAt: null },
+      }),
+    ).toBe(1)
+  })
+
+  it('re-alerts after the send gap until the limit is reached', () => {
+    expect(
+      nextReminderAlertAttempt({
+        time: '08:00',
+        nowMinutes: 8 * 60 + 5,
+        nowMs,
+        state: { attempts: 1, lastSentAt: nowMs - 5 * 60 * 1000 },
+      }),
+    ).toBe(2)
+    expect(
+      nextReminderAlertAttempt({
+        time: '08:00',
+        nowMinutes: 8 * 60 + 20,
+        nowMs,
+        state: { attempts: 4, lastSentAt: nowMs - 5 * 60 * 1000 },
+      }),
+    ).toBeNull()
+  })
+
+  it('does not re-alert after acknowledgement or a recorded dose', () => {
+    expect(
+      nextReminderAlertAttempt({
+        time: '08:00',
+        nowMinutes: 8 * 60 + 5,
+        nowMs,
+        state: { attempts: 1, lastSentAt: nowMs - 5 * 60 * 1000 },
+        acknowledged: true,
+      }),
+    ).toBeNull()
+    expect(
+      nextReminderAlertAttempt({
+        time: '08:00',
+        nowMinutes: 8 * 60 + 5,
+        nowMs,
+        state: { attempts: 1, lastSentAt: nowMs - 5 * 60 * 1000 },
+        taken: true,
+      }),
+    ).toBeNull()
+  })
+
+  it('does not re-alert too soon or outside the alert window', () => {
+    expect(
+      nextReminderAlertAttempt({
+        time: '08:00',
+        nowMinutes: 8 * 60 + 2,
+        nowMs,
+        state: { attempts: 1, lastSentAt: nowMs - 2 * 60 * 1000 },
+      }),
+    ).toBeNull()
+    expect(
+      nextReminderAlertAttempt({
+        time: '08:00',
+        nowMinutes: 8 * 60 + 31,
+        nowMs,
+        state: { attempts: 1, lastSentAt: nowMs - 10 * 60 * 1000 },
+      }),
+    ).toBeNull()
+  })
+})
+
+describe('wasReminderSlotTaken', () => {
+  it('matches doses marked taken after the slot in the member timezone', () => {
+    expect(
+      wasReminderSlotTaken(new Date('2026-06-22T06:10:00Z'), '2026-06-22', '08:00', 'Africa/Johannesburg'),
+    ).toBe(true)
+  })
+
+  it('ignores earlier slots and other local days', () => {
+    expect(
+      wasReminderSlotTaken(new Date('2026-06-22T05:30:00Z'), '2026-06-22', '08:00', 'Africa/Johannesburg'),
+    ).toBe(false)
+    expect(
+      wasReminderSlotTaken(new Date('2026-06-21T22:10:00Z'), '2026-06-22', '08:00', 'Africa/Johannesburg'),
+    ).toBe(false)
   })
 })

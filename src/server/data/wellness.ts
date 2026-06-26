@@ -15,6 +15,7 @@ import {
   therapyFeedback,
 } from '@/server/db/schema'
 import { createNotification } from '@/server/notify'
+import { acknowledgeReminderSlot } from '@/server/push/ack'
 import { encryptField, decryptField } from '@/server/crypto/field-encryption'
 import { normalizeReminderTimes, reconcileProfileMedications } from '@/lib/medication-reminders'
 import { normalizeMoodCheckin } from '@/lib/moods'
@@ -473,6 +474,23 @@ export async function deleteMedicationReminder(ctx: Ctx, _userId: string, remind
   return { ok: true }
 }
 
+export async function ackMedicationReminderSlot(
+  ctx: Ctx,
+  _userId: string,
+  reminderId: string,
+  dateKey: string,
+  time: string,
+) {
+  const userId = requireActor(ctx)
+  const existing = await ctx.db.query.medicationReminders.findFirst({
+    where: eq(medicationReminders.id, reminderId),
+  })
+  if (!existing || existing.userId !== userId) throw new Error('Not authorized')
+
+  await acknowledgeReminderSlot(reminderId, String(dateKey || ''), String(time || ''))
+  return { ok: true }
+}
+
 export async function markMedicationReminderTaken(ctx: Ctx, _userId: string, reminderId: string) {
   const userId = requireActor(ctx)
   const existing = await ctx.db.query.medicationReminders.findFirst({
@@ -487,7 +505,7 @@ export async function markMedicationReminderTaken(ctx: Ctx, _userId: string, rem
     .set({ lastTakenAt: now, updatedAt: now })
     .where(eq(medicationReminders.id, reminderId))
 
-  // Append to the per-dose history that powers the activity calendar — but only
+  // Append to the per-dose history that powers the activity calendar, but only
   // once per reminder per day, so repeat taps (the shelf + the push "Taken"
   // action both call this) never double-log the same dose.
   const alreadyLogged = await ctx.db.query.medicationTakenLog.findFirst({
