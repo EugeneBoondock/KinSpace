@@ -5,13 +5,15 @@
  *
  * PayFast requires an MD5 signature. Web Crypto has no MD5 and workerd's
  * node:crypto MD5 support is not guaranteed, so we use a small self-contained
- * MD5 (RFC 1321) — payments must not depend on a runtime quirk.
+ * MD5 (RFC 1321). Payments must not depend on a runtime quirk.
  */
 
 const LIVE_PROCESS = 'https://www.payfast.co.za/eng/process'
 const SANDBOX_PROCESS = 'https://sandbox.payfast.co.za/eng/process'
 const LIVE_VALIDATE = 'https://www.payfast.co.za/eng/query/validate'
 const SANDBOX_VALIDATE = 'https://sandbox.payfast.co.za/eng/query/validate'
+const LIVE_API = 'https://api.payfast.co.za'
+const SANDBOX_API = 'https://sandbox.payfast.co.za'
 
 function cfg() {
   return {
@@ -45,6 +47,26 @@ function signFields(ordered: Array<[string, string]>, passphrase: string): strin
   return md5(str)
 }
 
+function apiTimestamp(): string {
+  return new Date().toISOString().replace(/\.\d{3}Z$/, '')
+}
+
+function apiSignature(fields: Record<string, string>, passphrase: string): string {
+  const data: Record<string, string> = { ...fields }
+  if (passphrase) data.passphrase = passphrase
+  const parts = Object.entries(data)
+    .filter(([, value]) => value !== '')
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${pfEncode(value)}`)
+  return md5(parts.join('&')).toLowerCase()
+}
+
+function nextMonthlyBillingDate(): string {
+  const next = new Date()
+  next.setUTCMonth(next.getUTCMonth() + 1)
+  return next.toISOString().slice(0, 10)
+}
+
 export type CheckoutInput = {
   userId: string
   email: string
@@ -53,26 +75,47 @@ export type CheckoutInput = {
   amountCents: number
   itemName: string
   appUrl: string
+  purpose?: 'plan' | 'guide_credits'
+  packId?: string
+  credits?: number
 }
 
-/** Builds the signed PayFast redirect URL for a once-off plan payment. */
+/** Builds the signed PayFast redirect URL for plan subscriptions or credit packs. */
 export function buildCheckoutUrl(input: CheckoutInput): string {
   const c = cfg()
   const amount = (input.amountCents / 100).toFixed(2)
-  // Order matters for the signature — keep insertion order stable.
+  const purpose = input.purpose ?? 'plan'
+  const paymentId = `${input.userId}:${purpose}:${purpose === 'guide_credits' ? input.packId ?? 'credits' : input.tier}:${Date.now()}`
+  const custom2 = purpose === 'guide_credits' ? 'guide_credits' : input.tier
+  const custom3 = purpose === 'guide_credits' ? input.packId ?? '' : ''
+  const custom4 = purpose === 'guide_credits' ? String(input.credits ?? 0) : ''
+  const recurringFields: Array<[string, string]> =
+    purpose === 'plan'
+      ? [
+          ['subscription_type', '1'],
+          ['billing_date', nextMonthlyBillingDate()],
+          ['recurring_amount', amount],
+          ['frequency', '3'],
+          ['cycles', '0'],
+        ]
+      : []
+  // Order matters for the signature. Keep insertion order stable.
   const ordered: Array<[string, string]> = [
     ['merchant_id', c.merchantId],
     ['merchant_key', c.merchantKey],
-    ['return_url', `${input.appUrl}/billing?checkout=complete`],
-    ['cancel_url', `${input.appUrl}/pricing?checkout=cancelled`],
+    ['return_url', `${input.appUrl}/plan?checkout=complete`],
+    ['cancel_url', `${input.appUrl}/plan?checkout=cancelled`],
     ['notify_url', `${input.appUrl}/api/payfast/notify`],
     ['name_first', (input.firstName ?? '').slice(0, 100)],
     ['email_address', input.email],
-    ['m_payment_id', `${input.userId}:${input.tier}:${Date.now()}`],
+    ['m_payment_id', paymentId],
     ['amount', amount],
+    ...recurringFields,
     ['item_name', input.itemName.slice(0, 100)],
     ['custom_str1', input.userId],
-    ['custom_str2', input.tier],
+    ['custom_str2', custom2],
+    ['custom_str3', custom3],
+    ['custom_str4', custom4],
   ]
   const signature = signFields(ordered, c.passphrase)
   const qs = ordered
@@ -81,6 +124,38 @@ export function buildCheckoutUrl(input: CheckoutInput): string {
     .join('&')
   const base = c.sandbox ? SANDBOX_PROCESS : LIVE_PROCESS
   return `${base}?${qs}&signature=${signature}`
+}
+
+export async function cancelPayfastSubscription(token: string): Promise<boolean> {
+  const c = cfg()
+  if (!token || !payfastConfigured()) return false
+  const timestamp = apiTimestamp()
+  const version = 'v1'
+  const signature = apiSignature(
+    {
+      'merchant-id': c.merchantId,
+      timestamp,
+      version,
+    },
+    c.passphrase,
+  )
+  const base = c.sandbox ? SANDBOX_API : LIVE_API
+  try {
+    const response = await fetch(`${base}/subscriptions/${encodeURIComponent(token)}/cancel`, {
+      method: 'PUT',
+      headers: {
+        'merchant-id': c.merchantId,
+        version,
+        timestamp,
+        signature,
+      },
+    })
+    if (!response.ok) return false
+    const data = (await response.json().catch(() => null)) as { response?: unknown } | null
+    return data == null || data.response === true || data.response === 'true'
+  } catch {
+    return false
+  }
 }
 
 /** Parse a raw urlencoded ITN body into ordered, decoded [key,value] pairs. */

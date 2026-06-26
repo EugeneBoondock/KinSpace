@@ -37,21 +37,36 @@ type SessionSummaryRow = {
   id: string
   persona: string | null
   theme: string | null
-  mood_at_start: string | null
-  mood_at_end: string | null
+  moodAtStart: string | null
+  moodAtEnd: string | null
   summary: string | null
-  key_themes: string[]
-  started_at: string | null
-  ended_at: string | null
-  message_count: number
+  keyThemes: string[]
+  startedAt: string | null
+  endedAt: string | null
+  messageCount: number
 }
 
 type TranscriptRow = {
   id: string
   message: string
-  is_ai: boolean
-  sender_id: string
-  created_at: string | null
+  isAi: boolean
+  senderId: string
+  createdAt: string | null
+}
+
+type ActiveSessionRow = {
+  id: string
+  persona: string | null
+  theme: string | null
+  moodAtStart: string | null
+  startedAt: string | null
+  updatedAt: string | null
+  messages: Array<{
+    id: string
+    role: 'user' | 'assistant'
+    content: string
+    createdAt: string | null
+  }>
 }
 
 type View = 'loading' | 'onboard' | 'empty' | 'chat'
@@ -150,6 +165,8 @@ export default function TherapyPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const sessionIdRef = useRef<string | null>(null)
+  const creatingSessionRef = useRef<Promise<string | null> | null>(null)
 
   const persona = useMemo(() => getPersona(personaId), [personaId])
   const theme = useMemo(() => getTheme(themeId), [themeId])
@@ -169,6 +186,10 @@ export default function TherapyPage() {
     start: startDictation,
     stop: stopDictation,
   } = useSpeechInput((text) => setInputValue((current) => (current ? `${current} ${text}` : text)))
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId
+  }, [sessionId])
 
   function toggleAmbient() {
     if (!ambientRef.current) ambientRef.current = new AmbientEngine()
@@ -220,22 +241,26 @@ export default function TherapyPage() {
         return
       }
       try {
-        const [cachedProfile, savedMessages] = await Promise.all([
+        const [cachedProfile, activeSession] = await Promise.all([
           getCachedProfile(user.userId),
-          DatabaseService.getMessages(roomId, 80),
+          DatabaseService.getActiveTherapySession(user.userId),
         ])
         setProfile(cachedProfile)
 
-        const savedPersona = (cachedProfile?.therapist_persona as string | undefined) ?? null
-        const savedTheme = (cachedProfile?.therapy_theme as string | undefined) ?? null
+        const active = activeSession as ActiveSessionRow | null
+        const savedPersona = active?.persona ?? (cachedProfile?.therapist_persona as string | undefined) ?? null
+        const savedTheme = active?.theme ?? (cachedProfile?.therapy_theme as string | undefined) ?? null
         if (savedPersona) setPersonaId(savedPersona)
         if (savedTheme) setThemeId(savedTheme)
+        setSessionId(active?.id ?? null)
+        sessionIdRef.current = active?.id ?? null
+        setMoodAtStart(active?.moodAtStart ?? null)
 
-        const restored = (savedMessages as Record<string, unknown>[]).map((message) => ({
+        const restored = (active?.messages ?? []).map((message) => ({
           id: message.id as string,
-          role: (message.is_ai ? 'assistant' : 'user') as 'user' | 'assistant',
-          content: message.message as string,
-          created_at: toDate(message.created_at) || new Date(),
+          role: message.role,
+          content: message.content,
+          created_at: toDate(message.createdAt) || new Date(),
         }))
         setMessages(restored)
 
@@ -267,35 +292,6 @@ export default function TherapyPage() {
     el.style.height = `${Math.min(el.scrollHeight, 240)}px`
   }, [inputValue])
 
-  // ── End-session hook: summarise when the tab closes ──────────────
-  useEffect(() => {
-    function flush() {
-      if (!sessionId || !user) return
-      const recent = messages.filter((message) => message.role === 'user').length
-      if (recent < 2) return
-      const payload = JSON.stringify({
-        sessionId,
-        userId: user.userId,
-        personaName: persona.name,
-        moodAtStart,
-        messages: messages.slice(-40).map((message) => ({ role: message.role, content: message.content })),
-      })
-      try {
-        const blob = new Blob([payload], { type: 'application/json' })
-        if (navigator.sendBeacon) navigator.sendBeacon('/api/therapy/end-session', blob)
-        else void fetch('/api/therapy/end-session', { method: 'POST', body: payload, keepalive: true })
-      } catch {
-        // best-effort
-      }
-    }
-    window.addEventListener('pagehide', flush)
-    window.addEventListener('beforeunload', flush)
-    return () => {
-      window.removeEventListener('pagehide', flush)
-      window.removeEventListener('beforeunload', flush)
-    }
-  }, [sessionId, user, messages, persona.name, moodAtStart])
-
   // ── Persona + theme commit ──────────────────────────────────────
   const chooseAndPersist = useCallback(
     async (nextPersona: string, nextTheme: string) => {
@@ -320,13 +316,8 @@ export default function TherapyPage() {
   // ── Session start (lazy - first time the user actually sends) ────
   // Guard against creating duplicate sessions: `sessionId` is React state, so two
   // messages sent in quick succession both read it as null and each start a new
-  // session (which is why history showed several cards for one conversation). A
-  // ref is updated synchronously, and an in-flight promise dedupes concurrent calls.
-  const sessionIdRef = useRef<string | null>(null)
-  const creatingSessionRef = useRef<Promise<string | null> | null>(null)
-  useEffect(() => {
-    sessionIdRef.current = sessionId
-  }, [sessionId])
+  // session. A ref is updated synchronously, and an in-flight promise dedupes
+  // concurrent calls.
 
   const ensureSession = useCallback(
     async (mood: string | null): Promise<string | null> => {
@@ -358,11 +349,18 @@ export default function TherapyPage() {
 
   // ── Send ────────────────────────────────────────────────────────
   const sendMessage = useCallback(
-    async (content: string, moodForStart: string | null = null) => {
+    async (content: string, moodForStart: string | null = null, options: { forceNewSession?: boolean } = {}) => {
       const trimmed = content.trim()
       if (!trimmed || !user || !roomId) return
 
-      const sid = (await ensureSession(moodForStart ?? moodAtStart)) ?? null
+      const baseMessages = options.forceNewSession ? [] : messages
+      if (options.forceNewSession) {
+        sessionIdRef.current = null
+        setSessionId(null)
+        setMoodAtStart(moodForStart)
+        setMessages([])
+      }
+      const sid = (await ensureSession(options.forceNewSession ? moodForStart : moodForStart ?? moodAtStart)) ?? null
       const userMessage: Message = {
         id: crypto.randomUUID(),
         role: 'user',
@@ -372,7 +370,7 @@ export default function TherapyPage() {
 
       if (detectConcern(trimmed) === 'crisis') setShowCrisisSheet(true)
 
-      setMessages((current) => [...current, userMessage])
+      setMessages((current) => options.forceNewSession ? [userMessage] : [...current, userMessage])
       setInputValue('')
       setSending(true)
       setSessionEnded(false)
@@ -381,7 +379,7 @@ export default function TherapyPage() {
       void DatabaseService.sendMessage(user.userId, null, roomId, userMessage.content, false, sid).catch(
         (error) => console.error('Failed to save user message:', error))
 
-      const history = [...messages, userMessage].map((message) => ({
+      const history = [...baseMessages, userMessage].map((message) => ({
         role: message.role,
         content: message.content,
       }))
@@ -414,7 +412,7 @@ export default function TherapyPage() {
           content: data.reply,
           created_at: new Date(),
         }
-        const closing = [...messages, userMessage, guideMessage]
+        const closing = [...baseMessages, userMessage, guideMessage]
         setMessages((current) => [...current, guideMessage])
         if (readAloud) speak(data.reply, persona.gender)
 
@@ -491,7 +489,7 @@ export default function TherapyPage() {
     } catch {
       // ignore
     }
-    void sendMessage(starter)
+    void sendMessage(starter, null, { forceNewSession: true })
   }, [view, sendMessage])
 
   function handleMoodPick(mood: MoodOption) {
@@ -530,8 +528,16 @@ export default function TherapyPage() {
     if (user) void loadHistory()
   }, [user, loadHistory])
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user) return
+    if (new URLSearchParams(window.location.search).get('history') === '1') {
+      setShowHistory(true)
+      void loadHistory()
+    }
+  }, [user, loadHistory])
+
   const lastSession = sessions[0]
-  const lastTheme = lastSession?.key_themes?.[0] ?? null
+  const lastTheme = lastSession?.keyThemes?.[0] ?? null
 
   const openSessionTranscript = useCallback(
     async (session: SessionSummaryRow) => {
@@ -1601,7 +1607,7 @@ export default function TherapyPage() {
                 ) : (
                   sessions.map((session) => {
                     const sessionPersona = getPersona(session.persona)
-                    const started = session.started_at ? new Date(session.started_at) : null
+                    const started = session.startedAt ? new Date(session.startedAt) : null
                     return (
                       <button
                         key={session.id}
@@ -1622,15 +1628,15 @@ export default function TherapyPage() {
                                 : 'Session'}
                             </p>
                             <span className="shrink-0 text-[11px] text-brand-background/45">
-                              {session.message_count} msg{session.message_count === 1 ? '' : 's'}
+                              {session.messageCount} msg{session.messageCount === 1 ? '' : 's'}
                             </span>
                           </div>
                           <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-brand-background/60">
                             {session.summary || 'No summary saved for this session.'}
                           </p>
-                          {session.key_themes && session.key_themes.length > 0 && (
+                          {session.keyThemes && session.keyThemes.length > 0 && (
                             <div className="mt-1.5 flex flex-wrap gap-1">
-                              {session.key_themes.slice(0, 4).map((themeTag) => (
+                              {session.keyThemes.slice(0, 4).map((themeTag) => (
                                 <span
                                   key={themeTag}
                                   className="rounded-full bg-brand-background/[0.08] px-2 py-0.5 text-[10px] text-brand-background/60"
@@ -1678,8 +1684,8 @@ export default function TherapyPage() {
                     Read only
                   </p>
                   <p className="truncate text-sm font-semibold text-brand-background">
-                    {openSession.started_at
-                      ? new Date(openSession.started_at).toLocaleDateString(undefined, {
+                    {openSession.startedAt
+                      ? new Date(openSession.startedAt).toLocaleDateString(undefined, {
                           month: 'long',
                           day: 'numeric',
                           year: 'numeric',
@@ -1711,7 +1717,7 @@ export default function TherapyPage() {
                   </div>
                 ) : (
                   sessionMessages.map((row) => {
-                    const isUser = !row.is_ai
+                    const isUser = !row.isAi
                     return (
                       <div key={row.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                         <div className="flex max-w-[88%] items-end gap-2">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyItnSignature, validateItnWithPayfast, itnField, payfastConfigured } from '@/server/billing/payfast'
-import { upsertSubscription } from '@/server/billing/repo'
-import { PLANS, type Tier } from '@/server/billing/tiers'
+import { grantGuideCredits, upsertSubscription } from '@/server/billing/repo'
+import { PLANS, guideCreditPack, type Tier } from '@/server/billing/tiers'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -29,16 +29,38 @@ export async function POST(request: NextRequest) {
 
     const status = itnField(raw, 'payment_status')
     const userId = itnField(raw, 'custom_str1')
-    const tier = itnField(raw, 'custom_str2') as Tier
+    const tierOrPurpose = itnField(raw, 'custom_str2')
+    const tier = tierOrPurpose as Tier
+    const packId = itnField(raw, 'custom_str3')
+    const creditCount = Number(itnField(raw, 'custom_str4') || '0')
     const grossStr = itnField(raw, 'amount_gross') || itnField(raw, 'amount')
+    const grossCents = Math.round(parseFloat(grossStr || '0') * 100)
+    const providerReference = itnField(raw, 'pf_payment_id') || itnField(raw, 'm_payment_id')
+    const providerSubscriptionId = itnField(raw, 'token') || itnField(raw, 'subscription_id')
+
+    if (status === 'COMPLETE' && userId && tierOrPurpose === 'guide_credits') {
+      const pack = guideCreditPack(packId)
+      if (pack && grossCents === pack.priceCents && creditCount === pack.credits && providerReference) {
+        await grantGuideCredits(userId, {
+          credits: pack.credits,
+          amountCents: pack.priceCents,
+          providerReference,
+          provider: 'payfast',
+        })
+      }
+      return new NextResponse('', { status: 200 })
+    }
 
     if (status === 'COMPLETE' && userId && (tier === 'plus' || tier === 'pro')) {
       const plan = PLANS.find((p) => p.id === tier)
-      const grossCents = Math.round(parseFloat(grossStr || '0') * 100)
       if (plan && grossCents === plan.priceCents) {
         await upsertSubscription(userId, {
           tier,
           status: 'active',
+          paymentProvider: 'payfast',
+          providerSubscriptionId: providerSubscriptionId || null,
+          providerSubscriptionStatus: providerSubscriptionId ? 'active' : null,
+          providerReference,
           planCode: 'payfast',
           currentPeriodEnd: new Date(Date.now() + PERIOD_MS),
           cancelAtPeriodEnd: false,
@@ -46,7 +68,7 @@ export async function POST(request: NextRequest) {
       }
     }
   } catch {
-    // Never surface an error to PayFast — just don't activate.
+    // Never surface an error to PayFast. Just do not activate.
   }
   return new NextResponse('', { status: 200 })
 }

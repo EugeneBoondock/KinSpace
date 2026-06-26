@@ -61,6 +61,7 @@ const navGroups: NavGroup[] = [
       { href: '/saved', label: 'Saved', icon: 'ri-bookmark-line', activeIcon: 'ri-bookmark-fill' },
       { href: '/timeline', label: 'My timeline', icon: 'ri-history-line', activeIcon: 'ri-history-fill' },
       { href: '/calendar', label: 'Calendar', icon: 'ri-calendar-line', activeIcon: 'ri-calendar-fill' },
+      { href: '/plan', label: 'Plan', icon: 'ri-bank-card-line', activeIcon: 'ri-bank-card-fill' },
       { href: '/games', label: 'Games', icon: 'ri-gamepad-line', activeIcon: 'ri-gamepad-fill' },
     ],
   },

@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           ok: false,
-          error: `You’ve used your ${quota.limit} free Guide sessions this month. Upgrade to KinSpace Plus for unlimited sessions.`,
+          error: `You have used your ${quota.limit} monthly Guide sessions. Upgrade to KinSpace Plus or add Guide credits to keep chatting.`,
           upgrade: true,
         },
         { status: 402 },

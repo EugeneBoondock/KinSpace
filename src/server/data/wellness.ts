@@ -19,6 +19,7 @@ import { acknowledgeReminderSlot } from '@/server/push/ack'
 import { encryptField, decryptField } from '@/server/crypto/field-encryption'
 import { normalizeReminderTimes, reconcileProfileMedications } from '@/lib/medication-reminders'
 import { normalizeMoodCheckin } from '@/lib/moods'
+import { closeIdleGuideSessions } from '@/server/therapy/idle-sessions'
 
 // ── Mood check-ins with pattern detection ───────────────────────────────────
 
@@ -183,6 +184,49 @@ export async function getTrackedSymptoms(ctx: Ctx, days = 60) {
 
 // ── Therapy sessions (memory across rooms) ──────────────────────────────────
 
+export async function getActiveTherapySession(ctx: Ctx, _userId?: string) {
+  const userId = requireActor(ctx)
+  await closeIdleGuideSessions(new Date(), { userId, limit: 5 })
+
+  const cutoff = Date.now() - 30 * 60 * 1000
+  const rows = await ctx.db.query.therapySessions.findMany({
+    where: eq(therapySessions.userId, userId),
+  })
+  const active = rows
+    .filter((session) => !session.endedAt)
+    .filter((session) => (toDate(session.updatedAt as never) ?? toDate(session.startedAt as never) ?? new Date(0)).getTime() >= cutoff)
+    .sort(
+      (a, b) =>
+        (toDate(b.updatedAt as never) ?? toDate(b.startedAt as never) ?? new Date(0)).getTime() -
+        (toDate(a.updatedAt as never) ?? toDate(a.startedAt as never) ?? new Date(0)).getTime(),
+    )[0]
+  if (!active) return null
+
+  const messages = await ctx.db.query.chatMessages.findMany({
+    where: eq(chatMessages.sessionId, active.id),
+  })
+  return {
+    id: active.id,
+    persona: active.persona,
+    theme: active.theme,
+    moodAtStart: active.moodAtStart,
+    startedAt: active.startedAt,
+    updatedAt: active.updatedAt,
+    messages: messages
+      .sort(
+        (a, b) =>
+          (toDate(a.createdAt as never) ?? new Date(0)).getTime() -
+          (toDate(b.createdAt as never) ?? new Date(0)).getTime(),
+      )
+      .map((row) => ({
+        id: row.id,
+        role: row.isAi ? 'assistant' : 'user',
+        content: row.message,
+        createdAt: row.createdAt,
+      })),
+  }
+}
+
 export async function startTherapySession(
   ctx: Ctx,
   _userId: string,
@@ -270,6 +314,7 @@ export async function getTherapySessionHistory(ctx: Ctx, _userId?: string, limit
       const msgs = await ctx.db.query.chatMessages.findMany({
         where: eq(chatMessages.sessionId, session.id),
       })
+      if (msgs.length === 0) return null
       return {
         id: session.id,
         persona: session.persona,
@@ -282,7 +327,8 @@ export async function getTherapySessionHistory(ctx: Ctx, _userId?: string, limit
         endedAt: session.endedAt,
         messageCount: msgs.length,
       }
-    }))
+    })
+  ).then((sessions) => sessions.filter(Boolean))
 }
 
 /**

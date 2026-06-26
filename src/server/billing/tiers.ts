@@ -66,6 +66,14 @@ export type PlanDisplay = {
   planCodeEnv?: 'PAYSTACK_PLAN_PLUS' | 'PAYSTACK_PLAN_PRO'
 }
 
+export type GuideCreditPack = {
+  id: 'guide_5' | 'guide_15' | 'guide_40'
+  name: string
+  credits: number
+  priceCents: number
+  description: string
+}
+
 export const PLANS: PlanDisplay[] = [
   {
     id: 'free',
@@ -111,6 +119,34 @@ export const PLANS: PlanDisplay[] = [
   },
 ]
 
+export const GUIDE_CREDIT_PACKS: GuideCreditPack[] = [
+  {
+    id: 'guide_5',
+    name: '5 Guide credits',
+    credits: 5,
+    priceCents: 3900,
+    description: 'A light top-up for a few extra sessions.',
+  },
+  {
+    id: 'guide_15',
+    name: '15 Guide credits',
+    credits: 15,
+    priceCents: 9900,
+    description: 'Good for a month with a few deeper talks.',
+  },
+  {
+    id: 'guide_40',
+    name: '40 Guide credits',
+    credits: 40,
+    priceCents: 19900,
+    description: 'For members who want extra room without a plan change.',
+  },
+]
+
 export function planForTier(tier: Tier): PlanDisplay {
   return PLANS.find((p) => p.id === tier) ?? PLANS[0]
+}
+
+export function guideCreditPack(packId: string): GuideCreditPack | null {
+  return GUIDE_CREDIT_PACKS.find((pack) => pack.id === packId) ?? null
 }

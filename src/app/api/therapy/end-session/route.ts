@@ -4,6 +4,7 @@ import { summariseSession } from '@/lib/ai/therapy-summary'
 import { getDb } from '@/server/db/client'
 import { therapySessions } from '@/server/db/schema'
 import { getSessionUserId } from '@/server/http/auth'
+import { encryptField } from '@/server/crypto/field-encryption'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
   await db
     .update(therapySessions)
     .set({
-      summary: summary.summary,
+      summary: await encryptField(summary.summary),
       moodAtEnd: summary.mood_at_end,
       keyThemes: summary.key_themes,
       endedAt: new Date(),

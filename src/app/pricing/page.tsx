@@ -80,9 +80,9 @@ export default function PricingPage() {
         </div>
 
         <p className="mt-8 text-center text-sm text-brand-background/55">
-          Prices in ZAR. Secure payments by Paystack. Need a plan for an organisation?{' '}
-          <a href="/about" className="underline">
-            Talk to us
+          Prices in ZAR. Secure payments by PayFast. Already joined?{' '}
+          <a href="/plan" className="underline">
+            Manage your plan
           </a>
           .
         </p>

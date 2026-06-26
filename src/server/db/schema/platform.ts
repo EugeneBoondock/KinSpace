@@ -15,6 +15,11 @@ export const subscriptions = sqliteTable('subscriptions', {
   paystackCustomerCode: text('paystack_customer_code'),
   paystackSubscriptionCode: text('paystack_subscription_code'),
   paystackEmailToken: text('paystack_email_token'),
+  paymentProvider: text('payment_provider'),
+  providerCustomerId: text('provider_customer_id'),
+  providerSubscriptionId: text('provider_subscription_id'),
+  providerSubscriptionStatus: text('provider_subscription_status'),
+  providerReference: text('provider_reference'),
   planCode: text('plan_code'),
   currentPeriodEnd: timestamp('current_period_end'),
   trialEndsAt: timestamp('trial_ends_at'),
@@ -39,6 +44,37 @@ export const usageCounters = sqliteTable(
     updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex('usage_counters_uniq').on(t.userId, t.period, t.feature)],
+)
+
+export const aiCreditBalances = sqliteTable('ai_credit_balances', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  feature: text('feature').notNull().default('ai_therapy'),
+  credits: integer('credits').notNull().default(0),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+})
+
+export const aiCreditPurchases = sqliteTable(
+  'ai_credit_purchases',
+  {
+    id: pk(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    feature: text('feature').notNull().default('ai_therapy'),
+    credits: integer('credits').notNull(),
+    amountCents: integer('amount_cents').notNull(),
+    provider: text('provider').notNull().default('payfast'),
+    providerReference: text('provider_reference').notNull(),
+    status: text('status').notNull().default('complete'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('ai_credit_provider_ref_idx').on(t.provider, t.providerReference),
+    index('ai_credit_user_idx').on(t.userId),
+  ],
 )
 
 /** Per-call AI cost ledger for spend monitoring and caps. */
