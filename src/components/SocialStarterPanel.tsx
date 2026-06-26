@@ -8,6 +8,7 @@ import StrandButton from '@/components/StrandButton'
 import { Badge, Card, LinkButton, Skeleton } from '@/components/ui'
 import { useAuth } from '@/lib/AuthContext'
 import { cn } from '@/lib/cn'
+import { isTransientFetchError } from '@/lib/client-errors'
 import { DatabaseService } from '@/lib/database'
 
 type SharedTraits = {
@@ -99,11 +100,10 @@ export default function SocialStarterPanel({
         setMembers(Array.isArray(starter.members) ? starter.members : [])
         setLiveness(starter.liveness ?? emptyLiveness)
       } catch (error) {
-        console.error('Failed to load social starter suggestions:', error)
-        if (active) {
-          setMembers([])
-          setLiveness(emptyLiveness)
-        }
+        if (!active) return
+        setMembers([])
+        setLiveness(emptyLiveness)
+        if (!isTransientFetchError(error)) console.error('Failed to load social starter suggestions:', error)
       } finally {
         if (active) setLoading(false)
       }
