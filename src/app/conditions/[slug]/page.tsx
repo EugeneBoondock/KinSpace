@@ -134,7 +134,7 @@ function PrevalenceList({ items, color }: { items: RankItem[]; color: string }) 
           <div className="flex items-center justify-between gap-2 text-sm">
             <span className="capitalize text-brand-background/80">{item.name}</span>
             {item.prevalence_pct != null && (
-              <span className="text-xs font-semibold" style={{ color }}>
+              <span className="text-xs font-semibold text-brand-background/85">
                 {item.prevalence_pct}%
               </span>
             )}
@@ -253,7 +253,7 @@ function AccessAndDailyLifeCard({
                   </span>
                   <div>
                     <p className="text-sm font-semibold text-brand-background">{area.title}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-brand-background/58">{area.body}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-brand-background/75">{area.body}</p>
                   </div>
                 </div>
               </div>
