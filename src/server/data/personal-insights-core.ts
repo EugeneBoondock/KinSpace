@@ -39,6 +39,21 @@ export type InsightCard = {
   disclaimerKey: DisclaimerKey
 }
 export type LockedHint = { kind: 'locked'; title: string; needs: string; remaining: number }
+export type ReviewCoverageLevel = 'thin' | 'building' | 'strong'
+export type ReviewNextAction = {
+  id: string
+  title: string
+  body: string
+  href: string
+  icon: string
+}
+export type PersonalReview = {
+  title: string
+  summary: string
+  coverageLevel: ReviewCoverageLevel
+  focus: string | null
+  nextActions: ReviewNextAction[]
+}
 export type PersonalInsights = {
   windowDays: number
   generatedAt: string
@@ -54,6 +69,7 @@ export type PersonalInsights = {
   hasEnoughData: boolean
   crisisNudge: string | null
   footerKey: 'standard'
+  review: PersonalReview
 }
 
 // ── Safety guard: a card finding may never read causal / predictive / prescriptive ──
@@ -237,6 +253,7 @@ export function buildPersonalInsights(s: InsightSignals): PersonalInsights {
   if (therapyCard) cards.push(therapyCard)
 
   const safe = cards.filter((c) => findingIsSafe(c.phrase)).slice(0, 6)
+  const review = buildPersonalReview({ cards: safe, loggedDays, windowDays: s.windowDays, locked: locked.slice(0, 5) })
 
   return {
     windowDays: s.windowDays,
@@ -247,6 +264,98 @@ export function buildPersonalInsights(s: InsightSignals): PersonalInsights {
     hasEnoughData: safe.length > 0,
     crisisNudge: s.crisisNudge,
     footerKey: 'standard',
+    review,
+  }
+}
+
+function coverageLevel(loggedDays: number, windowDays: number): ReviewCoverageLevel {
+  if (loggedDays >= Math.max(12, Math.floor(windowDays * 0.6))) return 'strong'
+  if (loggedDays >= 4) return 'building'
+  return 'thin'
+}
+
+function focusLabel(card: InsightCard | undefined): string | null {
+  if (!card) return null
+  return card.subject ?? card.title
+}
+
+function buildPersonalReview({
+  cards,
+  loggedDays,
+  windowDays,
+  locked,
+}: {
+  cards: InsightCard[]
+  loggedDays: number
+  windowDays: number
+  locked: LockedHint[]
+}): PersonalReview {
+  const level = coverageLevel(loggedDays, windowDays)
+  const actionCard = cards.find((card) => card.careTeamNudge)
+  const primary = cards.find((card) => card.subject) ?? actionCard ?? cards[0]
+  const focus = focusLabel(primary)
+  const nextActions: ReviewNextAction[] = []
+
+  if (!primary) {
+    nextActions.push({
+      id: 'daily-checkin',
+      title: 'Log today',
+      body: 'A mood and symptom check-in gives next week something real to work with.',
+      href: '/dashboard',
+      icon: 'ri-calendar-check-line',
+    })
+    if (locked[0]) {
+      nextActions.push({
+        id: 'unlock-next-pattern',
+        title: 'Unlock the next pattern',
+        body: locked[0].needs,
+        href: '/dashboard',
+        icon: 'ri-lock-unlock-line',
+      })
+    }
+    return {
+      title: 'Start your weekly review',
+      summary: `${loggedDays} ${loggedDays === 1 ? 'day' : 'days'} logged. Check in a few more times to turn your logs into a weekly review.`,
+      coverageLevel: level,
+      focus: null,
+      nextActions,
+    }
+  }
+
+  if (actionCard) {
+    nextActions.push({
+      id: 'care-team-note',
+      title: 'Save a care-team note',
+      body: 'Keep this pattern handy for your next appointment or support conversation.',
+      href: '/timeline',
+      icon: 'ri-file-list-3-line',
+    })
+  }
+
+  nextActions.push({
+    id: 'keep-checking-in',
+    title: 'Keep the streak alive',
+    body: 'One quick check-in today keeps this review honest next week.',
+    href: '/dashboard',
+    icon: 'ri-fire-line',
+  })
+
+  if (primary.kind === 'mood_symptom_assoc' || primary.kind === 'spoons_symptom_assoc' || primary.kind === 'symptom_trend') {
+    nextActions.push({
+      id: 'watch-focus',
+      title: `Watch ${focus ?? 'this pattern'}`,
+      body: 'Track it for a few more days and see whether the picture holds.',
+      href: '/dashboard',
+      icon: 'ri-pulse-line',
+    })
+  }
+
+  return {
+    title: 'Your weekly review is ready',
+    summary: `${loggedDays} days logged. ${focus ?? primary.title} is the clearest pattern to watch right now.`,
+    coverageLevel: level,
+    focus,
+    nextActions: nextActions.slice(0, 3),
   }
 }
 

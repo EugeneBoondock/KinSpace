@@ -79,6 +79,18 @@ test('reports honest coverage', () => {
   assert.ok(result.coverage.currentStreak >= 20)
 })
 
+test('builds a weekly review with a focused next action from surfaced patterns', () => {
+  const result = buildPersonalInsights(plantedSignals())
+
+  assert.equal(result.review.coverageLevel, 'strong')
+  assert.equal(result.review.title, 'Your weekly review is ready')
+  assert.match(result.review.summary, /30 days logged/)
+  assert.match(result.review.summary, /Fatigue/)
+  assert.equal(result.review.nextActions[0].id, 'care-team-note')
+  assert.equal(result.review.nextActions[0].href, '/timeline')
+  assert.ok(result.review.nextActions.some((action) => action.id === 'keep-checking-in'))
+})
+
 test('stays silent (no cards) under thin data, still returns coverage', () => {
   const thin: InsightSignals = {
     windowDays: 30, today: TODAY,
@@ -90,6 +102,10 @@ test('stays silent (no cards) under thin data, still returns coverage', () => {
   assert.equal(result.hasEnoughData, false)
   assert.equal(result.cards.length, 0)
   assert.equal(result.coverage.loggedDays, 2)
+  assert.equal(result.review.coverageLevel, 'thin')
+  assert.equal(result.review.title, 'Start your weekly review')
+  assert.equal(result.review.nextActions[0].id, 'daily-checkin')
+  assert.equal(result.review.nextActions[0].href, '/dashboard')
 })
 
 test('safety guard rejects causal / prescriptive / statistical language', () => {

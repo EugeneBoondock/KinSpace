@@ -9,12 +9,28 @@ import { formatCompactNumber } from '@/lib/platform'
 import { cn } from '@/lib/cn'
 import { Alert, Badge, Card, CardTitle, EmptyState, LinkButton, Skeleton } from '@/components/ui'
 
-// ── Community insights (existing) ────────────────────────────────────────────
+// Community insights
 type Condition = Record<string, unknown> & { id: string }
 type TopTreatment = Record<string, unknown> & { id: string; treatment?: (Record<string, unknown> & { id: string }) | null }
 type InsightBundle = { condition: Condition; topTreatments: TopTreatment[] }
 
-// ── Personal insights ────────────────────────────────────────────────────────
+type ReviewCoverageLevel = 'thin' | 'building' | 'strong'
+type ReviewNextAction = {
+  id: string
+  title: string
+  body: string
+  href: string
+  icon: string
+}
+type PersonalReview = {
+  title: string
+  summary: string
+  coverage_level: ReviewCoverageLevel
+  focus: string | null
+  next_actions: ReviewNextAction[]
+}
+
+// Personal insights
 type PersonalCard = {
   kind: string
   title: string
@@ -34,6 +50,7 @@ type PersonalInsights = {
   locked: Array<{ title: string; needs: string; remaining: number }>
   has_enough_data: boolean
   crisis_nudge: string | null
+  review: PersonalReview
 }
 
 const WINDOWS = [14, 30, 90] as const
@@ -75,6 +92,71 @@ function bandPill(card: PersonalCard): string | null {
   if (card.direction === 'higher') return 'running higher'
   if (card.direction === 'steady') return 'holding steady'
   return null
+}
+
+const COVERAGE_BADGE: Record<ReviewCoverageLevel, { label: string; tone: 'neutral' | 'info' | 'success' }> = {
+  thin: { label: 'Getting started', tone: 'neutral' },
+  building: { label: 'Building', tone: 'info' },
+  strong: { label: 'Strong signal', tone: 'success' },
+}
+
+function WeeklyReviewPanel({ review, coverage }: { review: PersonalReview; coverage: PersonalInsights['coverage'] }) {
+  const badge = COVERAGE_BADGE[review.coverage_level] ?? COVERAGE_BADGE.thin
+
+  return (
+    <Card className="relative overflow-hidden border-brand-accent2/25 bg-brand-surface-raised">
+      <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,var(--color-brand-accent1),var(--color-brand-accent2),var(--color-brand-accent3))]" />
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="icon-chip tint-gold">
+              <i className="ri-compass-3-line" aria-hidden="true" />
+            </span>
+            <Badge tone={badge.tone}>{badge.label}</Badge>
+            {review.focus && <Badge tone="sage">{review.focus}</Badge>}
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-brand-ink">{review.title}</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-brand-ink/70">{review.summary}</p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs text-brand-ink/55">
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-ink/[0.05] px-2.5 py-1">
+              <i className="ri-calendar-check-line text-brand-accent2" aria-hidden="true" />
+              {coverage.logged_days}/{coverage.window_days} days logged
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-ink/[0.05] px-2.5 py-1">
+              <i className="ri-fire-line text-brand-accent1" aria-hidden="true" />
+              {coverage.current_streak} day streak
+            </span>
+          </div>
+        </div>
+
+        <div className="w-full space-y-2 sm:max-w-sm">
+          {review.next_actions.map((action, index) => (
+            <div key={action.id} className="rounded-2xl border border-brand-line bg-brand-surface p-3">
+              <div className="flex items-start gap-3">
+                <span
+                  className={cn(
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+                    index === 0 ? 'bg-brand-accent2/15 text-brand-accent2' : 'bg-brand-ink/[0.06] text-brand-ink/60',
+                  )}
+                >
+                  <i className={action.icon} aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-brand-ink">{action.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-brand-ink/60">{action.body}</p>
+                  <LinkButton href={action.href} variant={index === 0 ? 'primary' : 'secondary'} size="sm" className="mt-3">
+                    Start
+                  </LinkButton>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  )
 }
 
 function PersonalCardView({ card }: { card: PersonalCard }) {
@@ -138,7 +220,9 @@ function PersonalSection() {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
+    queueMicrotask(() => {
+      if (!cancelled) setLoading(true)
+    })
     DatabaseService.getPersonalInsights(windowDays)
       .then((res) => {
         if (!cancelled) setData(res as PersonalInsights)
@@ -198,6 +282,7 @@ function PersonalSection() {
             </Alert>
           )}
 
+          <WeeklyReviewPanel review={data.review} coverage={data.coverage} />
           <CoverageStrip coverage={data.coverage} />
 
           {data.has_enough_data ? (
@@ -230,7 +315,7 @@ function PersonalSection() {
           )}
 
           <p className="px-1 text-xs leading-relaxed text-brand-ink/45">
-            These are gentle reflections of what you&rsquo;ve logged &mdash; not medical advice, not a diagnosis, and not
+            These are gentle reflections of what you&rsquo;ve logged, not medical advice, not a diagnosis, and not
             predictions. Patterns here can&rsquo;t tell us what causes what. For anything about your health or treatment,
             your care team is the right place.
           </p>
