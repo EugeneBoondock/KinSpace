@@ -28,6 +28,7 @@ import * as blocks from './blocks'
 import * as push from './push'
 import * as brief from './brief'
 import * as careProgram from './care-program'
+import * as platformPulse from './platform-pulse'
 
 export type DataMethod = (ctx: Ctx, ...args: any[]) => Promise<unknown>
 
@@ -64,6 +65,7 @@ export const dataMethods = {
   ...push,
   ...brief,
   ...careProgram,
+  ...platformPulse,
 } as unknown as Record<string, DataMethod>
 
 export type { Ctx }

@@ -11,6 +11,7 @@ import SymptomCheckin from '@/components/SymptomCheckin'
 import CareProgramPanel from '@/components/CareProgramPanel'
 import DailyBrief from '@/components/DailyBrief'
 import DailyQuestPanel from '@/components/DailyQuestPanel'
+import PlatformPulsePanel from '@/components/PlatformPulsePanel'
 import SocialStarterPanel from '@/components/SocialStarterPanel'
 import ForYou from '@/components/ForYou'
 import { useAuth } from '@/lib/AuthContext'
@@ -379,6 +380,7 @@ export default function DashboardPage() {
           </div>
         </Card>
 
+        <PlatformPulsePanel />
         <DailyQuestPanel />
         <CareProgramPanel />
 
