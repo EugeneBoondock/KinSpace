@@ -45,6 +45,13 @@ type ActiveReminderAlert = {
   ackKey: string
 }
 
+type BrowserReminderNotificationOptions = NotificationOptions & {
+  actions?: Array<{ action: string; title: string }>
+  renotify?: boolean
+  timestamp?: number
+  vibrate?: number[]
+}
+
 type SuggestionResponse = {
   ok?: boolean
   source?: 'ai' | 'fallback'
@@ -184,6 +191,7 @@ export default function MedicationShelf() {
   const [pushStatus, setPushStatus] = useState<PushStatus>('default')
   const [pushBusy, setPushBusy] = useState(false)
   const [testingPush, setTestingPush] = useState(false)
+  const [testingLocalAlarm, setTestingLocalAlarm] = useState(false)
   const [activeAlert, setActiveAlert] = useState<ActiveReminderAlert | null>(null)
   const [identifying, setIdentifying] = useState(false)
   const [identifyError, setIdentifyError] = useState<string | null>(null)
@@ -197,6 +205,46 @@ export default function MedicationShelf() {
     () => [...reminders].sort((a, b) => a.medication.localeCompare(b.medication)),
     [reminders],
   )
+  const deviceAlarmStatus = useMemo(() => {
+    if (pushStatus === 'granted-subscribed') {
+      return {
+        tone: 'success' as const,
+        label: 'Device alarms on',
+        body: 'KinSpace can alert this device at dose time, including when the app is closed.',
+        closedApp: 'On',
+      }
+    }
+    if (pushStatus === 'denied' || permission === 'denied') {
+      return {
+        tone: 'warning' as const,
+        label: 'Notifications blocked',
+        body: 'Turn on notifications in browser settings to receive medication alarms on this device.',
+        closedApp: 'Blocked',
+      }
+    }
+    if (pushStatus === 'unsupported' || permission === 'unsupported') {
+      return {
+        tone: 'neutral' as const,
+        label: 'Browser support missing',
+        body: 'Use a browser with notifications and service workers for closed-app medication alarms.',
+        closedApp: 'Unsupported',
+      }
+    }
+    if (permission === 'granted') {
+      return {
+        tone: 'warning' as const,
+        label: 'Open-app alerts on',
+        body: 'KinSpace can alert while open. Turn on device alarms for closed-app reminders on this device.',
+        closedApp: 'Needs setup',
+      }
+    }
+    return {
+      tone: 'warning' as const,
+      label: 'Device alarms off',
+      body: 'Turn on notifications to receive medication alarms on this device.',
+      closedApp: 'Needs setup',
+    }
+  }, [permission, pushStatus])
 
   const loadReminders = useCallback(async () => {
     if (!user) return
@@ -274,9 +322,71 @@ export default function MedicationShelf() {
     }
   }
 
+  async function handleTestLocalAlarm() {
+    setTestingLocalAlarm(true)
+    try {
+      if (typeof window === 'undefined' || !('Notification' in window)) {
+        setPermission('unsupported')
+        toast.push('This browser does not support notification alarms.', 'error')
+        return
+      }
+
+      let currentPermission = Notification.permission
+      if (currentPermission !== 'granted') {
+        currentPermission = await Notification.requestPermission()
+        setPermission(currentPermission)
+      }
+
+      if (currentPermission !== 'granted') {
+        toast.push('Notification permission is needed for alarm tests.', 'info')
+        return
+      }
+
+      await showDeviceNotification('KinSpace reminder test', {
+        body: 'This device can show persistent medication reminders.',
+        tag: 'kinspace-local-alarm-test',
+        requireInteraction: true,
+        renotify: true,
+        silent: false,
+        vibrate: REMINDER_VIBRATION,
+        icon: '/images/gather_logo.png',
+        badge: '/images/gather_logo.png',
+        timestamp: Date.now(),
+        data: { url: '/dashboard?meds=1', kind: 'med-reminder', alarmTest: true },
+      })
+      playReminderTone()
+      vibrateReminder()
+      window.setTimeout(() => {
+        playReminderTone()
+        vibrateReminder()
+      }, 900)
+      window.setTimeout(() => {
+        playReminderTone()
+        vibrateReminder()
+      }, 1800)
+      toast.push('Alarm test sent on this device.', 'success')
+    } finally {
+      setTestingLocalAlarm(false)
+    }
+  }
+
   useEffect(() => {
     if (!loading && user) loadReminders()
   }, [loadReminders, loading, user])
+
+  const showDeviceNotification = useCallback(async (title: string, options: BrowserReminderNotificationOptions) => {
+    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') return
+
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.ready.catch(() => null)
+      if (registration) {
+        await registration.showNotification(title, options)
+        return
+      }
+    }
+
+    new Notification(title, options)
+  }, [])
 
   const showBrowserReminder = useCallback(async (slot: ActiveReminderAlert) => {
     if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') return
@@ -284,11 +394,7 @@ export default function MedicationShelf() {
     const title = 'Medication reminder'
     const body = `${slot.reminder.medication}${slot.reminder.dose ? `, ${slot.reminder.dose}` : ''} at ${slot.time}`
     const slotParts = parseReminderAckKey(slot.ackKey)
-    const options: NotificationOptions & {
-      actions?: Array<{ action: string; title: string }>
-      renotify?: boolean
-      vibrate?: number[]
-    } = {
+    const options: BrowserReminderNotificationOptions = {
       body,
       tag: slot.ackKey,
       requireInteraction: true,
@@ -310,16 +416,8 @@ export default function MedicationShelf() {
       },
     }
 
-    if ('serviceWorker' in navigator) {
-      const registration = await navigator.serviceWorker.ready.catch(() => null)
-      if (registration) {
-        await registration.showNotification(title, options)
-        return
-      }
-    }
-
-    new Notification(title, options)
-  }, [])
+    await showDeviceNotification(title, options)
+  }, [showDeviceNotification])
 
   const checkDueReminders = useCallback(() => {
     if (typeof window === 'undefined' || reminders.length === 0) return
@@ -363,23 +461,6 @@ export default function MedicationShelf() {
     const interval = window.setInterval(checkDueReminders, 30_000)
     return () => window.clearInterval(interval)
   }, [checkDueReminders, user])
-
-  async function requestReminderPermission() {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      setPermission('unsupported')
-      toast.push('This browser does not support reminders.', 'error')
-      return
-    }
-
-    const result = await Notification.requestPermission()
-    setPermission(result)
-    if (result === 'granted') {
-      playReminderTone()
-      toast.push('Medication reminders are enabled.', 'success')
-    } else {
-      toast.push('Notification permission was not granted.', 'info')
-    }
-  }
 
   function resetForm() {
     setForm(emptyForm)
@@ -636,53 +717,44 @@ export default function MedicationShelf() {
         <div className="space-y-5">
           <div className="rounded-2xl border border-brand-line bg-brand-ink/[0.04] p-4">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-accent3/15 text-brand-accent3">
-                <i className="ri-notification-3-line text-xl" aria-hidden="true" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-brand-ink">Daily medication reminders</p>
-                <p className="mt-1 text-xs leading-relaxed text-brand-ink/60">
-                  Browser reminders work best when KinSpace is open or installed. This is for reminders only.
-                  Follow your prescription label and clinician instructions.
-                </p>
-                <div className="mt-3">
-                  {permission === 'granted' ? (
-                    <Badge tone="success">
-                      <i className="ri-check-line" aria-hidden="true" /> Reminders enabled
-                    </Badge>
-                  ) : (
-                    <Button size="sm" variant="secondary" onClick={requestReminderPermission}>
-                      Enable reminders
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-brand-line bg-brand-ink/[0.04] p-4">
-            <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-accent1/15 text-brand-accent1">
                 <i className="ri-alarm-warning-line text-xl" aria-hidden="true" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-brand-ink">Remind me even when the app is closed</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-brand-ink">Device alarm status</p>
+                  <Badge tone={deviceAlarmStatus.tone}>
+                    {deviceAlarmStatus.label}
+                  </Badge>
+                </div>
                 <p className="mt-1 text-xs leading-relaxed text-brand-ink/60">
-                  A buzzing, persistent reminder reaches this device at each dose time, even if KinSpace isn&rsquo;t open.
-                  Works best once KinSpace is installed to your home screen.
+                  {deviceAlarmStatus.body} Follow your prescription label and clinician instructions.
                 </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl border border-brand-line bg-brand-surface px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-ink/45">Open app</p>
+                    <p className="mt-1 text-sm font-semibold text-brand-ink">Tone and banner</p>
+                  </div>
+                  <div className="rounded-xl border border-brand-line bg-brand-surface px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-ink/45">Closed app</p>
+                    <p className="mt-1 text-sm font-semibold text-brand-ink">{deviceAlarmStatus.closedApp}</p>
+                  </div>
+                  <div className="rounded-xl border border-brand-line bg-brand-surface px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-ink/45">Alarm style</p>
+                    <p className="mt-1 text-sm font-semibold text-brand-ink">Persistent buzz</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
                   {pushStatus === 'unsupported' ? (
                     <Badge tone="neutral">Not supported on this browser</Badge>
                   ) : pushStatus === 'denied' ? (
-                    <Badge tone="warning">Notifications are blocked. Enable them in your browser settings.</Badge>
+                    <Badge tone="warning">Notifications blocked</Badge>
                   ) : pushStatus === 'granted-subscribed' ? (
                     <>
-                      <Badge tone="success">
-                        <i className="ri-check-line" aria-hidden="true" /> On for this device
-                      </Badge>
                       <Button size="sm" variant="secondary" onClick={handleTestPush} disabled={testingPush} isLoading={testingPush}>
-                        Send a test
+                        Send push test
                       </Button>
                       <Button size="sm" variant="ghost" onClick={handleDisablePush} disabled={pushBusy}>
                         Turn off
@@ -696,7 +768,18 @@ export default function MedicationShelf() {
                       isLoading={pushBusy}
                       leadingIcon={!pushBusy ? <i className="ri-notification-badge-line" aria-hidden="true" /> : undefined}
                     >
-                      Turn on background reminders
+                      Turn on device alarms
+                    </Button>
+                  )}
+                  {permission !== 'unsupported' && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={handleTestLocalAlarm}
+                      disabled={testingLocalAlarm}
+                      isLoading={testingLocalAlarm}
+                    >
+                      Test alarm now
                     </Button>
                   )}
                 </div>

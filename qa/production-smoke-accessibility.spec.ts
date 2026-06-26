@@ -126,6 +126,15 @@ test('runs production member smoke and accessibility checks', async ({ page }) =
     if (message.type() === 'error') errors.push(message.text())
   })
 
+  await page.goto('/dashboard')
+  await page.getByLabel('Open medication shelf').click()
+  const medicationShelf = page.getByRole('dialog', { name: 'Medication shelf' })
+  await expect(medicationShelf).toBeVisible()
+  await expect(medicationShelf.getByText('Device alarm status')).toBeVisible()
+  await expect(medicationShelf.getByRole('button', { name: 'Test alarm now' })).toBeVisible()
+  await medicationShelf.getByRole('button', { name: 'Close' }).click()
+  await expect(medicationShelf).toBeHidden()
+
   for (const route of ['/dashboard', '/ask', '/community', '/groups', '/support', '/resources', '/timeline', '/settings', '/games/2048']) {
     await page.goto(route)
     await expect(page.locator('body')).toContainText(/KinSpace|Daily check-in|Ask|Community|Groups|Lanterns|Resources|Timeline|Settings|2048/)
