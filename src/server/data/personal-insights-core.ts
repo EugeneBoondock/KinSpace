@@ -54,6 +54,11 @@ export type PersonalReview = {
   focus: string | null
   nextActions: ReviewNextAction[]
 }
+export type InsightReviewNote = {
+  title: string
+  body: string
+  tags: string[]
+}
 export type PersonalInsights = {
   windowDays: number
   generatedAt: string
@@ -356,6 +361,43 @@ function buildPersonalReview({
     coverageLevel: level,
     focus,
     nextActions: nextActions.slice(0, 3),
+  }
+}
+
+export function buildInsightReviewNote(insights: PersonalInsights): InsightReviewNote {
+  const lines: string[] = []
+  const patterns = insights.cards.slice(0, 4)
+
+  lines.push(insights.review.title)
+  lines.push('')
+  lines.push(insights.review.summary)
+  lines.push('')
+  lines.push(`Logged days: ${insights.coverage.loggedDays}/${insights.coverage.windowDays}`)
+  if (insights.coverage.modalMood) lines.push(`Most logged mood: ${insights.coverage.modalMood}`)
+
+  if (patterns.length > 0) {
+    lines.push('')
+    lines.push('Patterns to discuss')
+    for (const card of patterns) {
+      lines.push(`- ${card.title}: ${card.phrase}`)
+    }
+  }
+
+  if (insights.review.nextActions.length > 0) {
+    lines.push('')
+    lines.push('Next steps I wanted to keep')
+    for (const action of insights.review.nextActions) {
+      lines.push(`- ${action.title}: ${action.body}`)
+    }
+  }
+
+  lines.push('')
+  lines.push('This note is not medical advice or a prediction. It is a private summary of my own KinSpace logs for a care conversation.')
+
+  return {
+    title: 'Care-team note from KinSpace',
+    body: lines.join('\n'),
+    tags: ['insights', 'care-team'],
   }
 }
 

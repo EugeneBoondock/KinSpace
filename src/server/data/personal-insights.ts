@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import type { Ctx } from './_shared'
 import { requireActor, toDate } from './_shared'
 import {
+  journalEntries,
   moodCheckins,
   symptomLogs,
   medicationTakenLog,
@@ -10,7 +11,14 @@ import {
   spoonStatuses,
 } from '@/server/db/schema'
 import { analyzeMoodPattern } from './wellness'
-import { buildPersonalInsights, MOOD_VALENCE, DAY_MS, type PersonalInsights } from './personal-insights-core'
+import { encryptField } from '@/server/crypto/field-encryption'
+import {
+  buildInsightReviewNote,
+  buildPersonalInsights,
+  MOOD_VALENCE,
+  DAY_MS,
+  type PersonalInsights,
+} from './personal-insights-core'
 
 export type { PersonalInsights } from './personal-insights-core'
 
@@ -115,4 +123,23 @@ export async function getPersonalInsights(ctx: Ctx, days = 30): Promise<Personal
     crisisNudge,
     generatedAt: new Date().toISOString(),
   })
+}
+
+export async function savePersonalInsightReviewNote(ctx: Ctx, _userId: string, days = 30) {
+  const userId = requireActor(ctx)
+  const insights = await getPersonalInsights(ctx, days)
+  const note = buildInsightReviewNote(insights)
+  const id = crypto.randomUUID()
+
+  await ctx.db.insert(journalEntries).values({
+    id,
+    userId,
+    title: (await encryptField(note.title)) ?? note.title,
+    body: (await encryptField(note.body)) ?? note.body,
+    tags: note.tags,
+    eventKind: 'journal',
+    isPrivate: true,
+  })
+
+  return { id, title: note.title, href: '/timeline' }
 }

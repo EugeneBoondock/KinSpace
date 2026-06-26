@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildPersonalInsights, findingIsSafe, MOOD_VALENCE, type InsightSignals } from './personal-insights-core'
+import { buildInsightReviewNote, buildPersonalInsights, findingIsSafe, MOOD_VALENCE, type InsightSignals } from './personal-insights-core'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const TODAY = '2026-06-22'
@@ -89,6 +89,19 @@ test('builds a weekly review with a focused next action from surfaced patterns',
   assert.equal(result.review.nextActions[0].id, 'care-team-note')
   assert.equal(result.review.nextActions[0].href, '/timeline')
   assert.ok(result.review.nextActions.some((action) => action.id === 'keep-checking-in'))
+})
+
+test('builds a private care-team note from the weekly review', () => {
+  const result = buildPersonalInsights(plantedSignals())
+  const note = buildInsightReviewNote(result)
+
+  assert.equal(note.title, 'Care-team note from KinSpace')
+  assert.deepEqual(note.tags, ['insights', 'care-team'])
+  assert.match(note.body, /Your weekly review is ready/)
+  assert.match(note.body, /Fatigue/)
+  assert.match(note.body, /Patterns to discuss/)
+  assert.match(note.body, /This note is not medical advice/)
+  assert.equal(/cause|diagnos|should take|should stop|p\s*=|%/i.test(note.body), false)
 })
 
 test('stays silent (no cards) under thin data, still returns coverage', () => {

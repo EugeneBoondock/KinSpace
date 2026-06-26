@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { formatCompactNumber } from '@/lib/platform'
 import { cn } from '@/lib/cn'
-import { Alert, Badge, Card, CardTitle, EmptyState, LinkButton, Skeleton } from '@/components/ui'
+import { useToast } from '@/components/Toast'
+import { Alert, Badge, Button, Card, CardTitle, EmptyState, LinkButton, Skeleton } from '@/components/ui'
 
 // Community insights
 type Condition = Record<string, unknown> & { id: string }
@@ -100,7 +102,17 @@ const COVERAGE_BADGE: Record<ReviewCoverageLevel, { label: string; tone: 'neutra
   strong: { label: 'Strong signal', tone: 'success' },
 }
 
-function WeeklyReviewPanel({ review, coverage }: { review: PersonalReview; coverage: PersonalInsights['coverage'] }) {
+function WeeklyReviewPanel({
+  review,
+  coverage,
+  onSaveNote,
+  savingNote,
+}: {
+  review: PersonalReview
+  coverage: PersonalInsights['coverage']
+  onSaveNote: () => void
+  savingNote: boolean
+}) {
   const badge = COVERAGE_BADGE[review.coverage_level] ?? COVERAGE_BADGE.thin
 
   return (
@@ -146,9 +158,23 @@ function WeeklyReviewPanel({ review, coverage }: { review: PersonalReview; cover
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-brand-ink">{action.title}</p>
                   <p className="mt-1 text-xs leading-relaxed text-brand-ink/60">{action.body}</p>
-                  <LinkButton href={action.href} variant={index === 0 ? 'primary' : 'secondary'} size="sm" className="mt-3">
-                    Start
-                  </LinkButton>
+                  {action.id === 'care-team-note' ? (
+                    <Button
+                      type="button"
+                      variant={index === 0 ? 'primary' : 'secondary'}
+                      size="sm"
+                      className="mt-3"
+                      isLoading={savingNote}
+                      disabled={savingNote}
+                      onClick={onSaveNote}
+                    >
+                      Save note
+                    </Button>
+                  ) : (
+                    <LinkButton href={action.href} variant={index === 0 ? 'primary' : 'secondary'} size="sm" className="mt-3">
+                      Start
+                    </LinkButton>
+                  )}
                 </div>
               </div>
             </div>
@@ -214,9 +240,13 @@ function CoverageStrip({ coverage }: { coverage: PersonalInsights['coverage'] })
 }
 
 function PersonalSection() {
+  const router = useRouter()
+  const { user } = useAuth()
+  const { push: toast } = useToast()
   const [data, setData] = useState<PersonalInsights | null>(null)
   const [windowDays, setWindowDays] = useState<number>(30)
   const [loading, setLoading] = useState(true)
+  const [savingNote, setSavingNote] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -235,6 +265,21 @@ function PersonalSection() {
       cancelled = true
     }
   }, [windowDays])
+
+  const saveReviewNote = async () => {
+    if (!user) return
+    setSavingNote(true)
+    try {
+      await DatabaseService.savePersonalInsightReviewNote(user.userId, windowDays)
+      toast('Saved to your timeline.', 'success')
+      router.push('/timeline')
+    } catch (error) {
+      console.error('Failed to save review note:', error)
+      toast('Could not save the note just now.', 'error')
+    } finally {
+      setSavingNote(false)
+    }
+  }
 
   return (
     <section className="space-y-4">
@@ -282,7 +327,12 @@ function PersonalSection() {
             </Alert>
           )}
 
-          <WeeklyReviewPanel review={data.review} coverage={data.coverage} />
+          <WeeklyReviewPanel
+            review={data.review}
+            coverage={data.coverage}
+            onSaveNote={saveReviewNote}
+            savingNote={savingNote}
+          />
           <CoverageStrip coverage={data.coverage} />
 
           {data.has_enough_data ? (

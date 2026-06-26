@@ -2,6 +2,7 @@ import { eq, desc } from 'drizzle-orm'
 import type { Ctx } from './_shared'
 import { requireActor, toDate } from './_shared'
 import { moodCheckins, symptomLogs, treatmentLogs, journalEntries, medicationReminders } from '@/server/db/schema'
+import { decryptField } from '@/server/crypto/field-encryption'
 
 const PER_TABLE_LIMIT = 50
 const DEFAULT_EVENT_LIMIT = 60
@@ -263,7 +264,14 @@ export async function getHealthTimeline(
     }),
   ])
 
-  const source = { moods, symptoms, treatments, journals, medications }
+  const decryptedJournals = await Promise.all(
+    journals.map(async (row) => ({
+      ...row,
+      title: (await decryptField(row.title)) ?? row.title,
+      body: (await decryptField(row.body)) ?? row.body,
+    })),
+  )
+  const source = { moods, symptoms, treatments, journals: decryptedJournals, medications }
   const events = buildHealthTimelineEvents(source)
   const limit = opts?.limit ?? DEFAULT_EVENT_LIMIT
 
