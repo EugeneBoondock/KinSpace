@@ -96,6 +96,8 @@ test('runs production member smoke and accessibility checks', async ({ page }) =
     WHERE user_id=${sqlString(createdUserId!)};
   `)
 
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined)
+  await page.context().clearCookies()
   await page.goto('/login')
   await page.getByLabel('Email').fill(testUser.email)
   await page.getByLabel('Password').fill(testUser.password)

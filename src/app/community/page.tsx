@@ -1808,12 +1808,7 @@ export default function CommunityPage() {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between gap-2">
                                 <p className="min-w-0 truncate text-sm font-semibold text-brand-background">
-                                  <MemberName
-                                    profile={author as Record<string, unknown>}
-                                    userId={authorUserId}
-                                    name={authorName}
-                                    showQuickAction={false}
-                                  />
+                                  {authorName}
                                 </p>
                                 <span className="shrink-0 text-[11px] text-brand-background/45">
                                   {formatRelativeTime(item.created_at ?? item.createdAt)}

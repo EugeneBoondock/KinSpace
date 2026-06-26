@@ -636,15 +636,15 @@ export default function Settings() {
                       onClick={() => setTheme(option.value)}
                       className={`min-h-[5rem] rounded-xl border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 ${
                         selected
-                          ? 'border-brand-accent2/45 bg-brand-accent2/15 text-brand-accent2'
-                          : 'border-brand-background/10 bg-brand-background/5 text-brand-background/65 hover:bg-brand-background/10'
+                          ? 'border-brand-accent2/45 bg-brand-accent2/18 text-brand-background'
+                          : 'border-brand-background/10 bg-brand-background/5 text-brand-background/80 hover:bg-brand-background/10'
                       }`}
                     >
                       <span className="flex items-center gap-2 text-sm font-semibold">
                         <i className={option.icon} aria-hidden="true" />
                         {option.label}
                       </span>
-                      <span className="mt-1 block text-xs opacity-70">{option.detail}</span>
+                      <span className="mt-1 block text-xs text-brand-background/70">{option.detail}</span>
                     </button>
                   )
                 })}
@@ -664,15 +664,15 @@ export default function Settings() {
                       onClick={() => setMotion(option.value)}
                       className={`min-h-[5rem] rounded-xl border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 ${
                         selected
-                          ? 'border-brand-accent3/45 bg-brand-accent3/15 text-brand-accent3'
-                          : 'border-brand-background/10 bg-brand-background/5 text-brand-background/65 hover:bg-brand-background/10'
+                          ? 'border-brand-accent3/45 bg-brand-accent3/18 text-brand-background'
+                          : 'border-brand-background/10 bg-brand-background/5 text-brand-background/80 hover:bg-brand-background/10'
                       }`}
                     >
                       <span className="flex items-center gap-2 text-sm font-semibold">
                         <i className={option.icon} aria-hidden="true" />
                         {option.label}
                       </span>
-                      <span className="mt-1 block text-xs opacity-70">{option.detail}</span>
+                      <span className="mt-1 block text-xs text-brand-background/70">{option.detail}</span>
                     </button>
                   )
                 })}

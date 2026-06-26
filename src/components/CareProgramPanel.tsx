@@ -171,7 +171,7 @@ export default function CareProgramPanel({ compact = false, className }: CarePro
             <div className="rounded-2xl border border-brand-background/10 bg-brand-background/[0.04] p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-medium text-brand-background/55">Last 7 days</p>
-                <Link href="/timeline" className="text-xs font-semibold text-brand-accent5 hover:text-brand-accent5/80">
+                <Link href="/timeline" className="text-xs font-semibold text-brand-background hover:text-brand-background/75">
                   Timeline
                 </Link>
               </div>
