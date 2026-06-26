@@ -65,6 +65,14 @@ function containsTerm(haystack: string, term: string): boolean {
   return ` ${haystack} `.includes(` ${term} `)
 }
 
+function termsOverlap(left: string, right: string): boolean {
+  if (!left || !right) return false
+  if (left === right) return true
+  if (left.length >= 5 && containsTerm(right, left)) return true
+  if (right.length >= 5 && containsTerm(left, right)) return true
+  return false
+}
+
 export function matchArticleConditions(
   article: ResearchArticleEmailInput,
   catalogRows: ConditionRow[],
@@ -93,7 +101,9 @@ export function matchArticleConditions(
 export function profileMatchesConditions(profile: ProfileRow, matched: MatchedCondition[]): MatchedCondition[] {
   if (matched.length === 0) return []
   const profileTerms = unique([...listStrings(profile.conditions), ...listStrings(profile.comorbidities)])
-  return matched.filter((condition) => condition.terms.some((term) => profileTerms.includes(term)))
+  return matched.filter((condition) =>
+    condition.terms.some((term) => profileTerms.some((profileTerm) => termsOverlap(profileTerm, term))),
+  )
 }
 
 function escapeHtml(value: string): string {
@@ -120,12 +130,18 @@ export function buildConditionArticleEmail(article: ResearchArticleEmailInput, c
   const safeSummary = escapeHtml(
     article.plainLanguageSummary || article.excerpt || 'A new plain-language research article is ready to read.',
   )
+  const accessNote =
+    'KinSpace asks each research article to cover energy, pain, mobility, sensory load, cognitive load, care access, transport, cost, work, school, and caregiving where the sources allow.'
   const html = `
 <div style="font-family:ui-sans-serif,system-ui,sans-serif;background:#2A4A42;color:#eedfc8;padding:32px;border-radius:16px;max-width:560px;margin:0 auto">
   <p style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(238,223,200,0.68);margin:0 0 12px">KinSpace research</p>
   <h1 style="font-size:22px;line-height:1.25;margin:0 0 14px">${safeTitle}</h1>
   <p style="line-height:1.6;margin:0 0 14px">This new article matched ${safeCondition} on your KinSpace profile.</p>
   <p style="line-height:1.6;margin:0 0 22px">${safeSummary}</p>
+  <div style="background:rgba(238,223,200,0.10);border:1px solid rgba(238,223,200,0.18);border-radius:14px;padding:16px;margin:0 0 22px">
+    <p style="font-size:13px;font-weight:700;margin:0 0 8px">Access is part of the story</p>
+    <p style="font-size:13px;line-height:1.55;margin:0;color:rgba(238,223,200,0.76)">${accessNote}</p>
+  </div>
   <p style="margin:0 0 24px"><a href="${url}" style="display:inline-block;background:#eedfc8;color:#2A4A42;font-weight:700;padding:12px 22px;border-radius:9999px;text-decoration:none">Read the article</a></p>
   <p style="color:rgba(238,223,200,0.62);font-size:12px;line-height:1.5;margin:0">This is information only, not medical advice. You can turn research email alerts off in Settings.</p>
 </div>`
@@ -134,6 +150,9 @@ export function buildConditionArticleEmail(article: ResearchArticleEmailInput, c
     '',
     `This new KinSpace article matched ${conditionName} on your profile.`,
     article.plainLanguageSummary || article.excerpt || '',
+    '',
+    'Access is part of the story',
+    accessNote,
     '',
     `Read it here: ${url}`,
     '',

@@ -106,12 +106,35 @@ test('profileMatchesConditions matches listed conditions and comorbidities', () 
   )
 })
 
+test('profileMatchesConditions matches longer profile phrases that contain the catalog condition', () => {
+  const longCovidArticle: ResearchArticleEmailInput = {
+    slug: 'ai-long-covid-energy',
+    title: 'Long COVID study looks at energy limits after exertion',
+    excerpt: 'Researchers studied long COVID symptoms.',
+    topic: 'Long COVID',
+    tags: ['long covid', 'fatigue'],
+    plainLanguageSummary: 'A new study looked at energy limits after long COVID.',
+  }
+  const matches = matchArticleConditions(longCovidArticle, [
+    condition({ slug: 'long-covid', name: 'Long COVID', aliases: ['Post COVID condition'] }),
+  ] as never)
+
+  assert.deepEqual(
+    profileMatchesConditions(profile({ conditions: ['Long COVID and ME/CFS'] }) as never, matches).map(
+      (match) => match.name,
+    ),
+    ['Long COVID'],
+  )
+})
+
 test('buildConditionArticleEmail keeps the subject privacy-safe', () => {
   const email = buildConditionArticleEmail(article, 'Generalised Anxiety')
 
   assert.equal(email.subject, 'New KinSpace article for your health shelf')
   assert.equal(email.subject.includes('Anxiety'), false)
-  assert.match(email.html, /Access|research|Read the article/)
+  assert.match(email.html, /Access is part of the story/)
+  assert.match(email.html, /mobility/)
+  assert.match(email.text, /sensory load/)
   assert.match(email.text, /not medical advice/i)
 })
 
