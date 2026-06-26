@@ -6,6 +6,7 @@ import BottomNav from '@/components/BottomNav'
 import InstallAppButton from '@/components/InstallAppButton'
 import PlatformAvatarPicker from '@/components/PlatformAvatarPicker'
 import ProfileAvatar from '@/components/ProfileAvatar'
+import { useTheme } from '@/components/ThemeProvider'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
 import { EncryptionService } from '@/lib/encryption'
@@ -69,10 +70,21 @@ const communicationOptions = [
   { value: 'video', label: 'Video', icon: 'ri-vidicon-line' },
 ]
 
+const themeOptions = [
+  { value: 'light', label: 'Light', icon: 'ri-sun-line', detail: 'Bright, warm surfaces' },
+  { value: 'dark', label: 'Dark', icon: 'ri-moon-line', detail: 'Lower glare for night use' },
+] as const
+
+const motionOptions = [
+  { value: 'reduced', label: 'Reduced', icon: 'ri-leaf-line', detail: 'Less motion and fewer animated shifts' },
+  { value: 'full', label: 'Full', icon: 'ri-sparkling-line', detail: 'Standard transitions and movement' },
+] as const
+
 type BlockedRow = { user_id: string; profile: { username?: string; full_name?: string | null } | null }
 
 export default function Settings() {
   const { user, loading: authLoading, signOut } = useAuth()
+  const { theme, setTheme, motion, setMotion } = useTheme()
   const router = useRouter()
   const [profile, setProfile] = useState<ProfileData>(defaultProfile)
   const [loading, setLoading] = useState(true)
@@ -601,6 +613,102 @@ export default function Settings() {
           </div>
         </Card>
 
+        {/* Access and comfort */}
+        <Card>
+          <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-brand-background">
+            <i className="ri-universal-access-line text-brand-accent5" /> Access and comfort
+          </h2>
+          <p className="mb-4 text-sm text-brand-background/55">
+            Tune KinSpace for glare, motion, and sensory load. These choices save on this device.
+          </p>
+
+          <div className="space-y-4">
+            <fieldset>
+              <legend className="mb-2 text-sm font-medium text-brand-background/90">Color mode</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {themeOptions.map((option) => {
+                  const selected = theme === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setTheme(option.value)}
+                      className={`min-h-[5rem] rounded-xl border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 ${
+                        selected
+                          ? 'border-brand-accent2/45 bg-brand-accent2/15 text-brand-accent2'
+                          : 'border-brand-background/10 bg-brand-background/5 text-brand-background/65 hover:bg-brand-background/10'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 text-sm font-semibold">
+                        <i className={option.icon} aria-hidden="true" />
+                        {option.label}
+                      </span>
+                      <span className="mt-1 block text-xs opacity-70">{option.detail}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend className="mb-2 text-sm font-medium text-brand-background/90">Motion level</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {motionOptions.map((option) => {
+                  const selected = motion === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setMotion(option.value)}
+                      className={`min-h-[5rem] rounded-xl border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40 ${
+                        selected
+                          ? 'border-brand-accent3/45 bg-brand-accent3/15 text-brand-accent3'
+                          : 'border-brand-background/10 bg-brand-background/5 text-brand-background/65 hover:bg-brand-background/10'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 text-sm font-semibold">
+                        <i className={option.icon} aria-hidden="true" />
+                        {option.label}
+                      </span>
+                      <span className="mt-1 block text-xs opacity-70">{option.detail}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </fieldset>
+
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-background/[0.06] p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent3/15">
+                  <i className="ri-volume-up-line text-brand-accent3" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-brand-background">Sound effects</p>
+                  <p className="text-xs text-brand-background/45">
+                    Gentle taps, game sounds, and reminder chimes.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={soundOn}
+                aria-label="Sound effects"
+                onClick={handleToggleSound}
+                className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
+                  soundOn ? 'bg-brand-accent2' : 'bg-brand-background/20'
+                }`}
+              >
+                <div className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
+                  soundOn ? 'left-6' : 'left-1'
+                }`} />
+              </button>
+            </div>
+          </div>
+        </Card>
+
         {/* Health Info Section */}
         <Card>
           <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-brand-background">
@@ -1020,40 +1128,6 @@ export default function Settings() {
           <p className="mt-3 text-xs text-brand-background/40">
             Don&rsquo;t see the button? Open kinspace.co.za in your phone&rsquo;s browser, then tap it (or use your browser&rsquo;s &ldquo;Add to Home Screen&rdquo;).
           </p>
-        </Card>
-
-        {/* Sounds Section */}
-        <Card>
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-brand-background">
-            <i className="ri-volume-up-line text-brand-accent3" /> Sounds
-          </h2>
-          <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-background/[0.06] p-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent3/15">
-                <i className="ri-music-2-line text-brand-accent3" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-brand-background">Sound effects</p>
-                <p className="text-xs text-brand-background/45">
-                  Gentle taps, game sounds, and reminder chimes. Therapy soundscapes have their own control in each session.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={soundOn}
-              aria-label="Sound effects"
-              onClick={handleToggleSound}
-              className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
-                soundOn ? 'bg-brand-accent2' : 'bg-brand-background/20'
-              }`}
-            >
-              <div className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
-                soundOn ? 'left-6' : 'left-1'
-              }`} />
-            </button>
-          </div>
         </Card>
 
         {/* Blocked accounts */}
