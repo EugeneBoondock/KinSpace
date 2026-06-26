@@ -80,9 +80,13 @@ export async function sendTestPush(ctx: Ctx) {
     {
       title: 'KinSpace reminder',
       body: 'Background reminders are working. This is how a medication reminder will reach you.',
-      url: '/dashboard',
+      url: '/dashboard?meds=1',
       tag: 'kinspace-test',
       requireInteraction: true,
+      renotify: true,
+      silent: false,
+      vibrate: [700, 250, 700, 250, 700, 500, 900],
+      timestamp: Date.now(),
       data: { kind: 'test' },
     },
   )

@@ -89,12 +89,14 @@ self.addEventListener('push', (event) => {
     icon: '/images/gather_logo.png',
     badge: '/images/gather_logo.png',
     tag: payload.tag || 'kinspace-activity',
+    timestamp: typeof payload.timestamp === 'number' ? payload.timestamp : Date.now(),
+    silent: Boolean(payload.silent) && !payload.requireInteraction,
     // Re-alert even if a notification with this tag already exists.
-    renotify: true,
+    renotify: payload.renotify !== false,
     // Persistent + buzzing: medication reminders are too easy to swipe away,
     // so for those we keep the notification up until the user acts.
     requireInteraction: Boolean(payload.requireInteraction),
-    vibrate: [200, 100, 200, 100, 200],
+    vibrate: Array.isArray(payload.vibrate) ? payload.vibrate : [700, 250, 700, 250, 700, 500, 900],
     actions: Array.isArray(payload.actions) ? payload.actions.slice(0, 2) : [],
     data: { url: payload.url || '/notifications', ...(payload.data || {}) },
   }

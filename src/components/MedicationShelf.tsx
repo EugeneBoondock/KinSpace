@@ -123,6 +123,10 @@ const emptyForm: ReminderForm = {
 }
 
 const ACK_PREFIX = 'kinspace:med-reminder:'
+const DUE_WAKE_WINDOW_MINUTES = 6
+const ACTIVE_ALERT_REPEAT_MS = 9_000
+const ACTIVE_ALERT_REPEAT_LIMIT = 8
+const REMINDER_VIBRATION = [700, 250, 700, 250, 700, 500, 900]
 
 function storageKey(ackKey: string) {
   return `${ACK_PREFIX}${ackKey}`
@@ -131,6 +135,11 @@ function storageKey(ackKey: string) {
 function playReminderTone() {
   // Centralized so it honors the global sound toggle (Settings -> Sounds).
   playSfx('reminder')
+}
+
+function vibrateReminder() {
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return
+  navigator.vibrate(REMINDER_VIBRATION)
 }
 
 function formatTimes(times: string[]) {
@@ -268,13 +277,24 @@ export default function MedicationShelf() {
 
     const title = 'Medication reminder'
     const body = `${slot.reminder.medication}${slot.reminder.dose ? `, ${slot.reminder.dose}` : ''} at ${slot.time}`
-    const options: NotificationOptions = {
+    const options: NotificationOptions & {
+      actions?: Array<{ action: string; title: string }>
+      renotify?: boolean
+      vibrate?: number[]
+    } = {
       body,
       tag: slot.ackKey,
       requireInteraction: true,
+      renotify: true,
+      silent: false,
+      vibrate: REMINDER_VIBRATION,
+      actions: [
+        { action: 'taken', title: 'Taken' },
+        { action: 'snooze', title: 'Snooze 10m' },
+      ],
       icon: '/images/gather_logo.png',
       badge: '/images/gather_logo.png',
-      data: { url: '/dashboard' },
+      data: { url: '/dashboard?meds=1', kind: 'med-reminder', reminderId: slot.reminder.id, time: slot.time },
     }
 
     if ('serviceWorker' in navigator) {
@@ -292,7 +312,7 @@ export default function MedicationShelf() {
     if (typeof window === 'undefined' || reminders.length === 0) return
 
     const now = new Date()
-    const dueSlots = getDueMedicationReminderSlots(reminders, now, new Set())
+    const dueSlots = getDueMedicationReminderSlots(reminders, now, new Set(), DUE_WAKE_WINDOW_MINUTES)
       .filter((slot) => !window.localStorage.getItem(storageKey(slot.ackKey)))
 
     for (const slot of dueSlots) {
@@ -301,9 +321,28 @@ export default function MedicationShelf() {
       setActiveAlert(alertSlot)
       toast.push(`Time for ${slot.reminder.medication}.`, 'info')
       playReminderTone()
+      vibrateReminder()
       showBrowserReminder(alertSlot).catch(() => undefined)
     }
   }, [reminders, showBrowserReminder, toast])
+
+  useEffect(() => {
+    if (!activeAlert) return
+    let count = 0
+    const interval = window.setInterval(() => {
+      count += 1
+      if (count > ACTIVE_ALERT_REPEAT_LIMIT) {
+        window.clearInterval(interval)
+        return
+      }
+      playReminderTone()
+      vibrateReminder()
+    }, ACTIVE_ALERT_REPEAT_MS)
+    return () => {
+      window.clearInterval(interval)
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate(0)
+    }
+  }, [activeAlert])
 
   useEffect(() => {
     if (!user) return

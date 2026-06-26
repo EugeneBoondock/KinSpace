@@ -19,6 +19,14 @@ export type PushPayload = {
   actions?: Array<{ action: string; title: string }>
   /** Persistent until the user acts (key for medication adherence). */
   requireInteraction?: boolean
+  /** Keep alerting when replacing an existing notification with the same tag. */
+  renotify?: boolean
+  /** Hint for devices that support vibration from Web Push notifications. */
+  vibrate?: number[]
+  /** Request audible OS behavior where the browser allows it. */
+  silent?: boolean
+  /** Notification event time shown by supporting platforms. */
+  timestamp?: number
   /** Arbitrary data echoed back on notificationclick (e.g. reminderId). */
   data?: Record<string, unknown>
 }

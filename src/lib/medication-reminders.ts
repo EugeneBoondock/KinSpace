@@ -27,6 +27,18 @@ function localDateKey(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
 }
 
+function timeToMinutes(time: string): number | null {
+  const match = time.trim().match(TIME_PATTERN)
+  if (!match) return null
+
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null
+
+  return hour * 60 + minute
+}
+
 export function normalizeReminderTimes(times: string[]): string[] {
   const normalized = new Set<string>()
 
@@ -105,15 +117,20 @@ export function getDueMedicationReminderSlots(
   reminders: MedicationReminderSchedule[],
   now: Date,
   acknowledgedKeys: Set<string>,
+  windowMinutes = 1,
 ): DueMedicationReminderSlot[] {
-  const currentTime = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const windowSize = Math.max(1, Math.floor(windowMinutes))
   const due: DueMedicationReminderSlot[] = []
 
   for (const reminder of reminders) {
     if (!reminder.active) continue
 
     for (const time of normalizeReminderTimes(reminder.times)) {
-      if (time !== currentTime) continue
+      const slotMinutes = timeToMinutes(time)
+      if (slotMinutes === null) continue
+      const delta = nowMinutes - slotMinutes
+      if (delta < 0 || delta >= windowSize) continue
 
       const ackKey = buildReminderAckKey(reminder.id, time, now)
       if (acknowledgedKeys.has(ackKey)) continue

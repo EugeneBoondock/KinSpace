@@ -113,6 +113,10 @@ export async function runDueMedicationReminders(now: Date) {
           url: '/dashboard?meds=1',
           tag: `med-${item.reminder.id}-${item.snoozed ? 'snooze' : item.time}`,
           requireInteraction: true,
+          renotify: true,
+          silent: false,
+          vibrate: [700, 250, 700, 250, 700, 500, 900],
+          timestamp: now.getTime(),
           actions: [
             { action: 'taken', title: 'Taken' },
             { action: 'snooze', title: 'Snooze 10m' },
