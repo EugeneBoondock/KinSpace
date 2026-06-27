@@ -26,11 +26,24 @@ const tierStyles: Record<string, string> = {
   gold: 'bg-brand-accent3/15 text-brand-accent3 border-brand-accent3/30',
 }
 
+type PlanBadgeDto = {
+  label: string
+  tone: string
+  icon: string
+}
+
+const planBadgeStyles: Record<string, string> = {
+  plus: 'bg-brand-accent2/15 text-brand-accent2 border-brand-accent2/30',
+  pro: 'bg-brand-accent3/15 text-brand-accent3 border-brand-accent3/30',
+  organisation: 'bg-brand-accent4/15 text-brand-accent4 border-brand-accent4/30',
+}
+
 interface Profile {
   id: string
   full_name?: string
   username?: string
   email_verified?: boolean
+  plan_badge?: PlanBadgeDto | null
   avatar_url?: string | null
   cover_image_url?: string
   bio?: string
@@ -696,6 +709,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
   const displayName = profile.full_name || profile.username || 'User'
   const isVerifiedMember = Boolean((isOwnProfile && user?.emailVerified) || profile.email_verified)
+  const planBadge = profile.plan_badge ?? null
   const visibleConditions = (profile.hide_conditions_on_profile ? [] : profile.conditions || []).filter(
     (condition) => condition !== 'Private',
   )
@@ -932,6 +946,12 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         <div className="mb-3">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className={`text-2xl font-bold text-brand-background ${spaceFont.className}`}>{displayName}</h1>
+            {planBadge && (
+              <Badge className={planBadgeStyles[planBadge.tone] ?? planBadgeStyles.plus}>
+                <i className={planBadge.icon} aria-hidden="true" />
+                {planBadge.label}
+              </Badge>
+            )}
             {isVerifiedMember && (
               <Badge className={`${accentBgClass} ${accentTextClass}`}>
                 <i className="ri-check-double-line" aria-hidden="true" />

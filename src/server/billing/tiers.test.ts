@@ -6,8 +6,11 @@ import {
   billingPeriodEndFrom,
   billingPeriodMonths,
   billingPeriodPlanCode,
+  planEntitlementsForTier,
   planForTier,
   planPriceCents,
+  publicPlanBadgeForTier,
+  tierFromInput,
 } from './tiers'
 
 test('billing periods cover monthly quarterly and annual choices', () => {
@@ -20,12 +23,36 @@ test('billing periods cover monthly quarterly and annual choices', () => {
 test('planPriceCents prices paid periods from the monthly plan amount', () => {
   const plus = planForTier('plus')
   const pro = planForTier('pro')
+  const organisation = planForTier('organisation')
 
   assert.equal(planPriceCents(plus, 'monthly'), 9900)
   assert.equal(planPriceCents(plus, 'quarterly'), 29700)
   assert.equal(planPriceCents(plus, 'annual'), 118800)
   assert.equal(planPriceCents(pro, 'quarterly'), 74700)
   assert.equal(planPriceCents(pro, 'annual'), 298800)
+  assert.equal(planPriceCents(organisation, 'monthly'), 69900)
+  assert.equal(planPriceCents(organisation, 'quarterly'), 209700)
+  assert.equal(planPriceCents(organisation, 'annual'), 838800)
+})
+
+test('organisation plan exposes org-level badge and profile perks', () => {
+  const organisation = planForTier('organisation')
+
+  assert.equal(organisation.name, 'KinSpace Organisation')
+  assert.equal(organisation.priceCents, 69900)
+  assert.equal(publicPlanBadgeForTier('pro')?.label, 'Verified facilitator')
+  assert.equal(publicPlanBadgeForTier('organisation')?.label, 'Verified organisation')
+  assert.deepEqual(planEntitlementsForTier('organisation').spaceTools, [
+    'Branded My Space background',
+    'Program and resource showcase',
+    'Pinned organisation note',
+  ])
+})
+
+test('tierFromInput accepts organisation and rejects unknown tiers', () => {
+  assert.equal(tierFromInput('organisation'), 'organisation')
+  assert.equal(tierFromInput('pro'), 'pro')
+  assert.equal(tierFromInput('enterprise'), 'free')
 })
 
 test('billingPeriodFromPlanCode reads PayFast period codes and defaults to monthly', () => {

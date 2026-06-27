@@ -1,12 +1,12 @@
 import type { Metadata } from 'next'
-import { LinkButton } from '@/components/ui'
+import { Badge, LinkButton } from '@/components/ui'
 import { BILLING_PERIODS, PLANS, billingPeriodInfo, planPriceCents } from '@/server/billing/tiers'
 import { SubscribeButton } from './SubscribeButton'
 
 export const metadata: Metadata = {
   title: 'Pricing - KinSpace',
   description:
-    'Start free. Upgrade to KinSpace Plus for unlimited AI support, a private journal, and trackers - or Pro for care partners and facilitators.',
+    'Start free. Upgrade to KinSpace Plus, Pro, or Organisation for AI support, badges, private tools, and support spaces.',
 }
 
 function priceLabel(cents: number): string {
@@ -17,7 +17,7 @@ function priceLabel(cents: number): string {
 export default function PricingPage() {
   return (
     <main className="page-shell">
-      <div className="page-container max-w-5xl">
+      <div className="page-container max-w-7xl">
         <header className="py-8 text-center">
           <h1 className="text-3xl font-bold text-brand-background sm:text-4xl">Care that grows with you</h1>
           <p className="mx-auto mt-3 max-w-xl text-brand-background/70">
@@ -25,9 +25,10 @@ export default function PricingPage() {
           </p>
         </header>
 
-        <div className="grid gap-5 md:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {PLANS.map((plan) => {
             const featured = plan.id === 'plus'
+            const planBadge = plan.entitlements.badge
             return (
               <div
                 key={plan.id}
@@ -43,7 +44,15 @@ export default function PricingPage() {
                     Most loved
                   </span>
                 )}
-                <h2 className="text-xl font-bold text-brand-background">{plan.name}</h2>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h2 className="text-xl font-bold text-brand-background">{plan.name}</h2>
+                  {planBadge && (
+                    <Badge tone={plan.id === 'organisation' ? 'violet' : 'sage'}>
+                      <i className={planBadge.icon} aria-hidden="true" />
+                      {planBadge.label}
+                    </Badge>
+                  )}
+                </div>
                 <p className="mt-1 text-sm text-brand-background/60">{plan.tagline}</p>
                 <div className="mt-4 flex items-baseline gap-1">
                   {plan.priceCents > 0 && <span className="text-sm text-brand-background/50">from</span>}

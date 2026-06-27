@@ -1,4 +1,4 @@
-export type Tier = 'free' | 'plus' | 'pro'
+export type Tier = 'free' | 'plus' | 'pro' | 'organisation'
 
 export type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
 
@@ -57,6 +57,15 @@ export const LIMITS: Record<Tier, Record<Feature, number>> = {
     support_circles: UNLIMITED,
     group_analytics: UNLIMITED,
   },
+  organisation: {
+    ai_therapy: UNLIMITED,
+    ai_ask: UNLIMITED,
+    ai_research: UNLIMITED,
+    journal: UNLIMITED,
+    saved_resources: UNLIMITED,
+    support_circles: UNLIMITED,
+    group_analytics: UNLIMITED,
+  },
 }
 
 export function getLimit(tier: Tier, feature: Feature): number {
@@ -71,6 +80,21 @@ export function hasFeature(tier: Tier, feature: Feature): boolean {
   return getLimit(tier, feature) > 0
 }
 
+export type PlanBadge = {
+  label: string
+  tone: 'plus' | 'pro' | 'organisation'
+  icon: string
+}
+
+export type PlanEntitlements = {
+  badge: PlanBadge | null
+  profileTools: string[]
+  spaceTools: string[]
+  groupTools: string[]
+  organisationSeats: number | null
+  prioritySupport: boolean
+}
+
 export type PlanDisplay = {
   id: Tier
   name: string
@@ -78,8 +102,9 @@ export type PlanDisplay = {
   /** Monthly price in ZAR cents (0 = free). */
   priceCents: number
   highlights: string[]
-  /** Env var holding the Paystack plan code for this tier (monthly). */
-  planCodeEnv?: 'PAYSTACK_PLAN_PLUS' | 'PAYSTACK_PLAN_PRO'
+  entitlements: PlanEntitlements
+  /** Env var holding the legacy Paystack plan code for this tier. */
+  planCodeEnv?: 'PAYSTACK_PLAN_PLUS' | 'PAYSTACK_PLAN_PRO' | 'PAYSTACK_PLAN_ORGANISATION'
 }
 
 export type GuideCreditPack = {
@@ -103,6 +128,14 @@ export const PLANS: PlanDisplay[] = [
       '10 AI health questions / month',
       'Daily mood check-ins',
     ],
+    entitlements: {
+      badge: null,
+      profileTools: ['Public community profile'],
+      spaceTools: ['Basic My Space profile'],
+      groupTools: ['Join public groups'],
+      organisationSeats: null,
+      prioritySupport: false,
+    },
   },
   {
     id: 'plus',
@@ -118,6 +151,14 @@ export const PLANS: PlanDisplay[] = [
       'Private saved resources',
       'Weekly personalised digest',
     ],
+    entitlements: {
+      badge: { label: 'Plus member', tone: 'plus', icon: 'ri-sparkling-line' },
+      profileTools: ['Plus member badge', 'Private saved resource library'],
+      spaceTools: ['Personal motto', 'Pinned note', 'Custom vibe tag'],
+      groupTools: ['Join private support spaces'],
+      organisationSeats: null,
+      prioritySupport: false,
+    },
   },
   {
     id: 'pro',
@@ -132,6 +173,41 @@ export const PLANS: PlanDisplay[] = [
       'Private community spaces',
       'Verified facilitator badge',
     ],
+    entitlements: {
+      badge: { label: 'Verified facilitator', tone: 'pro', icon: 'ri-shield-star-line' },
+      profileTools: ['Verified facilitator badge', 'Facilitator profile signal', 'Support circle host identity'],
+      spaceTools: ['Custom My Space background', 'Expanded pinned note', 'Profile vibe styling'],
+      groupTools: ['Support circles', 'Group check-ins', 'Engagement analytics'],
+      organisationSeats: null,
+      prioritySupport: false,
+    },
+  },
+  {
+    id: 'organisation',
+    name: 'KinSpace Organisation',
+    tagline: 'For clinics, nonprofits, and care teams.',
+    priceCents: 69900,
+    planCodeEnv: 'PAYSTACK_PLAN_ORGANISATION',
+    highlights: [
+      'Everything in Pro, unlimited',
+      'Verified organisation badge',
+      'Branded profile and My Space tools',
+      '8 facilitator seats for support circles',
+      'Program and resource showcase',
+      'Priority research and community safety requests',
+    ],
+    entitlements: {
+      badge: { label: 'Verified organisation', tone: 'organisation', icon: 'ri-verified-badge-line' },
+      profileTools: ['Verified organisation badge', 'Program showcase', 'Team and resource links'],
+      spaceTools: [
+        'Branded My Space background',
+        'Program and resource showcase',
+        'Pinned organisation note',
+      ],
+      groupTools: ['8 facilitator seats', 'Organisation support circles', 'Priority safety review'],
+      organisationSeats: 8,
+      prioritySupport: true,
+    },
   },
 ]
 
@@ -161,6 +237,18 @@ export const GUIDE_CREDIT_PACKS: GuideCreditPack[] = [
 
 export function planForTier(tier: Tier): PlanDisplay {
   return PLANS.find((p) => p.id === tier) ?? PLANS[0]
+}
+
+export function tierFromInput(value: unknown): Tier {
+  return value === 'plus' || value === 'pro' || value === 'organisation' ? value : 'free'
+}
+
+export function planEntitlementsForTier(tier: Tier): PlanEntitlements {
+  return planForTier(tier).entitlements
+}
+
+export function publicPlanBadgeForTier(tier: Tier): PlanBadge | null {
+  return planEntitlementsForTier(tier).badge
 }
 
 export function guideCreditPack(packId: string): GuideCreditPack | null {

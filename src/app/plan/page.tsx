@@ -46,6 +46,7 @@ export default async function PlanPage({
   const checkout = Array.isArray(params.checkout) ? params.checkout[0] : params.checkout
   const activePlan = planForTier(subscription.tier)
   const currentPeriod = billingPeriodInfo(subscription.billingPeriod)
+  const activePlanBadge = activePlan.entitlements.badge
   const cancelledAtProvider =
     subscription.paymentProvider === 'payfast' && subscription.providerSubscriptionStatus === 'cancelled'
 
@@ -93,6 +94,12 @@ export default async function PlanPage({
               <div className="rounded-2xl border border-brand-line bg-brand-surface-raised p-4 md:min-w-60">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-ink/45">Current plan</p>
                 <p className="mt-2 text-2xl font-bold text-brand-ink">{activePlan.name}</p>
+                {activePlanBadge && (
+                  <Badge className="mt-2 border border-brand-line bg-brand-surface-raised text-brand-ink">
+                    <i className={activePlanBadge.icon} aria-hidden="true" />
+                    {activePlanBadge.label}
+                  </Badge>
+                )}
                 <p className="mt-1 text-sm text-brand-ink/55">
                   {money(planPriceCents(activePlan, subscription.billingPeriod))}
                   {activePlan.priceCents > 0 ? ` ${currentPeriod.suffix}` : ''}
@@ -145,15 +152,22 @@ export default async function PlanPage({
               Compare public pricing
             </LinkButton>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {PLANS.map((plan) => {
               const isCurrent = plan.id === subscription.tier
+              const planBadge = plan.entitlements.badge
               return (
                 <Card key={plan.id} className={isCurrent ? 'border-brand-accent2/50 bg-brand-accent2/[0.08]' : ''}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-bold text-brand-ink">{plan.name}</h3>
                       <p className="mt-1 text-sm text-brand-ink/55">{plan.tagline}</p>
+                      {planBadge && (
+                        <Badge className="mt-2 border border-brand-line bg-brand-surface-raised text-brand-ink">
+                          <i className={planBadge.icon} aria-hidden="true" />
+                          {planBadge.label}
+                        </Badge>
+                      )}
                     </div>
                     {isCurrent && <Badge tone="success">Current</Badge>}
                   </div>

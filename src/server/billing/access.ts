@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import {
   getLimit,
   isUnlimited,
+  tierFromInput,
   type Feature,
   type Tier,
   UNLIMITED,
@@ -23,7 +24,7 @@ export type FeatureUsageStatus = {
 }
 
 function validTier(value: unknown): Tier {
-  return value === 'plus' || value === 'pro' ? value : 'free'
+  return tierFromInput(value)
 }
 
 function toTime(value: Date | string | number | null | undefined): number {
@@ -70,7 +71,7 @@ export function featureUsageStatus(tier: Tier, feature: Feature, used = 0): Feat
 export async function getBackendTier(ctx: Ctx): Promise<Tier> {
   if (!ctx.userId) throw new Error('UNAUTHENTICATED')
   const user = await ctx.db.query.users.findFirst({ where: eq(users.id, ctx.userId) })
-  if (user?.role === 'admin') return 'pro'
+  if (user?.role === 'admin') return 'organisation'
   const row = await ctx.db.query.subscriptions.findFirst({
     where: eq(subscriptions.userId, ctx.userId),
   })

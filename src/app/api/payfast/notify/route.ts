@@ -5,9 +5,10 @@ import {
   billingPeriodEndFrom,
   billingPeriodFromInput,
   billingPeriodPlanCode,
-  PLANS,
   guideCreditPack,
+  planForTier,
   planPriceCents,
+  tierFromInput,
   type Tier,
 } from '@/server/billing/tiers'
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     const status = itnField(raw, 'payment_status')
     const userId = itnField(raw, 'custom_str1')
     const tierOrPurpose = itnField(raw, 'custom_str2')
-    const tier = tierOrPurpose as Tier
+    const tier = tierFromInput(tierOrPurpose) as Tier
     const packId = itnField(raw, 'custom_str3')
     const billingPeriod = billingPeriodFromInput(packId)
     const creditCount = Number(itnField(raw, 'custom_str4') || '0')
@@ -58,8 +59,8 @@ export async function POST(request: NextRequest) {
       return new NextResponse('', { status: 200 })
     }
 
-    if (status === 'COMPLETE' && userId && (tier === 'plus' || tier === 'pro')) {
-      const plan = PLANS.find((p) => p.id === tier)
+    if (status === 'COMPLETE' && userId && tier !== 'free') {
+      const plan = planForTier(tier)
       if (plan && grossCents === planPriceCents(plan, billingPeriod)) {
         await upsertSubscription(userId, {
           tier,

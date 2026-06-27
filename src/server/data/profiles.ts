@@ -6,13 +6,15 @@ import {
   toPublicProfile,
   sortByNewest,
 } from './_shared'
-import { profiles, connectionRequests, follows } from '@/server/db/schema'
+import { profiles, connectionRequests, follows, subscriptions } from '@/server/db/schema'
 import { encryptField, decryptField } from '@/server/crypto/field-encryption'
 import { createNotification } from '@/server/notify'
 import { blockedRelatedIds } from '@/server/social/blocks'
 import type { Database } from '@/server/db/client'
 import { normalizeMoodCheckin } from '@/lib/moods'
 import { ensureConditionCatalogEntries } from '@/server/conditions/catalog'
+import { effectiveTierFromSubscription } from '@/server/billing/access'
+import { publicPlanBadgeForTier } from '@/server/billing/tiers'
 
 /** True when two users have an accepted connection (in either direction). */
 async function areConnected(db: Database, a: string, b: string): Promise<boolean> {
@@ -33,6 +35,11 @@ async function ownProfile(row: typeof profiles.$inferSelect) {
   }
 }
 
+async function publicPlanBadge(db: Database, userId: string) {
+  const row = await db.query.subscriptions.findFirst({ where: eq(subscriptions.userId, userId) })
+  return publicPlanBadgeForTier(effectiveTierFromSubscription(row))
+}
+
 // ── Profiles ────────────────────────────────────────────────────────────────
 
 /**
@@ -50,7 +57,10 @@ export async function getProfile(ctx: Ctx, userIdOrUsername: string) {
   }
   if (!row) return null
   const userId = row.userId
-  if (ctx.userId === userId) return ownProfile(row) // own profile → full (decrypted)
+  if (ctx.userId === userId) {
+    const own = await ownProfile(row)
+    return { ...own, planBadge: await publicPlanBadge(ctx.db, userId) }
+  }
 
   // Visibility gate. A non-anonymous profile is viewable across the community.
   // An anonymous profile is viewable only per the owner's choice: their accepted
@@ -72,7 +82,8 @@ export async function getProfile(ctx: Ctx, userIdOrUsername: string) {
       }
     }
   }
-  return toPublicProfile(row)
+  if (row.isAnonymous) return toPublicProfile(row)
+  return { ...toPublicProfile(row), planBadge: await publicPlanBadge(ctx.db, userId) }
 }
 
 /** List profiles (PUBLIC projection only). Bounded, never dump the whole table. */

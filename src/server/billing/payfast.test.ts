@@ -71,3 +71,26 @@ test('buildCheckoutUrl signs quarterly plan subscriptions with the PayFast quart
     assert.match(url.searchParams.get('m_payment_id') ?? '', /^user-1:plan:pro:quarterly:\d+$/)
   })
 })
+
+test('buildCheckoutUrl signs organisation plan subscriptions', () => {
+  withPayfastEnv(() => {
+    const url = new URL(
+      buildCheckoutUrl({
+        userId: 'user-1',
+        email: 'org@example.com',
+        tier: 'organisation',
+        amountCents: 69900,
+        itemName: 'KinSpace Organisation (monthly)',
+        appUrl: 'https://www.kinspace.co.za',
+        purpose: 'plan',
+        billingPeriod: 'monthly',
+      }),
+    )
+
+    assert.equal(url.searchParams.get('amount'), '699.00')
+    assert.equal(url.searchParams.get('recurring_amount'), '699.00')
+    assert.equal(url.searchParams.get('frequency'), '3')
+    assert.equal(url.searchParams.get('custom_str2'), 'organisation')
+    assert.match(url.searchParams.get('m_payment_id') ?? '', /^user-1:plan:organisation:monthly:\d+$/)
+  })
+})

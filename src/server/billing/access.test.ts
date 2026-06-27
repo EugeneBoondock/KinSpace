@@ -27,6 +27,7 @@ test('paid tier requires an active paid or trialing status', () => {
 
 test('active paid tier expires when the billing period is over', () => {
   assert.equal(effectiveTierFromSubscription(subscription({ currentPeriodEnd: FUTURE }), NOW), 'plus')
+  assert.equal(effectiveTierFromSubscription(subscription({ tier: 'organisation', currentPeriodEnd: FUTURE }), NOW), 'organisation')
   assert.equal(effectiveTierFromSubscription(subscription({ currentPeriodEnd: PAST }), NOW), 'free')
 })
 

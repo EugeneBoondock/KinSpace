@@ -8,7 +8,7 @@ export const subscriptions = sqliteTable('subscriptions', {
   userId: text('user_id')
     .primaryKey()
     .references(() => users.id, { onDelete: 'cascade' }),
-  /** 'free' | 'plus' | 'pro' */
+  /** 'free' | 'plus' | 'pro' | 'organisation' */
   tier: text('tier').notNull().default('free'),
   /** 'active' | 'trialing' | 'past_due' | 'canceled' | 'none' */
   status: text('status').notNull().default('none'),

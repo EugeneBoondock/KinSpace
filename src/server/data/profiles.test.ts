@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { getStrandSummary, searchPeople } from './profiles'
+import { getProfile, getStrandSummary, searchPeople } from './profiles'
 
 const NOW = new Date('2026-06-25T12:00:00Z')
 
@@ -181,6 +181,41 @@ test('searchPeople never returns access needs', async () => {
   assert.equal(result.username, 'sapphirespring')
   assert.equal('accessNeeds' in result, false)
   assert.equal('access_needs' in result, false)
+})
+
+test('getProfile adds the active paid plan badge without billing details', async () => {
+  const row = profile({ userId: 'org-1', username: 'orgcare', fullName: 'Org Care' })
+  const ctx = {
+    userId: 'viewer',
+    db: {
+      query: {
+        profiles: {
+          findFirst: async () => row,
+        },
+        connectionRequests: {
+          findMany: async () => [],
+        },
+        subscriptions: {
+          findFirst: async () => ({
+            tier: 'organisation',
+            status: 'active',
+            trialEndsAt: null,
+            currentPeriodEnd: new Date('2026-07-27T10:00:00Z'),
+          }),
+        },
+      },
+    },
+  } as never
+
+  const result = await getProfile(ctx, 'org-1') as Record<string, unknown>
+
+  assert.deepEqual(result.planBadge, {
+    label: 'Verified organisation',
+    tone: 'organisation',
+    icon: 'ri-verified-badge-line',
+  })
+  assert.equal('paymentProvider' in result, false)
+  assert.equal('providerReference' in result, false)
 })
 
 test('getStrandSummary hides blocked strand rows', async () => {
