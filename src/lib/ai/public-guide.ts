@@ -44,6 +44,21 @@ function cleanMedia(value: unknown): Array<{ type: string }> {
     .slice(0, 4)
 }
 
+const PUBLIC_GUIDE_BLOCKED_OUTPUT_PATTERNS = [
+  /\b(private|guide room|saved)\s+(guide\s+)?memory\b/i,
+  /\bmedication\s+list\b/i,
+  /\bhealth\s+records?\b/i,
+  /\badmin\s+data\b/i,
+  /\b(system|developer)\s+prompt\b/i,
+  /\b(secret|credential|api[_\s-]?key|token)\b/i,
+  /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i,
+  /(?:\+?\d[\s().-]?){9,}/,
+]
+
+function hasUnsafePublicGuideOutput(value: string): boolean {
+  return PUBLIC_GUIDE_BLOCKED_OUTPUT_PATTERNS.some((pattern) => pattern.test(value))
+}
+
 export function buildPublicGuideCommentRequest(
   input: PublicGuideCommentInput,
   options: { model?: string; maxCompletionTokens?: number } = {},
@@ -86,8 +101,9 @@ Write as ${persona.name}. Be warm, brief, practical, and community-safe. Ask one
 }
 
 export function sanitizePublicGuideComment(value: unknown): string {
-  return cleanText(value, 600)
+  const cleaned = cleanText(value, 600)
     .replace(/^(assistant|guide|system)\s*:\s*/i, '')
     .trim()
     .slice(0, 600)
+  return hasUnsafePublicGuideOutput(cleaned) ? '' : cleaned
 }
