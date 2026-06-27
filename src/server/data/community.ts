@@ -11,6 +11,7 @@ import {
 } from './_shared'
 import { createNotification } from '@/server/notify'
 import { notifyMatchingExperts } from '@/server/expertise'
+import { consumeFeatureQuota } from '@/server/billing/access'
 import { blockedRelatedIds, isBlockBetween } from '@/server/social/blocks'
 import { filterReadablePosts, requireReadablePost } from './post-access'
 import {
@@ -892,6 +893,8 @@ export async function requestGuidePostComment(ctx: Ctx, postId: string, personaI
   if (hasPublicGuideAlreadyCommented(commentRows, guideUserId)) {
     throw new Error('This Guide has already replied to this post.')
   }
+
+  await consumeFeatureQuota(ctx, 'ai_therapy')
 
   if (!process.env.OPENAI_API_KEY) throw new Error('AI is not configured')
 
