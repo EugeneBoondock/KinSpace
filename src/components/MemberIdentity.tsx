@@ -134,10 +134,10 @@ export function MemberAvatar({
   fallbackClassName,
   fallbackTextClassName,
 }: MemberAvatarProps) {
-  const targetUserId = userId ?? getProfileUserId(profile)
-  const resolvedAvatar = avatarUrl ?? value(profile, 'avatar_url', 'avatarUrl')
-  const resolvedFullName = fullName ?? value(profile, 'full_name', 'fullName')
-  const resolvedUsername = username ?? value(profile, 'username')
+  const targetUserId = isAnonymous ? null : userId ?? getProfileUserId(profile)
+  const resolvedAvatar = isAnonymous ? null : avatarUrl ?? value(profile, 'avatar_url', 'avatarUrl')
+  const resolvedFullName = isAnonymous ? null : fullName ?? value(profile, 'full_name', 'fullName')
+  const resolvedUsername = isAnonymous ? null : username ?? value(profile, 'username')
   const avatar = (
     <ProfileAvatar
       alt={alt}

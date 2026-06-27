@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real, index, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core'
 import { pk, createdAt, updatedAt, timestamp, bool, json } from '../columns'
 import { users } from './identity'
 
@@ -132,7 +132,7 @@ export const postComments = sqliteTable(
     id: pk(),
     postId: text('post_id').notNull(),
     parentId: text('parent_id')
-      .references((): any => postComments.id, { onDelete: 'cascade' }),
+      .references((): AnySQLiteColumn => postComments.id, { onDelete: 'cascade' }),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),

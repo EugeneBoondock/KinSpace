@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import PageFrame from '@/components/PageFrame'
 import BottomNav from '@/components/BottomNav'
 import { DatabaseService } from '@/lib/database'

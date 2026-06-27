@@ -214,17 +214,6 @@ function uniqueLabels(groups: string[][]): string[] {
   return labels
 }
 
-function sentenceLabel(label: string | undefined): string {
-  return String(label ?? '').trim().toLowerCase()
-}
-
-function treatmentSentenceLabel(label: string | undefined): string {
-  const clean = String(label ?? '').trim()
-  if (!clean) return ''
-  if (clean === clean.toUpperCase() && /[A-Z]/.test(clean)) return clean
-  return clean.toLowerCase()
-}
-
 function buildStarterPrompt(
   _shared: {
     conditions: string[]

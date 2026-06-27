@@ -1,5 +1,4 @@
 import type { Ctx } from './_shared'
-import { conditions, symptoms, conditionSymptoms } from '@/server/db/schema'
 import { detectCrisisSeverity } from '@/lib/crisis-detect'
 import { buildSymptomCheck, EMERGENCY_FLAGS, type SymptomCheckResult } from './symptom-check-core'
 
