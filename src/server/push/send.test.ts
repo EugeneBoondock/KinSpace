@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import assert from 'node:assert/strict'
+import { describe, it } from 'node:test'
 import { vapidPublicKeyFromJwk } from './send'
 
 function base64Url(bytes: Uint8Array): string {
@@ -23,17 +24,17 @@ describe('vapidPublicKeyFromJwk', () => {
     const y = new Uint8Array(32).fill(2)
     const publicKey = vapidPublicKeyFromJwk({ x: base64Url(x), y: base64Url(y) })
 
-    expect(publicKey).toBeTruthy()
+    assert.ok(publicKey)
     const bytes = decodeBase64Url(publicKey!)
-    expect(bytes).toHaveLength(65)
-    expect(bytes[0]).toBe(0x04)
-    expect(bytes.slice(1, 33)).toEqual(x)
-    expect(bytes.slice(33)).toEqual(y)
+    assert.equal(bytes.length, 65)
+    assert.equal(bytes[0], 0x04)
+    assert.deepEqual(bytes.slice(1, 33), x)
+    assert.deepEqual(bytes.slice(33), y)
   })
 
   it('rejects malformed public fields', () => {
     const y = new Uint8Array(32).fill(2)
-    expect(vapidPublicKeyFromJwk({ x: 'short', y: base64Url(y) })).toBeNull()
-    expect(vapidPublicKeyFromJwk({ x: base64Url(new Uint8Array(32)), y: '' })).toBeNull()
+    assert.equal(vapidPublicKeyFromJwk({ x: 'short', y: base64Url(y) }), null)
+    assert.equal(vapidPublicKeyFromJwk({ x: base64Url(new Uint8Array(32)), y: '' }), null)
   })
 })

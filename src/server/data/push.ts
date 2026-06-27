@@ -1,8 +1,9 @@
 import { and, eq } from 'drizzle-orm'
 import type { Ctx } from './_shared'
 import { requireActor } from './_shared'
-import { pushSubscriptions, profiles } from '@/server/db/schema'
+import { medicationReminders, pushSubscriptions, profiles } from '@/server/db/schema'
 import { sendWebPushToAll, isPushConfigured } from '@/server/push/send'
+import { normalizeReminderTimes } from '@/lib/medication-reminders'
 
 type IncomingSubscription = {
   endpoint?: string
@@ -63,6 +64,43 @@ export async function getMyPushSubscriptions(ctx: Ctx) {
   const userId = requireActor(ctx)
   const rows = await ctx.db.query.pushSubscriptions.findMany({ where: eq(pushSubscriptions.userId, userId) })
   return rows.map((r) => ({ id: r.id, endpoint: r.endpoint, createdAt: r.createdAt }))
+}
+
+export async function getMedicationReminderDeliveryStatus(ctx: Ctx) {
+  const userId = requireActor(ctx)
+  const [subscriptionRows, reminderRows, profile] = await Promise.all([
+    ctx.db.query.pushSubscriptions.findMany({ where: eq(pushSubscriptions.userId, userId) }),
+    ctx.db.query.medicationReminders.findMany({ where: eq(medicationReminders.userId, userId) }),
+    ctx.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+      columns: { timezone: true },
+    }),
+  ])
+
+  const pushConfigured = isPushConfigured()
+  const deviceCount = subscriptionRows.length
+  const activeReminderCount = reminderRows.filter(
+    (reminder) => reminder.active && normalizeReminderTimes(reminder.times ?? []).length > 0,
+  ).length
+
+  const reason = !pushConfigured
+    ? 'push-unconfigured'
+    : deviceCount === 0
+      ? 'no-device'
+      : activeReminderCount === 0
+        ? 'no-active-reminders'
+        : 'ready'
+
+  return {
+    ok: true,
+    push_configured: pushConfigured,
+    device_count: deviceCount,
+    active_reminder_count: activeReminderCount,
+    timezone: profile?.timezone ?? null,
+    server_wake_ready: pushConfigured && deviceCount > 0,
+    closed_app_ready: reason === 'ready',
+    reason,
+  }
 }
 
 /** Send a test push to all of the user's devices, verifying their setup works. */

@@ -52,6 +52,17 @@ type BrowserReminderNotificationOptions = NotificationOptions & {
   vibrate?: number[]
 }
 
+type MedicationDeliveryStatus = {
+  ok?: boolean
+  push_configured?: boolean
+  device_count?: number
+  active_reminder_count?: number
+  timezone?: string | null
+  server_wake_ready?: boolean
+  closed_app_ready?: boolean
+  reason?: 'ready' | 'no-device' | 'no-active-reminders' | 'push-unconfigured'
+}
+
 type SuggestionResponse = {
   ok?: boolean
   source?: 'ai' | 'fallback'
@@ -189,6 +200,7 @@ export default function MedicationShelf() {
   const [suggestionNote, setSuggestionNote] = useState<string | null>(null)
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default')
   const [pushStatus, setPushStatus] = useState<PushStatus>('default')
+  const [deliveryStatus, setDeliveryStatus] = useState<MedicationDeliveryStatus | null>(null)
   const [pushBusy, setPushBusy] = useState(false)
   const [testingPush, setTestingPush] = useState(false)
   const [testingLocalAlarm, setTestingLocalAlarm] = useState(false)
@@ -206,12 +218,57 @@ export default function MedicationShelf() {
     [reminders],
   )
   const deviceAlarmStatus = useMemo(() => {
-    if (pushStatus === 'granted-subscribed') {
+    const deviceCount = deliveryStatus?.device_count
+    const linkedDevices =
+      typeof deviceCount === 'number'
+        ? deviceCount === 1
+          ? '1 linked device'
+          : `${deviceCount} linked devices`
+        : 'Checking'
+    const serverWake = deliveryStatus
+      ? deliveryStatus.server_wake_ready
+        ? 'Ready'
+        : 'Needs setup'
+      : 'Checking'
+
+    if (pushStatus === 'granted-subscribed' && deliveryStatus?.closed_app_ready) {
       return {
         tone: 'success' as const,
         label: 'Device alarms on',
-        body: 'KinSpace can alert this device at dose time, including when the app is closed.',
+        body: `Server wake-up is ready on ${linkedDevices}. Phone sound and vibration still follow your device settings.`,
         closedApp: 'On',
+        linkedDevices,
+        serverWake,
+      }
+    }
+    if (pushStatus === 'granted-subscribed' && deliveryStatus?.reason === 'no-active-reminders') {
+      return {
+        tone: 'success' as const,
+        label: 'Device alarms ready',
+        body: 'This device is linked. Add an active reminder time to receive closed-app alerts.',
+        closedApp: 'No reminders',
+        linkedDevices,
+        serverWake,
+      }
+    }
+    if (pushStatus === 'granted-subscribed' && deliveryStatus?.reason === 'no-device') {
+      return {
+        tone: 'warning' as const,
+        label: 'Device link missing',
+        body: 'Reconnect this device so the server can reach it when the app is closed.',
+        closedApp: 'Reconnect',
+        linkedDevices,
+        serverWake,
+      }
+    }
+    if (deliveryStatus?.closed_app_ready) {
+      return {
+        tone: 'warning' as const,
+        label: 'Other device linked',
+        body: `Closed-app reminders can reach ${linkedDevices}. Turn on device alarms here to use this browser too.`,
+        closedApp: 'Other device',
+        linkedDevices,
+        serverWake,
       }
     }
     if (pushStatus === 'granted-refresh-needed') {
@@ -220,14 +277,18 @@ export default function MedicationShelf() {
         label: 'Device alarms need refresh',
         body: 'Refresh this device so closed-app medication reminders can ring again.',
         closedApp: 'Refresh needed',
+        linkedDevices,
+        serverWake,
       }
     }
-    if (pushStatus === 'server-unconfigured') {
+    if (pushStatus === 'server-unconfigured' || deliveryStatus?.reason === 'push-unconfigured') {
       return {
         tone: 'warning' as const,
         label: 'Device alarms paused',
         body: 'Background reminder service is not ready. Try again in a few minutes.',
         closedApp: 'Paused',
+        linkedDevices,
+        serverWake,
       }
     }
     if (pushStatus === 'denied' || permission === 'denied') {
@@ -236,6 +297,8 @@ export default function MedicationShelf() {
         label: 'Notifications blocked',
         body: 'Turn on notifications in browser settings to receive medication alarms on this device.',
         closedApp: 'Blocked',
+        linkedDevices,
+        serverWake,
       }
     }
     if (pushStatus === 'unsupported' || permission === 'unsupported') {
@@ -244,6 +307,8 @@ export default function MedicationShelf() {
         label: 'Browser support missing',
         body: 'Use a browser with notifications and service workers for closed-app medication alarms.',
         closedApp: 'Unsupported',
+        linkedDevices,
+        serverWake,
       }
     }
     if (permission === 'granted') {
@@ -252,6 +317,8 @@ export default function MedicationShelf() {
         label: 'Open-app alerts on',
         body: 'KinSpace can alert while open. Turn on device alarms for closed-app reminders on this device.',
         closedApp: 'Needs setup',
+        linkedDevices,
+        serverWake,
       }
     }
     return {
@@ -259,8 +326,10 @@ export default function MedicationShelf() {
       label: 'Device alarms off',
       body: 'Turn on notifications to receive medication alarms on this device.',
       closedApp: 'Needs setup',
+      linkedDevices,
+      serverWake,
     }
-  }, [permission, pushStatus])
+  }, [deliveryStatus, permission, pushStatus])
 
   const loadReminders = useCallback(async () => {
     if (!user) return
@@ -282,6 +351,16 @@ export default function MedicationShelf() {
       setLoadingReminders(false)
     }
   }, [toast, user])
+
+  const loadDeliveryStatus = useCallback(async () => {
+    if (!user) return
+    try {
+      const status = (await DatabaseService.getMedicationReminderDeliveryStatus()) as MedicationDeliveryStatus
+      setDeliveryStatus(status)
+    } catch {
+      setDeliveryStatus(null)
+    }
+  }, [user])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -319,10 +398,12 @@ export default function MedicationShelf() {
       const result = await enablePush()
       if (result.ok) {
         setPushStatus('granted-subscribed')
+        await loadDeliveryStatus()
         toast.push('Device alarms are on for this device.', 'success')
       } else {
         toast.push(result.error || 'Could not turn on background reminders.', 'error')
         setPushStatus(await getPushStatus())
+        await loadDeliveryStatus()
       }
     } finally {
       setPushBusy(false)
@@ -334,6 +415,7 @@ export default function MedicationShelf() {
     try {
       await disablePush()
       setPushStatus('granted-unsubscribed')
+      await loadDeliveryStatus()
       toast.push('Background reminders turned off for this device.', 'info')
     } finally {
       setPushBusy(false)
@@ -343,9 +425,27 @@ export default function MedicationShelf() {
   async function handleTestPush() {
     setTestingPush(true)
     try {
-      const result = (await DatabaseService.sendTestPush()) as { ok?: boolean; error?: string }
-      if (result?.ok) toast.push('Test reminder sent. Check your notifications.', 'success')
-      else toast.push(result?.error || 'Could not send a test reminder.', 'error')
+      const result = (await DatabaseService.sendTestPush()) as {
+        ok?: boolean
+        error?: string
+        delivered?: number
+        total?: number
+      }
+      const delivered = typeof result?.delivered === 'number' ? result.delivered : null
+      const total = typeof result?.total === 'number' ? result.total : null
+      if (result?.ok) {
+        toast.push(
+          delivered !== null && total !== null
+            ? `Push test reached ${delivered} of ${total} linked devices.`
+            : 'Test reminder sent. Check your notifications.',
+          'success',
+        )
+      } else if (total && total > 0) {
+        toast.push('No linked device accepted the test. Reconnect device alarms on this device.', 'error')
+      } else {
+        toast.push(result?.error || 'Could not send a test reminder.', 'error')
+      }
+      await loadDeliveryStatus()
     } catch {
       toast.push('Could not send a test reminder.', 'error')
     } finally {
@@ -402,8 +502,11 @@ export default function MedicationShelf() {
   }
 
   useEffect(() => {
-    if (!loading && user) loadReminders()
-  }, [loadReminders, loading, user])
+    if (!loading && user) {
+      loadReminders()
+      loadDeliveryStatus()
+    }
+  }, [loadDeliveryStatus, loadReminders, loading, user])
 
   const showDeviceNotification = useCallback(async (title: string, options: BrowserReminderNotificationOptions) => {
     if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') return
@@ -663,6 +766,7 @@ export default function MedicationShelf() {
 
       resetForm()
       await loadReminders()
+      await loadDeliveryStatus()
     } catch {
       toast.push('Could not save medication reminder.', 'error')
     } finally {
@@ -676,6 +780,7 @@ export default function MedicationShelf() {
       await DatabaseService.deleteMedicationReminder(user.userId, reminderId)
       setReminders((current) => current.filter((item) => item.id !== reminderId))
       if (form.id === reminderId) resetForm()
+      await loadDeliveryStatus()
       toast.push('Medication reminder deleted.', 'success')
     } catch {
       toast.push('Could not delete reminder.', 'error')
@@ -762,7 +867,7 @@ export default function MedicationShelf() {
                   {deviceAlarmStatus.body} Follow your prescription label and clinician instructions.
                 </p>
 
-                <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <div className="mt-4 grid gap-2 sm:grid-cols-4">
                   <div className="rounded-xl border border-brand-line bg-brand-surface px-3 py-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-ink/45">Open app</p>
                     <p className="mt-1 text-sm font-semibold text-brand-ink">Tone and banner</p>
@@ -772,10 +877,24 @@ export default function MedicationShelf() {
                     <p className="mt-1 text-sm font-semibold text-brand-ink">{deviceAlarmStatus.closedApp}</p>
                   </div>
                   <div className="rounded-xl border border-brand-line bg-brand-surface px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-ink/45">Alarm style</p>
-                    <p className="mt-1 text-sm font-semibold text-brand-ink">Persistent buzz</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-ink/45">Linked devices</p>
+                    <p className="mt-1 text-sm font-semibold text-brand-ink">{deviceAlarmStatus.linkedDevices}</p>
+                  </div>
+                  <div className="rounded-xl border border-brand-line bg-brand-surface px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-ink/45">Server wake-up</p>
+                    <p className="mt-1 text-sm font-semibold text-brand-ink">{deviceAlarmStatus.serverWake}</p>
                   </div>
                 </div>
+
+                {deliveryStatus && !deliveryStatus.closed_app_ready && (
+                  <Alert className="mt-3" tone="warning" title="Closed-app reminders need setup">
+                    {deliveryStatus.reason === 'no-active-reminders'
+                      ? 'Add at least one active reminder time. This device is already linked for closed-app alerts.'
+                      : deliveryStatus.reason === 'push-unconfigured'
+                        ? 'Background reminders are paused. Try again in a few minutes, then send a push test.'
+                        : 'Turn on device alarms on the phone you carry, then send a push test before relying on medication reminders.'}
+                  </Alert>
+                )}
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   {pushStatus === 'unsupported' ? (
