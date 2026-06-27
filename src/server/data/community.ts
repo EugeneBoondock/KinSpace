@@ -1,4 +1,5 @@
 import { eq, and, desc, inArray, isNull, or, sql } from 'drizzle-orm'
+import OpenAI from 'openai'
 import type { Ctx } from './_shared'
 import {
   requireActor,
@@ -12,6 +13,8 @@ import { createNotification } from '@/server/notify'
 import { notifyMatchingExperts } from '@/server/expertise'
 import { blockedRelatedIds, isBlockBetween } from '@/server/social/blocks'
 import { filterReadablePosts, requireReadablePost } from './post-access'
+import { buildPublicGuideCommentRequest, sanitizePublicGuideComment } from '@/lib/ai/public-guide'
+import { ensureGuidePersonaUser } from '@/server/therapy/guide-persona-user'
 import {
   communityPosts,
   communityActivities,
@@ -28,6 +31,15 @@ import {
 } from '@/server/db/schema'
 
 type MediaItem = { url: string; type: 'image' | 'video' | 'audio' }
+let publicGuideClient: OpenAI | null = null
+
+function getPublicGuideClient(): OpenAI {
+  if (publicGuideClient) return publicGuideClient
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) throw new Error('AI is not configured')
+  publicGuideClient = new OpenAI({ apiKey })
+  return publicGuideClient
+}
 type ReplySignalInput = {
   conditions?: unknown
   interests?: unknown
@@ -864,6 +876,70 @@ export async function addPostComment(
   }
 
   return { id }
+}
+
+export async function requestGuidePostComment(ctx: Ctx, postId: string, personaId: string | null = 'mira') {
+  const { post } = await requireReadablePost(ctx, postId)
+  if (!process.env.OPENAI_API_KEY) throw new Error('AI is not configured')
+
+  const commentRows = await ctx.db.query.postComments.findMany({
+    where: eq(postComments.postId, postId),
+  })
+  const group = post.groupId
+    ? await ctx.db.query.groups.findFirst({ where: eq(groups.id, post.groupId) })
+    : null
+
+  const completion = await getPublicGuideClient().chat.completions.create(
+    buildPublicGuideCommentRequest({
+      personaId,
+      post: {
+        id: post.id,
+        content: post.content,
+        tags: post.tags,
+        media: post.media,
+        groupName: group?.name ?? null,
+      },
+      comments: commentRows
+        .filter((comment) => !comment.isDeleted)
+        .sort(
+          (first, second) =>
+            (toDate(first.createdAt as never) ?? new Date(0)).getTime() -
+            (toDate(second.createdAt as never) ?? new Date(0)).getTime(),
+        )
+        .slice(-8)
+        .map((comment) => ({ content: comment.content })),
+    }),
+  )
+  const content = sanitizePublicGuideComment(completion.choices[0]?.message?.content ?? '')
+  if (!content) throw new Error('Guide did not write a comment')
+
+  const guide = await ensureGuidePersonaUser(ctx.db, personaId)
+  const id = crypto.randomUUID()
+  await ctx.db.insert(postComments).values({
+    id,
+    postId,
+    parentId: null,
+    userId: guide.userId,
+    content,
+    isAnonymous: false,
+  })
+
+  await ctx.db
+    .update(communityPosts)
+    .set({ commentsCount: sql`${communityPosts.commentsCount} + 1`, updatedAt: new Date() })
+    .where(eq(communityPosts.id, postId))
+    .catch(() => undefined)
+
+  if (post.userId !== guide.userId) {
+    await createNotification(ctx.db, post.userId, {
+      type: 'guide_comment',
+      title: `${guide.persona.name} replied to your post`,
+      body: content.slice(0, 140),
+      data: { post_id: postId, comment_id: id },
+    })
+  }
+
+  return { id, content, persona: guide.persona.id }
 }
 
 export async function deletePost(ctx: Ctx, postId: string, _userId?: string) {

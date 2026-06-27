@@ -1,11 +1,22 @@
 'use client'
 
+import { guideAttachmentTypeForMime, type GuideAttachment, type GuideAttachmentType } from '@/lib/guide-media'
+
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
 const ALLOWED_AUDIO_TYPES = ['audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/webm', 'audio/wav']
 const ALLOWED_POST_MEDIA_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES, ...ALLOWED_AUDIO_TYPES]
+const ALLOWED_GUIDE_FILE_TYPES = [
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
+const ALLOWED_GUIDE_ATTACHMENT_TYPES = [...ALLOWED_POST_MEDIA_TYPES, ...ALLOWED_GUIDE_FILE_TYPES]
 
 export type MediaType = 'image' | 'video' | 'audio'
+export type GuideUploadResult = GuideAttachment & { type: GuideAttachmentType }
 
 export function detectMediaType(mimeType: string): MediaType | null {
   if (ALLOWED_IMAGE_TYPES.includes(mimeType)) return 'image'
@@ -42,6 +53,14 @@ export class StorageService {
     return { valid: true }
   }
 
+  static validateGuideAttachment(file: File, maxSizeMB = 25): { valid: boolean; error?: string } {
+    if (file.size > maxSizeMB * 1024 * 1024) return { valid: false, error: `File size exceeds ${maxSizeMB}MB limit` }
+    if (!ALLOWED_GUIDE_ATTACHMENT_TYPES.includes(file.type)) {
+      return { valid: false, error: 'Allowed: images, video, audio, PDF, text, Markdown, Word docs' }
+    }
+    return { valid: true }
+  }
+
   static async uploadProfileAvatar(_userId: string, file: File): Promise<string> {
     const v = this.validateFile(file)
     if (!v.valid) throw new Error(v.error)
@@ -67,6 +86,15 @@ export class StorageService {
     if (!mediaType) throw new Error('Unsupported media type')
     const url = await uploadTo('posts', file)
     return { url, mediaType }
+  }
+
+  static async uploadGuideAttachment(_userId: string, file: File): Promise<GuideUploadResult> {
+    const v = this.validateGuideAttachment(file)
+    if (!v.valid) throw new Error(v.error)
+    const type = guideAttachmentTypeForMime(file.type)
+    if (!type) throw new Error('Unsupported attachment type')
+    const url = await uploadTo('guide', file)
+    return { url, type, name: file.name, mimeType: file.type }
   }
 
   static async uploadGroupCover(_groupId: string, file: File): Promise<string> {

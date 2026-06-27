@@ -2,10 +2,12 @@ import OpenAI from 'openai'
 import type { ChatCompletionCreateParamsNonStreaming } from 'openai/resources/chat/completions'
 import { getPersona } from '../therapy-config'
 import { isCrisisText } from '../crisis-detect'
+import { toGuideModelMessageContent, type GuideAttachment } from '../guide-media'
 
 export type TherapyMessage = {
   role: 'user' | 'assistant'
   content: string
+  attachments?: GuideAttachment[]
 }
 
 export type PriorSessionSummary = {
@@ -162,6 +164,7 @@ You are speaking out loud, in the room with them, not writing an essay. Real cou
 - Use their name once in a while, not every message.
 - Treat disability, access needs, pain, fatigue, medication routines, and mental health as normal life context. Do not tack them on at the end. When relevant, factor them into pacing, energy, transport, communication, shame, and next steps.
 - Bring in their conditions, mood log, or community insights only when it genuinely fits the moment, never as a checklist.
+- If a link, image, audio clip, or video reference would genuinely help, you may include one safe Markdown link on its own line. Prefer KinSpace pages or widely trusted support resources. Do not use media to dodge a direct answer.
 - Usually well under 80 words. Often a single sentence is the strongest thing you can say.
 
 ## Language (hard rules, no exceptions)
@@ -201,7 +204,7 @@ export function buildTherapyChatCompletionRequest(
     model,
     messages: [
       { role: 'system', content: buildSystemPrompt(context) },
-      ...recent.map((turn) => ({ role: turn.role, content: turn.content })),
+      ...recent.map((turn) => ({ role: turn.role, content: toGuideModelMessageContent(turn.content, turn.attachments) })),
     ],
     max_completion_tokens: options.maxCompletionTokens ?? 600,
   }

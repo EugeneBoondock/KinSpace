@@ -7,9 +7,16 @@ import { randomToken } from '@/server/auth/crypto'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const KINDS = new Set(['avatars', 'covers', 'posts', 'groups'])
+const KINDS = new Set(['avatars', 'covers', 'posts', 'groups', 'guide'])
 const IMAGE = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MEDIA = [...IMAGE, 'video/mp4', 'video/webm', 'video/quicktime', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/webm', 'audio/wav']
+const GUIDE_FILES = [
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
 const MAX_BYTES = 25 * 1024 * 1024
 
 export async function POST(request: NextRequest) {
@@ -26,7 +33,7 @@ export async function POST(request: NextRequest) {
   if (!KINDS.has(kind)) return NextResponse.json({ ok: false, error: 'Invalid kind' }, { status: 400 })
   if (file.size > MAX_BYTES) return NextResponse.json({ ok: false, error: 'File too large' }, { status: 400 })
 
-  const allowed = kind === 'posts' ? MEDIA : IMAGE
+  const allowed = kind === 'posts' ? MEDIA : kind === 'guide' ? [...MEDIA, ...GUIDE_FILES] : IMAGE
   if (!allowed.includes(file.type)) return NextResponse.json({ ok: false, error: 'Unsupported type' }, { status: 400 })
 
   const ext = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '').slice(0, 8) ?? 'bin'

@@ -83,6 +83,7 @@ export default function PostCard({
   const [saving, setSaving] = useState(false)
 
   const [emojiInputOpen, setEmojiInputOpen] = useState(false)
+  const [guideReplying, setGuideReplying] = useState(false)
 
   // Rekindle
   const [rekindling, setRekindling] = useState(false)
@@ -302,6 +303,27 @@ export default function PostCard({
       toast('Could not add reply', 'error')
     } finally {
       setReplyingToId(null)
+    }
+  }
+
+  async function handleGuideReply() {
+    if (!user) return
+    setGuideReplying(true)
+    try {
+      await DatabaseService.requestGuidePostComment(postId, 'mira')
+      const grouped = await DatabaseService.getCommentsForPosts([postId], 50)
+      setComments(((grouped as Record<string, CommentEntry[]>)[postId]) ?? [])
+      setLivePost((prev) => ({
+        ...prev,
+        comments_count: ((prev.comments_count as number | undefined) ?? 0) + 1,
+      }))
+      setCommentsOpen(true)
+      toast('Guide replied', 'success')
+    } catch (error) {
+      console.error('Failed to ask Guide:', error)
+      toast('Guide could not reply right now', 'error')
+    } finally {
+      setGuideReplying(false)
     }
   }
 
@@ -695,6 +717,18 @@ export default function PostCard({
         >
           <i className="ri-chat-1-line" aria-hidden="true" />
           {formatCompactNumber(livePost.comments_count as number | undefined)}
+        </button>
+
+        <button
+          type="button"
+          onClick={handleGuideReply}
+          disabled={guideReplying}
+          className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-brand-background/45 transition-colors hover:bg-brand-background/8 hover:text-brand-accent2 disabled:cursor-not-allowed disabled:opacity-45"
+          aria-label="Ask Guide to reply"
+          title="Ask Guide to reply"
+        >
+          <i className={guideReplying ? 'ri-loader-4-line animate-spin' : 'ri-sparkling-line'} aria-hidden="true" />
+          <span className="hidden sm:inline">Guide</span>
         </button>
 
         {/* Rekindle button */}

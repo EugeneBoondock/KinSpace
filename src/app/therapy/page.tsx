@@ -8,9 +8,17 @@ import { SunlitCanopy } from '@/components/SunlitCanopy'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/lib/AuthContext'
 import { DatabaseService } from '@/lib/database'
+import { StorageService } from '@/lib/storage'
 import { getCachedProfile, updateCachedProfile } from '@/lib/profile-cache'
 import { detectConcern, toDate } from '@/lib/platform'
 import { cn } from '@/lib/cn'
+import {
+  formatGuideMessageContent,
+  isSafeGuideAttachmentUrl,
+  normaliseGuideAttachments,
+  parseGuideMessageContent,
+  type GuideAttachment,
+} from '@/lib/guide-media'
 import { AmbientEngine, type AmbientPreset } from '@/lib/audio/ambient'
 import { useSpeechInput, useSpeechOutput } from '@/lib/voice/useSpeech'
 import {
@@ -135,6 +143,108 @@ function PersonaAvatar({
   )
 }
 
+function GuideMessageContent({ content }: { content: string }) {
+  const parsed = parseGuideMessageContent(content)
+  const markdown = parseGuideMarkdownEmbeds(parsed.text)
+  const text = markdown.text
+  const attachments = normaliseGuideAttachments([...parsed.attachments, ...markdown.attachments])
+
+  return (
+    <div className="space-y-2">
+      {text && <p className="whitespace-pre-line break-words">{text}</p>}
+      {attachments.length > 0 && (
+        <div className="space-y-2">
+          {attachments.map((attachment, index) => (
+            <GuideAttachmentPreview key={`${attachment.url}-${index}`} attachment={attachment} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function parseGuideMarkdownEmbeds(text: string): { text: string; attachments: GuideAttachment[] } {
+  const attachments: GuideAttachment[] = []
+  const lines = String(text ?? '').split('\n')
+  const kept: string[] = []
+  const imagePattern = /^!\[([^\]]*)\]\(([^)\s]+)\)$/
+  const linkPattern = /^\[(image|video|audio|file|link)?\s*:?\s*([^\]]*)\]\(([^)\s]+)\)$/i
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    const image = trimmed.match(imagePattern)
+    if (image && isSafeGuideAttachmentUrl(image[2])) {
+      attachments.push({ type: 'image', name: image[1] || 'Image', url: image[2] })
+      continue
+    }
+
+    const link = trimmed.match(linkPattern)
+    if (link && isSafeGuideAttachmentUrl(link[3])) {
+      const hintedType = link[1]?.toLowerCase() as GuideAttachment['type'] | undefined
+      attachments.push({
+        type: hintedType || attachmentTypeFromUrl(link[3]),
+        name: link[2] || link[3],
+        url: link[3],
+      })
+      continue
+    }
+
+    kept.push(line)
+  }
+
+  return { text: kept.join('\n').trim(), attachments }
+}
+
+function attachmentTypeFromUrl(url: string): GuideAttachment['type'] {
+  const pathname = (() => {
+    try {
+      return new URL(url, 'https://www.kinspace.co.za').pathname.toLowerCase()
+    } catch {
+      return url.toLowerCase()
+    }
+  })()
+  if (/\.(png|jpe?g|webp|gif)$/.test(pathname)) return 'image'
+  if (/\.(mp4|webm|mov)$/.test(pathname)) return 'video'
+  if (/\.(mp3|m4a|ogg|wav|webm)$/.test(pathname)) return 'audio'
+  if (/\.(pdf|txt|md|docx?)$/.test(pathname)) return 'file'
+  return 'link'
+}
+
+function GuideAttachmentPreview({ attachment }: { attachment: GuideAttachment }) {
+  const label = attachment.name || attachment.url.split('/').pop() || 'Attachment'
+
+  if (attachment.type === 'image') {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={attachment.url}
+        alt={label}
+        className="max-h-80 max-w-full rounded-2xl border border-black/10 object-contain"
+      />
+    )
+  }
+
+  if (attachment.type === 'video') {
+    return <video src={attachment.url} controls className="max-h-80 w-full rounded-2xl border border-black/10 bg-black" />
+  }
+
+  if (attachment.type === 'audio') {
+    return <audio src={attachment.url} controls className="h-9 w-full min-w-0" />
+  }
+
+  return (
+    <a
+      href={attachment.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2 rounded-2xl border border-current/15 px-3 py-2 text-sm font-semibold underline-offset-4 hover:underline"
+    >
+      <i className={attachment.type === 'link' ? 'ri-link' : 'ri-file-text-line'} aria-hidden="true" />
+      <span className="min-w-0 truncate">{label}</span>
+    </a>
+  )
+}
+
 export default function TherapyPage() {
   const { user, loading: authLoading } = useAuth()
   const { push: toast } = useToast()
@@ -146,6 +256,8 @@ export default function TherapyPage() {
   const [moodAtStart, setMoodAtStart] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
   const [sending, setSending] = useState(false)
+  const [pendingAttachments, setPendingAttachments] = useState<GuideAttachment[]>([])
+  const [uploadingAttachment, setUploadingAttachment] = useState(false)
   const [sessionEnded, setSessionEnded] = useState(false)
   const [showCrisisSheet, setShowCrisisSheet] = useState(false)
   const [showBreathing, setShowBreathing] = useState(false)
@@ -156,6 +268,7 @@ export default function TherapyPage() {
   const [sessions, setSessions] = useState<SessionSummaryRow[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [openSession, setOpenSession] = useState<SessionSummaryRow | null>(null)
+  const [deepLinkedSessionId, setDeepLinkedSessionId] = useState<string | null>(null)
   const [sessionMessages, setSessionMessages] = useState<TranscriptRow[]>([])
   const [loadingTranscript, setLoadingTranscript] = useState(false)
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null)
@@ -165,6 +278,7 @@ export default function TherapyPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const attachmentInputRef = useRef<HTMLInputElement>(null)
   const sessionIdRef = useRef<string | null>(null)
   const creatingSessionRef = useRef<Promise<string | null> | null>(null)
 
@@ -347,11 +461,49 @@ export default function TherapyPage() {
     },
     [personaId, themeId, user])
 
+  async function handleAttachmentPick(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? [])
+    event.target.value = ''
+    if (!user || files.length === 0) return
+
+    const remainingSlots = Math.max(0, 6 - pendingAttachments.length)
+    const selected = files.slice(0, remainingSlots)
+    if (selected.length === 0) {
+      toast('You can attach up to 6 files per message.', 'error')
+      return
+    }
+
+    setUploadingAttachment(true)
+    try {
+      const uploaded: GuideAttachment[] = []
+      for (const file of selected) {
+        const validation = StorageService.validateGuideAttachment(file)
+        if (!validation.valid) throw new Error(validation.error)
+        uploaded.push(await StorageService.uploadGuideAttachment(user.userId, file))
+      }
+      setPendingAttachments((current) => normaliseGuideAttachments([...current, ...uploaded]))
+    } catch (error) {
+      console.error('Failed to upload Guide attachment:', error)
+      toast(error instanceof Error ? error.message : 'Could not attach that file.', 'error')
+    } finally {
+      setUploadingAttachment(false)
+    }
+  }
+
+  function removePendingAttachment(index: number) {
+    setPendingAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))
+  }
+
   // ── Send ────────────────────────────────────────────────────────
   const sendMessage = useCallback(
-    async (content: string, moodForStart: string | null = null, options: { forceNewSession?: boolean } = {}) => {
+    async (
+      content: string,
+      moodForStart: string | null = null,
+      options: { forceNewSession?: boolean; attachments?: GuideAttachment[] } = {},
+    ) => {
       const trimmed = content.trim()
-      if (!trimmed || !user || !roomId) return
+      const attachments = normaliseGuideAttachments(options.attachments ?? [])
+      if ((!trimmed && attachments.length === 0) || !user || !roomId) return
 
       const baseMessages = options.forceNewSession ? [] : messages
       if (options.forceNewSession) {
@@ -361,17 +513,19 @@ export default function TherapyPage() {
         setMessages([])
       }
       const sid = (await ensureSession(options.forceNewSession ? moodForStart : moodForStart ?? moodAtStart)) ?? null
+      const storedContent = formatGuideMessageContent(trimmed, attachments)
       const userMessage: Message = {
         id: crypto.randomUUID(),
         role: 'user',
-        content: trimmed,
+        content: storedContent,
         created_at: new Date(),
       }
 
-      if (detectConcern(trimmed) === 'crisis') setShowCrisisSheet(true)
+      if (trimmed && detectConcern(trimmed) === 'crisis') setShowCrisisSheet(true)
 
       setMessages((current) => options.forceNewSession ? [userMessage] : [...current, userMessage])
       setInputValue('')
+      if (attachments.length > 0) setPendingAttachments([])
       setSending(true)
       setSessionEnded(false)
       setView('chat')
@@ -499,7 +653,7 @@ export default function TherapyPage() {
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
-      void sendMessage(inputValue)
+      void sendMessage(inputValue, null, { attachments: pendingAttachments })
     }
   }
 
@@ -530,7 +684,10 @@ export default function TherapyPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !user) return
-    if (new URLSearchParams(window.location.search).get('history') === '1') {
+    const params = new URLSearchParams(window.location.search)
+    const sessionParam = params.get('session')
+    if (sessionParam) setDeepLinkedSessionId(sessionParam)
+    if (params.get('history') === '1' || sessionParam) {
       setShowHistory(true)
       void loadHistory()
     }
@@ -554,6 +711,15 @@ export default function TherapyPage() {
       }
     },
     [toast])
+
+  useEffect(() => {
+    if (!deepLinkedSessionId || sessions.length === 0) return
+    const session = sessions.find((row) => row.id === deepLinkedSessionId)
+    if (!session) return
+    setShowHistory(true)
+    setDeepLinkedSessionId(null)
+    void openSessionTranscript(session)
+  }, [deepLinkedSessionId, openSessionTranscript, sessions])
 
   const deleteSessionMessage = useCallback(
     async (messageId: string) => {
@@ -892,10 +1058,50 @@ export default function TherapyPage() {
           <form
             onSubmit={(event) => {
               event.preventDefault()
-              void sendMessage(inputValue)
+              void sendMessage(inputValue, null, { attachments: pendingAttachments })
             }}
             className="w-full"
           >
+            {pendingAttachments.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {pendingAttachments.map((attachment, index) => (
+                  <div
+                    key={`${attachment.url}-${index}`}
+                    className="flex max-w-full items-center gap-2 rounded-2xl border px-3 py-2 text-xs shadow-sm"
+                    style={{
+                      borderColor: 'rgba(238,223,200,0.18)',
+                      background: theme.cardBackground,
+                      color: theme.bodyColor,
+                    }}
+                  >
+                    <i
+                      className={
+                        attachment.type === 'image'
+                          ? 'ri-image-line'
+                          : attachment.type === 'video'
+                            ? 'ri-video-line'
+                            : attachment.type === 'audio'
+                              ? 'ri-volume-up-line'
+                              : attachment.type === 'link'
+                                ? 'ri-link'
+                                : 'ri-file-text-line'
+                      }
+                      aria-hidden="true"
+                    />
+                    <span className="max-w-48 truncate">{attachment.name || 'Attachment'}</span>
+                    <button
+                      type="button"
+                      onClick={() => removePendingAttachment(index)}
+                      className="flex h-6 w-6 items-center justify-center rounded-full transition hover:brightness-125"
+                      aria-label="Remove attachment"
+                      style={{ color: theme.mutedColor }}
+                    >
+                      <i className="ri-close-line" aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div
               className="flex items-end gap-2 rounded-3xl border px-3 py-2"
               style={{
@@ -903,6 +1109,25 @@ export default function TherapyPage() {
                 background: theme.cardBackground,
               }}
             >
+              <input
+                ref={attachmentInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp4,audio/ogg,audio/webm,audio/wav,application/pdf,text/plain,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={handleAttachmentPick}
+              />
+              <button
+                type="button"
+                onClick={() => attachmentInputRef.current?.click()}
+                disabled={sending || uploadingAttachment}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                style={{ borderColor: 'rgba(238,223,200,0.25)', color: theme.bodyColor }}
+                aria-label="Attach media or file"
+                title="Attach"
+              >
+                <i className={uploadingAttachment ? 'ri-loader-4-line animate-spin' : 'ri-attachment-2'} aria-hidden="true" />
+              </button>
               <textarea
                 ref={textareaRef}
                 value={inputValue}
@@ -910,8 +1135,8 @@ export default function TherapyPage() {
                 onKeyDown={handleKeyDown}
                 rows={1}
                 maxLength={4000}
-                placeholder={`Tell ${persona.name} what's happening. No pressure.`}
-                disabled={sending}
+                placeholder={`Tell ${persona.name} what’s happening. No pressure.`}
+                disabled={sending || uploadingAttachment}
                 className="max-h-60 flex-1 resize-none bg-transparent py-1.5 text-[15px] leading-relaxed focus:outline-none disabled:opacity-50"
                 style={{ color: theme.headingColor }}
               />
@@ -934,7 +1159,7 @@ export default function TherapyPage() {
               )}
               <button
                 type="submit"
-                disabled={!inputValue.trim() || sending}
+                disabled={(!inputValue.trim() && pendingAttachments.length === 0) || sending || uploadingAttachment}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-md transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                 style={{ background: theme.accent, color: theme.userBubbleText }}
                 aria-label="Send"
@@ -1135,7 +1360,7 @@ export default function TherapyPage() {
                             }
                       }
                     >
-                      <p className="whitespace-pre-line">{message.content}</p>
+                      <GuideMessageContent content={message.content} />
                     </div>
                     {message.role === 'assistant' && (
                       <div className="flex flex-col items-start gap-1 self-end">
@@ -1246,14 +1471,73 @@ export default function TherapyPage() {
           <form
             onSubmit={(event) => {
               event.preventDefault()
-              void sendMessage(inputValue)
+              void sendMessage(inputValue, null, { attachments: pendingAttachments })
             }}
             className="mx-auto w-full max-w-6xl px-3 pb-1 pt-3 sm:px-4"
           >
+            {pendingAttachments.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {pendingAttachments.map((attachment, index) => (
+                  <div
+                    key={`${attachment.url}-${index}`}
+                    className="flex max-w-full items-center gap-2 rounded-2xl border px-3 py-2 text-xs shadow-sm backdrop-blur-md"
+                    style={{
+                      borderColor: 'rgba(238,223,200,0.18)',
+                      background: theme.cardBackground,
+                      color: theme.bodyColor,
+                    }}
+                  >
+                    <i
+                      className={
+                        attachment.type === 'image'
+                          ? 'ri-image-line'
+                          : attachment.type === 'video'
+                            ? 'ri-video-line'
+                            : attachment.type === 'audio'
+                              ? 'ri-volume-up-line'
+                              : attachment.type === 'link'
+                                ? 'ri-link'
+                                : 'ri-file-text-line'
+                      }
+                      aria-hidden="true"
+                    />
+                    <span className="max-w-48 truncate">{attachment.name || 'Attachment'}</span>
+                    <button
+                      type="button"
+                      onClick={() => removePendingAttachment(index)}
+                      className="flex h-6 w-6 items-center justify-center rounded-full transition hover:brightness-125"
+                      aria-label="Remove attachment"
+                      style={{ color: theme.mutedColor }}
+                    >
+                      <i className="ri-close-line" aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div
               className="flex items-end gap-2 rounded-3xl border px-3 py-2 shadow-lg backdrop-blur-md"
               style={{ borderColor: 'rgba(238,223,200,0.18)', background: theme.cardBackground }}
             >
+              <input
+                ref={attachmentInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp4,audio/ogg,audio/webm,audio/wav,application/pdf,text/plain,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={handleAttachmentPick}
+              />
+              <button
+                type="button"
+                onClick={() => attachmentInputRef.current?.click()}
+                disabled={sending || uploadingAttachment}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                style={{ borderColor: 'rgba(238,223,200,0.25)', color: theme.bodyColor }}
+                aria-label="Attach media or file"
+                title="Attach"
+              >
+                <i className={uploadingAttachment ? 'ri-loader-4-line animate-spin' : 'ri-attachment-2'} aria-hidden="true" />
+              </button>
               <textarea
                 ref={textareaRef}
                 value={inputValue}
@@ -1261,8 +1545,8 @@ export default function TherapyPage() {
                 onKeyDown={handleKeyDown}
                 rows={1}
                 maxLength={4000}
-                placeholder="Type what's happening. No pressure."
-                disabled={sending}
+                placeholder="Type what’s happening. No pressure."
+                disabled={sending || uploadingAttachment}
                 className="max-h-60 flex-1 resize-none bg-transparent py-1.5 text-[15px] leading-relaxed focus:outline-none disabled:opacity-50"
                 style={{ color: theme.headingColor }}
               />
@@ -1297,7 +1581,7 @@ export default function TherapyPage() {
               className="mt-2 flex items-center justify-between gap-2 px-1 text-[10px]"
               style={{ color: theme.mutedColor }}
             >
-              <span>Enter to send · Shift+Enter for a new line</span>
+              <span>Enter to send, Shift+Enter for a new line</span>
               <span className="flex items-center gap-1">
                 <i className="ri-shield-keyhole-line" /> Private to you
               </span>
@@ -1732,7 +2016,7 @@ export default function TherapyPage() {
                                 : { background: 'rgba(238,223,200,0.08)', color: theme.headingColor }
                             }
                           >
-                            <p className="whitespace-pre-line">{row.message}</p>
+                            <GuideMessageContent content={row.message} />
                           </div>
                           {isUser && (
                             <button

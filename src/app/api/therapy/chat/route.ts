@@ -15,6 +15,7 @@ import { rateLimit } from '@/server/http/rate-limit'
 import { checkAndConsume } from '@/server/billing/repo'
 import { detectCrisisInMessages } from '@/server/ai/safety'
 import { decryptField } from '@/server/crypto/field-encryption'
+import { normaliseGuideAttachments, toGuideModelMessageContent } from '@/lib/guide-media'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -193,7 +194,13 @@ export async function POST(request: NextRequest) {
 
   const sanitised: TherapyMessage[] = (body.messages ?? [])
     .filter((m) => m && (m.role === 'user' || m.role === 'assistant'))
-    .map((m) => ({ role: m.role, content: String(m.content ?? '').slice(0, 4000) }))
+    .map((m) => ({
+      role: m.role,
+      content: toGuideModelMessageContent(
+        String(m.content ?? '').slice(0, 8000),
+        normaliseGuideAttachments((m as { attachments?: unknown }).attachments),
+      ).slice(0, 6000),
+    }))
     .filter((m) => m.content.length > 0)
   if (sanitised.length === 0) {
     return NextResponse.json({ ok: false, error: 'No message provided.' }, { status: 400 })

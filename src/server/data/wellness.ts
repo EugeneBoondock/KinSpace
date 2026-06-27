@@ -186,7 +186,7 @@ export async function getTrackedSymptoms(ctx: Ctx, days = 60) {
 
 export async function getActiveTherapySession(ctx: Ctx, _userId?: string) {
   const userId = requireActor(ctx)
-  await closeIdleGuideSessions(new Date(), { userId, limit: 5 })
+  await closeIdleGuideSessions(new Date(), { userId, limit: 5, notify: false })
 
   const cutoff = Date.now() - 30 * 60 * 1000
   const rows = await ctx.db.query.therapySessions.findMany({

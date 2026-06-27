@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { closeIdleGuideSessions } from '@/server/therapy/idle-sessions'
+import { closeIdleGuideSessions, sendQuietGuideFollowUps } from '@/server/therapy/idle-sessions'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,6 +11,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   }
 
-  const result = await closeIdleGuideSessions(new Date())
-  return NextResponse.json(result)
+  const now = new Date()
+  const idle = await closeIdleGuideSessions(now)
+  const quiet = await sendQuietGuideFollowUps(now)
+  return NextResponse.json({ ok: true, idle, quiet })
 }
