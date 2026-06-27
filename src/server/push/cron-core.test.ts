@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import assert from 'node:assert/strict'
+import { describe, it } from 'node:test'
 import {
   buildMedicationReminderNotification,
   nextReminderAlertAttempt,
@@ -9,6 +10,25 @@ import {
   localDateKeyInTimeZone,
   wasReminderSlotTaken,
 } from './cron-core'
+
+function expect<T>(actual: T) {
+  return {
+    toBe(expected: T) {
+      assert.equal(actual, expected)
+    },
+    toBeNull() {
+      assert.equal(actual, null)
+    },
+    toEqual(expected: unknown) {
+      assert.deepEqual(actual, expected)
+    },
+    not: {
+      toMatch(pattern: RegExp) {
+        assert.doesNotMatch(String(actual), pattern)
+      },
+    },
+  }
+}
 
 describe('timeToMinutes', () => {
   it('parses valid HH:MM', () => {
