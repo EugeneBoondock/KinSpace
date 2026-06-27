@@ -19,6 +19,10 @@ test('sanitiseAiAuditMeta keeps only safe counters and labels', () => {
     priorSessionCount: 4,
     hasGuideMemory: true,
     format: 'pdf',
+    surface: 'community',
+    postScope: 'public',
+    postId: 'post-1',
+    commentId: 'comment-1',
     conditions: ['Private condition'],
     medications: ['Private medicine'],
     summary: 'Private summary',
@@ -35,6 +39,10 @@ test('sanitiseAiAuditMeta keeps only safe counters and labels', () => {
     priorSessionCount: 4,
     hasGuideMemory: true,
     format: 'pdf',
+    surface: 'community',
+    postScope: 'public',
+    postId: 'post-1',
+    commentId: 'comment-1',
   })
 })
 
@@ -73,4 +81,39 @@ test('formatAiPrivacyAuditEvent produces member-facing copy', () => {
   assert.match(item.body, /Mira/)
   assert.match(item.body, /DOCX/)
   assert.equal(item.createdAt, '2026-06-27T10:00:00.000Z')
+})
+
+test('formatAiPrivacyAuditEvent reports public Guide community replies without private content', () => {
+  const action: AiAuditAction = 'ai.guide.public_comment_posted'
+  const item = formatAiPrivacyAuditEvent({
+    id: 'event-2',
+    action,
+    targetType: 'guide',
+    targetId: 'mira',
+    meta: {
+      personaName: 'Mira',
+      surface: 'community',
+      postScope: 'group',
+      postId: 'post-1',
+      commentId: 'comment-1',
+      content: 'private post text',
+      medications: 'private meds',
+    },
+    createdAt: new Date('2026-06-27T10:00:00.000Z'),
+  })
+
+  assert.equal(item.id, 'event-2')
+  assert.equal(item.title, 'Public Guide reply posted')
+  assert.match(item.body, /Mira/)
+  assert.match(item.body, /community/)
+  assert.match(item.body, /group/)
+  assert.doesNotMatch(item.body, /private post text/)
+  assert.doesNotMatch(item.body, /private meds/)
+  assert.deepEqual(item.meta, {
+    personaName: 'Mira',
+    surface: 'community',
+    postScope: 'group',
+    postId: 'post-1',
+    commentId: 'comment-1',
+  })
 })

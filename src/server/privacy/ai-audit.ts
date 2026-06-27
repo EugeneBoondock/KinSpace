@@ -5,6 +5,7 @@ export type AiAuditAction =
   | 'ai.guide.context_read'
   | 'ai.guide.memory_exported'
   | 'ai.guide.memory_reset'
+  | 'ai.guide.public_comment_posted'
 
 export type AiAuditMeta = Record<string, string | number | boolean | null>
 
@@ -19,6 +20,10 @@ const SAFE_META_KEYS = new Set([
   'hasGuideMemory',
   'format',
   'sessionId',
+  'surface',
+  'postScope',
+  'postId',
+  'commentId',
 ])
 
 export type AiPrivacyAuditInsert = {
@@ -49,7 +54,12 @@ export type AiPrivacyAuditItem = {
 }
 
 function isAiAuditAction(action: string): action is AiAuditAction {
-  return action === 'ai.guide.context_read' || action === 'ai.guide.memory_exported' || action === 'ai.guide.memory_reset'
+  return (
+    action === 'ai.guide.context_read' ||
+    action === 'ai.guide.memory_exported' ||
+    action === 'ai.guide.memory_reset' ||
+    action === 'ai.guide.public_comment_posted'
+  )
 }
 
 function cleanScalar(value: unknown): string | number | boolean | null | undefined {
@@ -123,6 +133,20 @@ export function formatAiPrivacyAuditEvent(row: AiPrivacyAuditRow): AiPrivacyAudi
       title: 'Guide memory downloaded',
       body: `${persona} memory was downloaded as ${format}.`,
       icon: 'ri-download-2-line',
+      createdAt: isoOrNull(row.createdAt),
+      meta,
+    }
+  }
+
+  if (row.action === 'ai.guide.public_comment_posted') {
+    const surface = typeof meta.surface === 'string' && meta.surface ? meta.surface : 'community'
+    const scope = typeof meta.postScope === 'string' && meta.postScope ? meta.postScope : 'public'
+    return {
+      id: row.id,
+      action: row.action,
+      title: 'Public Guide reply posted',
+      body: `${persona} posted a Guide reply in ${surface}. Scope: ${scope}.`,
+      icon: 'ri-chat-smile-2-line',
       createdAt: isoOrNull(row.createdAt),
       meta,
     }

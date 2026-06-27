@@ -12,6 +12,7 @@ import {
 import { createNotification } from '@/server/notify'
 import { notifyMatchingExperts } from '@/server/expertise'
 import { consumeFeatureQuota } from '@/server/billing/access'
+import { recordAiPrivacyAuditEvent } from '@/server/privacy/ai-audit'
 import { blockedRelatedIds, isBlockBetween } from '@/server/social/blocks'
 import { filterReadablePosts, requireReadablePost } from './post-access'
 import {
@@ -884,7 +885,7 @@ export async function addPostComment(
 }
 
 export async function requestGuidePostComment(ctx: Ctx, postId: string, personaId: string | null = 'mira') {
-  const { post } = await requireReadablePost(ctx, postId)
+  const { userId, post } = await requireReadablePost(ctx, postId)
 
   const commentRows = await ctx.db.query.postComments.findMany({
     where: eq(postComments.postId, postId),
@@ -951,6 +952,20 @@ export async function requestGuidePostComment(ctx: Ctx, postId: string, personaI
       data: { post_id: postId, comment_id: id },
     })
   }
+
+  await recordAiPrivacyAuditEvent(ctx.db, {
+    actorId: userId,
+    action: 'ai.guide.public_comment_posted',
+    targetId: guide.persona.id,
+    meta: {
+      personaId: guide.persona.id,
+      personaName: guide.persona.name,
+      surface: 'community',
+      postScope: post.groupId ? 'group' : 'public',
+      postId,
+      commentId: id,
+    },
+  }).catch(() => undefined)
 
   return { id, content, persona: guide.persona.id }
 }
