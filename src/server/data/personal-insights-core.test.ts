@@ -121,6 +121,25 @@ test('stays silent (no cards) under thin data, still returns coverage', () => {
   assert.equal(result.review.nextActions[0].href, '/dashboard')
 })
 
+test('shows a check-in summary once mood logs start building', () => {
+  const building: InsightSignals = {
+    windowDays: 30, today: TODAY,
+    mood: new Map([[dayStr(27), 4], [dayStr(28), 4], [dayStr(29), 3]]),
+    symptoms: new Map(), medTaken: new Set(), medDue: new Set(), spoons: new Map(), therapy: new Set(),
+    crisisNudge: null, generatedAt: '2026-06-22T00:00:00.000Z',
+  }
+
+  const result = buildPersonalInsights(building)
+  const summary = result.cards.find((card) => card.kind === 'checkin_rhythm')
+
+  assert.equal(result.hasEnoughData, true)
+  assert.ok(summary, 'expected a check-in summary card')
+  assert.match(summary!.phrase, /3 days/)
+  assert.equal(summary!.sampleDays, 3)
+  assert.equal(result.review.coverageLevel, 'thin')
+  assert.equal(result.review.title, 'Your weekly review has started')
+})
+
 test('safety guard rejects causal / prescriptive / statistical language', () => {
   assert.equal(findingIsSafe('Your stress causes your flares'), false)
   assert.equal(findingIsSafe('This will predict your next bad day'), false)

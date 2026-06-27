@@ -58,6 +58,7 @@ type PersonalInsights = {
 const WINDOWS = [14, 30, 90] as const
 
 const CARD_ICON: Record<string, string> = {
+  checkin_rhythm: 'ri-calendar-check-line',
   mood_trend: 'ri-line-chart-line',
   symptom_trend: 'ri-pulse-line',
   mood_symptom_assoc: 'ri-links-line',
@@ -66,6 +67,7 @@ const CARD_ICON: Record<string, string> = {
   therapy_mood_window: 'ri-chat-smile-2-line',
 }
 const CARD_TINT: Record<string, string> = {
+  checkin_rhythm: 'tint-sage',
   mood_trend: 'tint-violet',
   symptom_trend: 'tint-terracotta',
   mood_symptom_assoc: 'tint-gold',

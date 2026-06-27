@@ -16,6 +16,7 @@ const VALENCE_MOOD: Record<number, string> = { 5: 'grounded', 4: 'hopeful', 3: '
 export const DAY_MS = 24 * 60 * 60 * 1000
 
 export type InsightKind =
+  | 'checkin_rhythm'
   | 'mood_trend'
   | 'symptom_trend'
   | 'mood_symptom_assoc'
@@ -258,6 +259,10 @@ export function buildPersonalInsights(s: InsightSignals): PersonalInsights {
   if (therapyCard) cards.push(therapyCard)
 
   const safe = cards.filter((c) => findingIsSafe(c.phrase)).slice(0, 6)
+  if (safe.length === 0 && loggedDays >= 3) {
+    const rhythmCard = checkinRhythmCard(loggedDays, modalMood)
+    if (findingIsSafe(rhythmCard.phrase)) safe.push(rhythmCard)
+  }
   const review = buildPersonalReview({ cards: safe, loggedDays, windowDays: s.windowDays, locked: locked.slice(0, 5) })
 
   return {
@@ -356,11 +361,30 @@ function buildPersonalReview({
   }
 
   return {
-    title: 'Your weekly review is ready',
-    summary: `${loggedDays} days logged. ${focus ?? primary.title} is the clearest pattern to watch right now.`,
+    title: primary.kind === 'checkin_rhythm' ? 'Your weekly review has started' : 'Your weekly review is ready',
+    summary: primary.kind === 'checkin_rhythm'
+      ? `${loggedDays} days logged. Keep checking in to give your next review a clearer picture.`
+      : `${loggedDays} days logged. ${focus ?? primary.title} is the clearest pattern to watch right now.`,
     coverageLevel: level,
     focus,
     nextActions: nextActions.slice(0, 3),
+  }
+}
+
+function checkinRhythmCard(loggedDays: number, modalMood: string | null): InsightCard {
+  return {
+    kind: 'checkin_rhythm',
+    title: 'Check-in rhythm',
+    phrase: modalMood
+      ? `You logged ${loggedDays} days in this window. Your most logged mood was ${modalMood}.`
+      : `You logged ${loggedDays} days in this window. Your review has started.`,
+    direction: null,
+    band: null,
+    subject: null,
+    sampleDays: loggedDays,
+    perGroupCounts: null,
+    careTeamNudge: false,
+    disclaimerKey: 'standard',
   }
 }
 
