@@ -10,6 +10,7 @@ import { DatabaseService } from '@/lib/database'
 import { classNames, getInitials } from '@/lib/platform'
 import { alertNewNotification } from '@/lib/notify-client'
 import { buildSystemNotificationData } from '@/lib/notification-routing'
+import { readSidebarScrollTop, writeSidebarScrollTop } from '@/lib/sidebar-scroll'
 
 type NavItem = {
   href: string
@@ -105,6 +106,7 @@ export default function BottomNav() {
   const [unreadNotifs, setUnreadNotifs] = useState(0)
   const [unreadMsgs, setUnreadMsgs] = useState(0)
   const [moreOpen, setMoreOpen] = useState(false)
+  const desktopSidebarNavRef = useRef<HTMLElement | null>(null)
   // Tracks the last-seen unread count so a genuine increase can chime + pop up.
   // Starts at -1 ("not loaded yet") so the first poll never fires an alert.
   const prevNotifRef = useRef(-1)
@@ -201,6 +203,21 @@ export default function BottomNav() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [moreOpen])
+
+  useEffect(() => {
+    const nav = desktopSidebarNavRef.current
+    if (!nav || typeof window === 'undefined') return
+    const restore = () => {
+      nav.scrollTop = readSidebarScrollTop(window.sessionStorage)
+    }
+    const frame = window.requestAnimationFrame(restore)
+    return () => window.cancelAnimationFrame(frame)
+  }, [pathname])
+
+  const saveDesktopSidebarScroll = () => {
+    if (typeof window === 'undefined') return
+    writeSidebarScrollTop(window.sessionStorage, desktopSidebarNavRef.current?.scrollTop ?? 0)
+  }
 
   // Admins get an extra link. The check is a cheap RPC; non-admins (and
   // anonymous visitors) simply never see it.
@@ -330,13 +347,13 @@ export default function BottomNav() {
           <span className="text-lg font-bold tracking-tight text-brand-ink">KinSpace</span>
         </Link>
 
-        <nav className="flex-1 overflow-y-auto px-3 pb-4">
+        <nav ref={desktopSidebarNavRef} onScroll={saveDesktopSidebarScroll} className="flex-1 overflow-y-auto px-3 pb-4">
           <ul className="space-y-1">
             {primaryNav.map((item) => {
               const active = isActive(item.href)
               return (
                 <li key={item.href}>
-                  <Link href={resolveHref(item)} aria-current={active ? 'page' : undefined} className={sidebarLinkClass(active)}>
+                  <Link href={resolveHref(item)} onClick={saveDesktopSidebarScroll} aria-current={active ? 'page' : undefined} className={sidebarLinkClass(active)}>
                     {renderIcon(item, active)}
                     {item.label}
                   </Link>
@@ -355,7 +372,7 @@ export default function BottomNav() {
                   const active = isActive(item.href)
                   return (
                     <li key={item.href}>
-                      <Link href={resolveHref(item)} aria-current={active ? 'page' : undefined} className={sidebarLinkClass(active)}>
+                      <Link href={resolveHref(item)} onClick={saveDesktopSidebarScroll} aria-current={active ? 'page' : undefined} className={sidebarLinkClass(active)}>
                         {renderIcon(item, active)}
                         {item.label}
                       </Link>
