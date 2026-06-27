@@ -13,6 +13,7 @@ import { renderWithMentions } from '@/components/community/renderMentions'
 import CommentReactions from '@/components/community/CommentReactions'
 import ReactionSummaryButton from '@/components/community/ReactionSummaryButton'
 import { MemberAvatar, MemberName } from '@/components/MemberIdentity'
+import { guideReplyErrorToast } from '@/components/community/guideReplyError'
 
 export type PostShape = Record<string, unknown> & {
   id: string
@@ -321,7 +322,7 @@ export default function PostCard({
       toast('Guide replied', 'success')
     } catch (error) {
       console.error('Failed to ask Guide:', error)
-      toast('Guide could not reply right now', 'error')
+      toast(guideReplyErrorToast(error), 'error')
     } finally {
       setGuideReplying(false)
     }
