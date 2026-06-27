@@ -4,6 +4,7 @@ import { rateLimit } from '@/server/http/rate-limit'
 import { getDb } from '@/server/db/client'
 import { dataMethods, type Ctx } from '@/server/data'
 import { serializeForClient } from '@/server/data/serialize'
+import { rpcErrorResponse } from '@/server/http/rpc-errors'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -56,21 +57,11 @@ export async function POST(request: NextRequest) {
     const result = await dataMethods[method](ctx, ...args)
     return NextResponse.json({ ok: true, data: serializeForClient(result) })
   } catch (error) {
-    const message = error instanceof Error ? error.message : ''
-    if (message === 'UNAUTHENTICATED') {
-      return NextResponse.json({ ok: false, error: 'Please sign in to continue.' }, { status: 401 })
+    const response = rpcErrorResponse(error)
+    if (response.shouldLog) {
+      // Log the method name only. The error object may contain SQL or health data.
+      console.error(`rpc failed: ${method}`)
     }
-    if (message === 'Not authorized') {
-      return NextResponse.json({ ok: false, error: 'Not authorized.' }, { status: 403 })
-    }
-    if (message === 'PLAN_REQUIRED') {
-      return NextResponse.json(
-        { ok: false, error: 'Upgrade required for this feature.', upgrade: true },
-        { status: 402 },
-      )
-    }
-    // Log the method name only - never the error object (may contain SQL/PHI).
-    console.error(`rpc failed: ${method}`)
-    return NextResponse.json({ ok: false, error: 'Request failed. Please try again.' }, { status: 500 })
+    return NextResponse.json(response.body, { status: response.status })
   }
 }

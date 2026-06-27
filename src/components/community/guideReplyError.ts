@@ -5,6 +5,8 @@ const LIMIT_MESSAGE = 'You have reached your monthly Guide limit. Upgrade or add
 const DUPLICATE_MESSAGE = 'This Guide has already replied to this post.'
 
 export function guideReplyErrorToast(error: unknown): string {
+  if (error instanceof RpcError && error.code === 'GUIDE_ALREADY_REPLIED') return DUPLICATE_MESSAGE
+  if (error instanceof RpcError && error.code === 'PLAN_REQUIRED') return LIMIT_MESSAGE
   if (error instanceof RpcError && error.upgrade) return LIMIT_MESSAGE
 
   const message = error instanceof Error ? error.message.trim() : ''

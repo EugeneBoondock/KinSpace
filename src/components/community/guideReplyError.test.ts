@@ -21,6 +21,16 @@ test('guideReplyErrorToast explains duplicate public Guide replies', () => {
     guideReplyErrorToast(new Error('This Guide has already replied to this post.')),
     'This Guide has already replied to this post.',
   )
+  assert.equal(
+    guideReplyErrorToast(
+      new RpcError('Request failed. Please try again.', {
+        method: 'requestGuidePostComment',
+        status: 409,
+        code: 'GUIDE_ALREADY_REPLIED',
+      }),
+    ),
+    'This Guide has already replied to this post.',
+  )
 })
 
 test('guideReplyErrorToast keeps a private fallback for unknown failures', () => {

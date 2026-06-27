@@ -1,13 +1,15 @@
 export class RpcError extends Error {
   readonly method: string
   readonly status: number
+  readonly code: string | null
   readonly upgrade: boolean
 
-  constructor(message: string, options: { method: string; status: number; upgrade?: boolean }) {
+  constructor(message: string, options: { method: string; status: number; code?: string | null; upgrade?: boolean }) {
     super(message)
     this.name = 'RpcError'
     this.method = options.method
     this.status = options.status
+    this.code = options.code ?? null
     this.upgrade = Boolean(options.upgrade)
     Object.setPrototypeOf(this, RpcError.prototype)
   }
@@ -24,12 +26,14 @@ export async function rpc<T = unknown>(method: string, args: unknown[]): Promise
     ok?: boolean
     data?: T
     error?: string
+    code?: string
     upgrade?: boolean
   } | null
   if (!res.ok || !json?.ok) {
     throw new RpcError(json?.error || `Request failed (${method})`, {
       method,
       status: res.status,
+      code: json?.code ?? null,
       upgrade: Boolean(json?.upgrade),
     })
   }
