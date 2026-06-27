@@ -59,6 +59,27 @@ export function isSafeGuideAttachmentUrl(value: unknown): value is string {
   return false
 }
 
+function isKinSpaceMediaUrl(value: string): boolean {
+  if (value.startsWith('/api/media/')) return true
+  try {
+    const parsed = new URL(value)
+    return (
+      parsed.protocol === 'https:' &&
+      (parsed.hostname === 'www.kinspace.co.za' || parsed.hostname === 'kinspace.co.za') &&
+      parsed.pathname.startsWith('/api/media/')
+    )
+  } catch {
+    return false
+  }
+}
+
+function safeAttachmentTypeForUrl(type: GuideAttachmentType, url: string): GuideAttachmentType {
+  if ((type === 'image' || type === 'video' || type === 'audio') && !isKinSpaceMediaUrl(url)) {
+    return 'link'
+  }
+  return type
+}
+
 export function normaliseGuideAttachments(input: unknown, limit = 6): GuideAttachment[] {
   if (!Array.isArray(input)) return []
   const safe: GuideAttachment[] = []
@@ -71,7 +92,7 @@ export function normaliseGuideAttachments(input: unknown, limit = 6): GuideAttac
     if (!TYPES.has(type)) continue
     if (!isSafeGuideAttachmentUrl(url)) continue
     safe.push({
-      type,
+      type: safeAttachmentTypeForUrl(type, url),
       url,
       ...(cleanName(record.name) ? { name: cleanName(record.name) } : {}),
       ...(cleanMime(record.mimeType) ? { mimeType: cleanMime(record.mimeType) } : {}),

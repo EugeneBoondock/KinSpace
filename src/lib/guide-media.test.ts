@@ -22,6 +22,21 @@ test('normaliseGuideAttachments keeps only safe Guide attachments', () => {
   assert.equal(attachments[1]?.type, 'file')
 })
 
+test('normaliseGuideAttachments keeps external media as links', () => {
+  const attachments = normaliseGuideAttachments([
+    { type: 'image', url: 'https://example.com/tracker.png', name: 'Outside image' },
+    { type: 'video', url: 'https://example.com/video.mp4', name: 'Outside video' },
+    { type: 'audio', url: 'https://example.com/audio.mp3', name: 'Outside audio' },
+    { type: 'image', url: 'https://www.kinspace.co.za/api/media/guide/user-1/photo.png', name: 'KinSpace image' },
+  ])
+
+  assert.equal(attachments.length, 4)
+  assert.deepEqual(
+    attachments.map((attachment) => attachment.type),
+    ['link', 'link', 'link', 'image'],
+  )
+})
+
 test('Guide message content stores media out of the visible text', () => {
   const content = formatGuideMessageContent('Here is what I mean.', [
     { type: 'image', url: '/api/media/guide/user-1/photo.png', name: 'photo.png' },
