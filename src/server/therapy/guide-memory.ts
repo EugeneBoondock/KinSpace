@@ -27,6 +27,19 @@ export type GuideMemorySnapshot = {
   updatedAt: Date | null
 }
 
+export type GuideMemoryPreview = {
+  personaId: string
+  personaName: string
+  summary: string
+  latestSessionSummary: string | null
+  latestSessionId: string | null
+  latestSessionEndedAt: string | null
+  keyThemes: string[]
+  sessionCount: number
+  updatedAt: string | null
+  hasMemory: boolean
+}
+
 export function normaliseGuidePersonaId(personaId: string | null | undefined): string {
   return getPersona(personaId ?? null).id
 }
@@ -143,7 +156,7 @@ export function buildGuideMemoryFromSessions(sessions: GuideMemorySessionInput[]
     )
 }
 
-function emptyGuideMemorySnapshot(personaId: string | null | undefined): GuideMemorySnapshot {
+export function resetGuideMemorySnapshot(personaId: string | null | undefined): GuideMemorySnapshot {
   const persona = getPersona(personaId ?? null)
   return {
     personaId: persona.id,
@@ -252,14 +265,14 @@ export async function getOrBuildGuideMemory(
 ): Promise<GuideMemorySnapshot> {
   const personaId = normaliseGuidePersonaId(personaIdInput)
   const stored = await readStoredGuideMemory(db, userId, personaId)
-  if (stored?.summary) return stored
+  if (stored) return stored
 
   const sessions = await getSummarisedSessions(db, userId, personaId)
-  if (sessions.length === 0) return stored ?? emptyGuideMemorySnapshot(personaId)
+  if (sessions.length === 0) return resetGuideMemorySnapshot(personaId)
 
   const latest = sessions[sessions.length - 1]
   const snapshot: GuideMemorySnapshot = {
-    ...emptyGuideMemorySnapshot(personaId),
+    ...resetGuideMemorySnapshot(personaId),
     summary: buildGuideMemoryFromSessions(sessions),
     latestSessionSummary: latest.summary,
     latestSessionId: latest.sessionId,
@@ -289,7 +302,7 @@ export async function updateGuideMemoryFromSession(
   const base =
     stored ??
     (() => {
-      const empty = emptyGuideMemorySnapshot(personaId)
+      const empty = resetGuideMemorySnapshot(personaId)
       return empty
     })()
 
@@ -332,12 +345,12 @@ export async function rebuildGuideMemory(
     await db
       .delete(guideMemories)
       .where(and(eq(guideMemories.userId, userId), eq(guideMemories.persona, personaId)))
-    return emptyGuideMemorySnapshot(personaId)
+    return resetGuideMemorySnapshot(personaId)
   }
 
   const latest = sessions[sessions.length - 1]
   return writeGuideMemory(db, userId, {
-    ...emptyGuideMemorySnapshot(personaId),
+    ...resetGuideMemorySnapshot(personaId),
     summary: buildGuideMemoryFromSessions(sessions),
     latestSessionSummary: latest.summary,
     latestSessionId: latest.sessionId,
@@ -345,6 +358,14 @@ export async function rebuildGuideMemory(
     keyThemes: cleanThemes(latest.keyThemes),
     sessionCount: sessions.length,
   })
+}
+
+export async function resetGuideMemory(
+  db: Database,
+  userId: string,
+  personaIdInput: string | null | undefined,
+): Promise<GuideMemorySnapshot> {
+  return writeGuideMemory(db, userId, resetGuideMemorySnapshot(personaIdInput))
 }
 
 function formatDateTime(value: Date | string | null | undefined): string {
@@ -386,6 +407,27 @@ function stripMarkdownForDocument(markdown: string): string {
 
 function stripGuideMemoryMarkers(summary: string): string {
   return String(summary ?? '').replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+function isoOrNull(value: Date | string | null | undefined): string | null {
+  return toDate(value)?.toISOString() ?? null
+}
+
+export function formatGuideMemoryPreview(snapshot: GuideMemorySnapshot): GuideMemoryPreview {
+  const summary = stripGuideMemoryMarkers(snapshot.summary)
+  const latestSessionSummary = snapshot.latestSessionSummary?.trim() || null
+  return {
+    personaId: snapshot.personaId,
+    personaName: snapshot.personaName,
+    summary,
+    latestSessionSummary,
+    latestSessionId: snapshot.latestSessionId,
+    latestSessionEndedAt: isoOrNull(snapshot.latestSessionEndedAt),
+    keyThemes: cleanThemes(snapshot.keyThemes),
+    sessionCount: snapshot.sessionCount,
+    updatedAt: isoOrNull(snapshot.updatedAt),
+    hasMemory: Boolean(summary || latestSessionSummary || snapshot.sessionCount > 0),
+  }
 }
 
 function asciiForPdf(value: string): string {

@@ -77,6 +77,19 @@ type ActiveSessionRow = {
   }>
 }
 
+type GuideMemoryPreview = {
+  personaId: string
+  personaName: string
+  summary: string
+  latestSessionSummary: string | null
+  latestSessionId: string | null
+  latestSessionEndedAt: string | null
+  keyThemes: string[]
+  sessionCount: number
+  updatedAt: string | null
+  hasMemory: boolean
+}
+
 type View = 'loading' | 'onboard' | 'empty' | 'chat'
 
 function ambientPresetForTheme(id: string): AmbientPreset {
@@ -272,6 +285,9 @@ export default function TherapyPage() {
   const [sessionMessages, setSessionMessages] = useState<TranscriptRow[]>([])
   const [loadingTranscript, setLoadingTranscript] = useState(false)
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null)
+  const [guideMemory, setGuideMemory] = useState<GuideMemoryPreview | null>(null)
+  const [loadingMemory, setLoadingMemory] = useState(false)
+  const [resettingMemory, setResettingMemory] = useState(false)
 
   const [personaId, setPersonaId] = useState<string>('mira')
   const [themeId, setThemeId] = useState<string>('default')
@@ -671,9 +687,27 @@ export default function TherapyPage() {
     }
   }, [toast, user])
 
+  const loadGuideMemory = useCallback(async () => {
+    if (!user) return
+    setLoadingMemory(true)
+    try {
+      const response = await fetch(`/api/therapy/memory?persona=${encodeURIComponent(personaId)}`)
+      const data = (await response.json().catch(() => null)) as
+        | { ok?: boolean; memory?: GuideMemoryPreview; error?: string }
+        | null
+      if (!response.ok || !data?.ok || !data.memory) throw new Error(data?.error ?? 'Memory load failed')
+      setGuideMemory(data.memory)
+    } catch {
+      toast('Could not load Guide memory.', 'error')
+    } finally {
+      setLoadingMemory(false)
+    }
+  }, [personaId, toast, user])
+
   function openHistory() {
     setShowHistory(true)
     void loadHistory()
+    void loadGuideMemory()
   }
 
   // Load history on mount too, so the empty-state can offer a "pick up where we
@@ -690,8 +724,13 @@ export default function TherapyPage() {
     if (params.get('history') === '1' || sessionParam) {
       setShowHistory(true)
       void loadHistory()
+      void loadGuideMemory()
     }
-  }, [user, loadHistory])
+  }, [user, loadHistory, loadGuideMemory])
+
+  useEffect(() => {
+    if (showHistory) void loadGuideMemory()
+  }, [loadGuideMemory, showHistory])
 
   const lastSession = sessions[0]
   const lastTheme = lastSession?.keyThemes?.[0] ?? null
@@ -743,6 +782,28 @@ export default function TherapyPage() {
       }
     },
     [loadHistory, toast])
+
+  const resetCurrentGuideMemory = useCallback(async () => {
+    if (!user) return
+    const ok = window.confirm(`Reset ${persona.name} Guide memory? Past session history stays, but this Guide will start fresh.`)
+    if (!ok) return
+    setResettingMemory(true)
+    try {
+      const response = await fetch(`/api/therapy/memory?persona=${encodeURIComponent(personaId)}`, {
+        method: 'DELETE',
+      })
+      const data = (await response.json().catch(() => null)) as
+        | { ok?: boolean; memory?: GuideMemoryPreview; error?: string }
+        | null
+      if (!response.ok || !data?.ok || !data.memory) throw new Error(data?.error ?? 'Memory reset failed')
+      setGuideMemory(data.memory)
+      toast('Guide memory reset.', 'success')
+    } catch {
+      toast('Could not reset Guide memory.', 'error')
+    } finally {
+      setResettingMemory(false)
+    }
+  }, [persona.name, personaId, toast, user])
 
   // ── Render ──────────────────────────────────────────────────────
   const pageStyle: React.CSSProperties = {
@@ -1877,11 +1938,27 @@ export default function TherapyPage() {
               </p>
 
               <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-brand-background/[0.08] bg-brand-background/[0.04] p-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-brand-background">{persona.name} memory</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-brand-background">{persona.name} memory</p>
+                    {guideMemory?.hasMemory && (
+                      <span className="rounded-full bg-brand-background/[0.08] px-2 py-0.5 text-[10px] text-brand-background/55">
+                        {guideMemory.sessionCount} session{guideMemory.sessionCount === 1 ? '' : 's'}
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-0.5 text-xs text-brand-background/55">
-                    Download the private summary this Guide uses between sessions.
+                    {loadingMemory
+                      ? 'Loading memory...'
+                      : guideMemory?.hasMemory
+                        ? guideMemory.latestSessionSummary || guideMemory.summary
+                        : 'No saved memory for this Guide yet.'}
                   </p>
+                  {guideMemory?.updatedAt && (
+                    <p className="mt-1 text-[11px] text-brand-background/40">
+                      Updated {new Date(guideMemory.updatedAt).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {(['md', 'pdf', 'docx'] as const).map((format) => (
@@ -1903,6 +1980,18 @@ export default function TherapyPage() {
                       {format}
                     </a>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => void resetCurrentGuideMemory()}
+                    disabled={resettingMemory || loadingMemory}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-brand-accent1/25 bg-brand-accent1/10 px-3 py-1.5 text-xs font-semibold text-brand-accent1 transition-colors hover:bg-brand-accent1/20 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                  >
+                    <i
+                      className={resettingMemory ? 'ri-loader-4-line animate-spin' : 'ri-refresh-line'}
+                      aria-hidden="true"
+                    />
+                    Reset
+                  </button>
                 </div>
               </div>
 
