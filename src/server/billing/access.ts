@@ -21,6 +21,7 @@ export type FeatureUsageStatus = {
   allowed: boolean
   limit: number
   remaining: number
+  metered?: 'none' | 'quota' | 'credit'
 }
 
 function validTier(value: unknown): Tier {
@@ -149,14 +150,14 @@ export async function consumeFeatureQuota(ctx: Ctx, feature: Feature): Promise<F
   const tier = await getBackendTier(ctx)
   const limit = getLimit(tier, feature)
   if (isUnlimited(limit)) {
-    return { allowed: true, limit: UNLIMITED, remaining: Number.MAX_SAFE_INTEGER }
+    return { allowed: true, limit: UNLIMITED, remaining: Number.MAX_SAFE_INTEGER, metered: 'none' }
   }
 
   const used = await currentFeatureUsage(ctx, feature)
   const before = featureUsageStatus(tier, feature, used)
   if (!before.allowed) {
     if (feature === 'ai_therapy' && (await consumeGuideCredit(ctx))) {
-      return { allowed: true, limit, remaining: 0 }
+      return { allowed: true, limit, remaining: 0, metered: 'credit' }
     }
     throw new Error('PLAN_REQUIRED')
   }
@@ -164,10 +165,45 @@ export async function consumeFeatureQuota(ctx: Ctx, feature: Feature): Promise<F
   const remaining = await consumeQuotaSlot(ctx, feature, limit)
   if (remaining === null) {
     if (feature === 'ai_therapy' && (await consumeGuideCredit(ctx))) {
-      return { allowed: true, limit, remaining: 0 }
+      return { allowed: true, limit, remaining: 0, metered: 'credit' }
     }
     throw new Error('PLAN_REQUIRED')
   }
 
-  return { allowed: true, limit, remaining }
+  return { allowed: true, limit, remaining, metered: 'quota' }
+}
+
+export async function refundConsumedFeatureQuota(
+  ctx: Ctx,
+  feature: Feature,
+  usage: FeatureUsageStatus | null | undefined,
+): Promise<void> {
+  if (!ctx.userId || !usage?.allowed) return
+
+  if (usage.metered === 'quota') {
+    await ctx.db
+      .update(usageCounters)
+      .set({ count: sql`max(0, ${usageCounters.count} - 1)`, updatedAt: new Date() })
+      .where(and(
+        eq(usageCounters.userId, ctx.userId),
+        eq(usageCounters.period, currentPeriod()),
+        eq(usageCounters.feature, feature),
+        gt(usageCounters.count, 0),
+      ))
+      .returning({ count: usageCounters.count })
+    return
+  }
+
+  if (usage.metered === 'credit' && feature === 'ai_therapy') {
+    await ctx.db
+      .insert(aiCreditBalances)
+      .values({ userId: ctx.userId, feature, credits: 1 })
+      .onConflictDoUpdate({
+        target: aiCreditBalances.userId,
+        set: {
+          credits: sql`${aiCreditBalances.credits} + 1`,
+          updatedAt: new Date(),
+        },
+      })
+  }
 }

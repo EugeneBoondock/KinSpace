@@ -24,13 +24,24 @@ function makeDb({
   usageCount?: number
 } = {}) {
   const inserts: Array<Record<string, unknown>> = []
+  const updates: Array<Record<string, unknown>> = []
 
   return {
     inserts,
+    updates,
     db: {
       insert: () => ({
-        values: async (payload: Record<string, unknown>) => {
+        values: (payload: Record<string, unknown>) => {
           inserts.push(payload)
+          return {
+            onConflictDoNothing: () => ({
+              returning: async () =>
+                payload.feature === 'ai_therapy' && typeof payload.period === 'string'
+                  ? [{ count: Math.max(1, usageCount + 1) }]
+                  : [],
+            }),
+            onConflictDoUpdate: () => undefined,
+          }
         },
       }),
       query: {
@@ -79,9 +90,12 @@ function makeDb({
         },
       },
       update: () => ({
-        set: () => ({
+        set: (payload: Record<string, unknown>) => ({
           where: () => ({
-            returning: async () => [],
+            returning: async () => {
+              updates.push(payload)
+              return []
+            },
           }),
         }),
       }),
@@ -100,6 +114,31 @@ test('requestGuidePostComment rejects a repeat Guide reply before AI is called',
       /already replied/,
     )
     assert.equal(inserts.length, 0)
+  } finally {
+    if (previousApiKey === undefined) {
+      delete process.env.OPENAI_API_KEY
+    } else {
+      process.env.OPENAI_API_KEY = previousApiKey
+    }
+  }
+})
+
+test('requestGuidePostComment refunds the monthly Guide slot when no reply is posted', async () => {
+  const previousApiKey = process.env.OPENAI_API_KEY
+  delete process.env.OPENAI_API_KEY
+
+  const { db, inserts, updates } = makeDb({ comments: [], usageCount: 0 })
+  try {
+    await assert.rejects(
+      () => requestGuidePostComment({ db, userId: 'viewer' } as never, 'post-1', 'mira'),
+      /AI is not configured/,
+    )
+
+    assert.equal(
+      inserts.some((insert) => insert.feature === 'ai_therapy' && insert.count === 1),
+      true,
+    )
+    assert.equal(updates.length, 1)
   } finally {
     if (previousApiKey === undefined) {
       delete process.env.OPENAI_API_KEY

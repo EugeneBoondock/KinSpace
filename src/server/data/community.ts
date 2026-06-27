@@ -11,7 +11,7 @@ import {
 } from './_shared'
 import { createNotification } from '@/server/notify'
 import { notifyMatchingExperts } from '@/server/expertise'
-import { consumeFeatureQuota } from '@/server/billing/access'
+import { consumeFeatureQuota, refundConsumedFeatureQuota } from '@/server/billing/access'
 import { recordAiPrivacyAuditEvent } from '@/server/privacy/ai-audit'
 import { blockedRelatedIds, isBlockBetween } from '@/server/social/blocks'
 import { filterReadablePosts, requireReadablePost } from './post-access'
@@ -895,48 +895,57 @@ export async function requestGuidePostComment(ctx: Ctx, postId: string, personaI
     throw new Error('This Guide has already replied to this post.')
   }
 
-  await consumeFeatureQuota(ctx, 'ai_therapy')
+  const quota = await consumeFeatureQuota(ctx, 'ai_therapy')
 
-  if (!process.env.OPENAI_API_KEY) throw new Error('AI is not configured')
+  let guide: Awaited<ReturnType<typeof ensureGuidePersonaUser>> | null = null
+  let id = ''
+  let content = ''
 
-  const group = post.groupId
-    ? await ctx.db.query.groups.findFirst({ where: eq(groups.id, post.groupId) })
-    : null
+  try {
+    if (!process.env.OPENAI_API_KEY) throw new Error('AI is not configured')
 
-  const completion = await getPublicGuideClient().chat.completions.create(
-    buildPublicGuideCommentRequest({
-      personaId,
-      post: {
-        id: post.id,
-        content: post.content,
-        tags: post.tags,
-        media: post.media,
-        groupName: group?.name ?? null,
-      },
-      comments: commentRows
-        .filter((comment) => !comment.isDeleted)
-        .sort(
-          (first, second) =>
-            (toDate(first.createdAt as never) ?? new Date(0)).getTime() -
-            (toDate(second.createdAt as never) ?? new Date(0)).getTime(),
-        )
-        .slice(-8)
-        .map((comment) => ({ content: comment.content })),
-    }),
-  )
-  const content = sanitizePublicGuideComment(completion.choices[0]?.message?.content ?? '')
-  if (!content) throw new Error('Guide did not write a comment')
+    const group = post.groupId
+      ? await ctx.db.query.groups.findFirst({ where: eq(groups.id, post.groupId) })
+      : null
 
-  const guide = await ensureGuidePersonaUser(ctx.db, personaId)
-  const id = crypto.randomUUID()
-  await ctx.db.insert(postComments).values({
-    id,
-    postId,
-    parentId: null,
-    userId: guide.userId,
-    content,
-    isAnonymous: false,
-  })
+    const completion = await getPublicGuideClient().chat.completions.create(
+      buildPublicGuideCommentRequest({
+        personaId,
+        post: {
+          id: post.id,
+          content: post.content,
+          tags: post.tags,
+          media: post.media,
+          groupName: group?.name ?? null,
+        },
+        comments: commentRows
+          .filter((comment) => !comment.isDeleted)
+          .sort(
+            (first, second) =>
+              (toDate(first.createdAt as never) ?? new Date(0)).getTime() -
+              (toDate(second.createdAt as never) ?? new Date(0)).getTime(),
+          )
+          .slice(-8)
+          .map((comment) => ({ content: comment.content })),
+      }),
+    )
+    content = sanitizePublicGuideComment(completion.choices[0]?.message?.content ?? '')
+    if (!content) throw new Error('Guide did not write a comment')
+
+    guide = await ensureGuidePersonaUser(ctx.db, personaId)
+    id = crypto.randomUUID()
+    await ctx.db.insert(postComments).values({
+      id,
+      postId,
+      parentId: null,
+      userId: guide.userId,
+      content,
+      isAnonymous: false,
+    })
+  } catch (error) {
+    await refundConsumedFeatureQuota(ctx, 'ai_therapy', quota).catch(() => undefined)
+    throw error
+  }
 
   await ctx.db
     .update(communityPosts)
