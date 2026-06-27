@@ -16,6 +16,12 @@ import { StorageService } from '@/lib/storage'
 import { isSfxEnabled, setSfxEnabled, playSfx } from '@/lib/audio/sfx'
 import { setTrackingConsent as saveTrackingConsent, type TrackingConsent } from '@/lib/tracking-consent'
 import { useTrackingConsent } from '@/lib/use-tracking-consent'
+import {
+  buildBooleanProfilePatch,
+  buildTagAddPatch,
+  buildTagRemovePatch,
+  type HealthTagField,
+} from '@/lib/settings-profile'
 import { Button, Card, Input, Textarea, Field, Badge, Skeleton } from '@/components/ui'
 import { exportMyDataAction, deleteAccountAction } from '@/app/actions/account'
 
@@ -264,6 +270,20 @@ export default function Settings() {
     setTimeout(() => setToast(null), 3000)
   }
 
+  const persistProfilePatch = async (patch: Record<string, unknown>, successMessage = 'Saved') => {
+    if (!user) return
+
+    try {
+      await DatabaseService.updateProfile(user.userId, patch)
+      invalidateCachedProfile(user.userId)
+      showToast('success', successMessage)
+    } catch (err) {
+      console.error('Failed to save profile setting:', err)
+      showToast('error', 'Could not save changes')
+      throw err
+    }
+  }
+
   const handleToggleAdMeasurement = () => {
     const next: TrackingConsent = trackingConsent === 'granted' ? 'denied' : 'granted'
     saveTrackingConsent(next)
@@ -328,25 +348,51 @@ export default function Settings() {
     }
   }
 
-  const handleAddTag = (
-    field: 'conditions' | 'comorbidities' | 'medications' | 'access_needs',
+  const handleAddTag = async (
+    field: HealthTagField,
     value: string,
     setter: (v: string) => void
   ) => {
-    const trimmed = value.trim()
-    if (!trimmed || profile[field].includes(trimmed)) return
-    setProfile((prev) => ({ ...prev, [field]: [...prev[field], trimmed] }))
+    const currentValues = profile[field]
+    const result = buildTagAddPatch(field, currentValues, value)
+    if (!result) return
+
+    setProfile((prev) => ({ ...prev, [field]: result.values }))
     setter('')
+    try {
+      await persistProfilePatch(result.patch)
+    } catch {
+      setProfile((prev) => ({ ...prev, [field]: currentValues }))
+      setter(value)
+    }
   }
 
-  const handleRemoveTag = (
-    field: 'conditions' | 'comorbidities' | 'medications' | 'access_needs',
+  const handleRemoveTag = async (
+    field: HealthTagField,
     index: number
   ) => {
-    setProfile((prev) => ({
-      ...prev,
-      [field]: prev[field].filter((_, i) => i !== index),
-    }))
+    const currentValues = profile[field]
+    const result = buildTagRemovePatch(field, currentValues, index)
+    if (!result) return
+
+    setProfile((prev) => ({ ...prev, [field]: result.values }))
+    try {
+      await persistProfilePatch(result.patch)
+    } catch {
+      setProfile((prev) => ({ ...prev, [field]: currentValues }))
+    }
+  }
+
+  const handleToggleHideConditionsOnProfile = async () => {
+    const currentValue = profile.hide_conditions_on_profile
+    const result = buildBooleanProfilePatch('hide_conditions_on_profile', currentValue)
+
+    setProfile((prev) => ({ ...prev, hide_conditions_on_profile: result.value }))
+    try {
+      await persistProfilePatch(result.patch)
+    } catch {
+      setProfile((prev) => ({ ...prev, hide_conditions_on_profile: currentValue }))
+    }
   }
 
   const handleSignOut = async () => {
@@ -657,7 +703,7 @@ export default function Settings() {
                       {need}
                       <button
                         type="button"
-                        onClick={() => handleRemoveTag('access_needs', index)}
+                        onClick={() => void handleRemoveTag('access_needs', index)}
                         aria-label={`Remove ${need}`}
                         className="transition-colors hover:text-brand-accent5"
                       >
@@ -676,7 +722,7 @@ export default function Settings() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
-                      handleAddTag('access_needs', accessNeedInput, setAccessNeedInput)
+                      void handleAddTag('access_needs', accessNeedInput, setAccessNeedInput)
                     }
                   }}
                   placeholder="Add rest breaks, low glare, transport help"
@@ -686,7 +732,7 @@ export default function Settings() {
                   variant="secondary"
                   size="sm"
                   aria-label="Add access need"
-                  onClick={() => handleAddTag('access_needs', accessNeedInput, setAccessNeedInput)}
+                  onClick={() => void handleAddTag('access_needs', accessNeedInput, setAccessNeedInput)}
                 >
                   <i className="ri-add-line" aria-hidden="true" />
                 </Button>
@@ -698,7 +744,7 @@ export default function Settings() {
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => handleAddTag('access_needs', option.value, setAccessNeedInput)}
+                      onClick={() => void handleAddTag('access_needs', option.value, setAccessNeedInput)}
                       className="inline-flex items-center gap-1.5 rounded-full bg-brand-background/[0.06] px-3 py-1.5 text-sm text-brand-background/72 transition-colors hover:bg-brand-background/[0.1] hover:text-brand-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
                     >
                       <i className={option.icon} aria-hidden="true" />
@@ -816,7 +862,7 @@ export default function Settings() {
                   {profile.conditions.map((c, i) => (
                     <Badge key={c} tone="accent" className="gap-1">
                       {c}
-                      <button onClick={() => handleRemoveTag('conditions', i)} aria-label={`Remove ${c}`} className="transition-colors hover:text-white">
+                      <button onClick={() => void handleRemoveTag('conditions', i)} aria-label={`Remove ${c}`} className="transition-colors hover:text-white">
                         <i className="ri-close-line text-xs" />
                       </button>
                     </Badge>
@@ -832,7 +878,7 @@ export default function Settings() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
-                      handleAddTag('conditions', conditionInput, setConditionInput)
+                      void handleAddTag('conditions', conditionInput, setConditionInput)
                     }
                   }}
                   placeholder="Add a condition…"
@@ -842,7 +888,7 @@ export default function Settings() {
                   variant="secondary"
                   size="sm"
                   aria-label="Add condition"
-                  onClick={() => handleAddTag('conditions', conditionInput, setConditionInput)}
+                  onClick={() => void handleAddTag('conditions', conditionInput, setConditionInput)}
                 >
                   <i className="ri-add-line" />
                 </Button>
@@ -856,7 +902,7 @@ export default function Settings() {
                   {profile.comorbidities.map((c, i) => (
                     <Badge key={c} className="gap-1 bg-brand-accent2/20 text-brand-background">
                       {c}
-                      <button onClick={() => handleRemoveTag('comorbidities', i)} aria-label={`Remove ${c}`} className="transition-colors hover:text-white">
+                      <button onClick={() => void handleRemoveTag('comorbidities', i)} aria-label={`Remove ${c}`} className="transition-colors hover:text-white">
                         <i className="ri-close-line text-xs" />
                       </button>
                     </Badge>
@@ -872,7 +918,7 @@ export default function Settings() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
-                      handleAddTag('comorbidities', comorbidityInput, setComorbidityInput)
+                      void handleAddTag('comorbidities', comorbidityInput, setComorbidityInput)
                     }
                   }}
                   placeholder="Add a comorbidity…"
@@ -882,7 +928,7 @@ export default function Settings() {
                   variant="secondary"
                   size="sm"
                   aria-label="Add comorbidity"
-                  onClick={() => handleAddTag('comorbidities', comorbidityInput, setComorbidityInput)}
+                  onClick={() => void handleAddTag('comorbidities', comorbidityInput, setComorbidityInput)}
                 >
                   <i className="ri-add-line" />
                 </Button>
@@ -896,7 +942,7 @@ export default function Settings() {
                   {profile.medications.map((m, i) => (
                     <Badge key={m} className="gap-1 bg-brand-accent3/20 text-brand-background">
                       {m}
-                      <button onClick={() => handleRemoveTag('medications', i)} aria-label={`Remove ${m}`} className="transition-colors hover:text-white">
+                      <button onClick={() => void handleRemoveTag('medications', i)} aria-label={`Remove ${m}`} className="transition-colors hover:text-white">
                         <i className="ri-close-line text-xs" />
                       </button>
                     </Badge>
@@ -912,7 +958,7 @@ export default function Settings() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
-                      handleAddTag('medications', medicationInput, setMedicationInput)
+                      void handleAddTag('medications', medicationInput, setMedicationInput)
                     }
                   }}
                   placeholder="Add a medication…"
@@ -922,7 +968,7 @@ export default function Settings() {
                   variant="secondary"
                   size="sm"
                   aria-label="Add medication"
-                  onClick={() => handleAddTag('medications', medicationInput, setMedicationInput)}
+                  onClick={() => void handleAddTag('medications', medicationInput, setMedicationInput)}
                 >
                   <i className="ri-add-line" />
                 </Button>
@@ -958,7 +1004,7 @@ export default function Settings() {
                 role="switch"
                 aria-checked={profile.hide_conditions_on_profile}
                 aria-label="Hide conditions on my profile"
-                onClick={() => setProfile((p) => ({ ...p, hide_conditions_on_profile: !p.hide_conditions_on_profile }))}
+                onClick={() => void handleToggleHideConditionsOnProfile()}
                 className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
                   profile.hide_conditions_on_profile ? 'bg-brand-accent2' : 'bg-brand-background/20'
                 }`}

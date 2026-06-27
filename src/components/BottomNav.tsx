@@ -234,7 +234,8 @@ export default function BottomNav() {
   const isActive = (href: string) => {
     const p = pathname
     if (href === '/dashboard') return p === '/dashboard' || p === '/'
-    if (href === '/profile') return p.startsWith('/profile') || p.startsWith('/settings')
+    if (href === '/profile') return p.startsWith('/profile')
+    if (href === '/settings') return p.startsWith('/settings')
     if (href === '/community') return p.startsWith('/community') || p.startsWith('/trauma-bonding')
     if (href === '/strands') return p.startsWith('/strands')
     if (href === '/groups') return p.startsWith('/groups')
@@ -282,7 +283,7 @@ export default function BottomNav() {
 
   const moreActive =
     !primaryNav.some((item) => isActive(item.href)) &&
-    (allSecondary.some((item) => isActive(item.href)) || isActive('/profile') || isActive('/admin'))
+    (allSecondary.some((item) => isActive(item.href)) || isActive('/profile') || isActive('/settings') || isActive('/admin'))
 
   // Active-aware icon + unread badge for a single destination.
   const renderIcon = (item: NavItem, active: boolean) => {
@@ -388,6 +389,14 @@ export default function BottomNav() {
               <span className="block truncate text-sm font-semibold text-brand-ink">{displayName}</span>
               <span className="block truncate text-xs text-brand-ink/50">{handle}</span>
             </span>
+          </Link>
+          <Link
+            href={settingsItem.href}
+            aria-current={isActive('/settings') ? 'page' : undefined}
+            className={classNames(sidebarLinkClass(isActive('/settings')), 'mt-1')}
+          >
+            {renderIcon(settingsItem, isActive('/settings'))}
+            {settingsItem.label}
           </Link>
           {user && (
             <button
