@@ -29,6 +29,7 @@ import * as push from './push'
 import * as brief from './brief'
 import * as careProgram from './care-program'
 import * as platformPulse from './platform-pulse'
+import * as privacy from './privacy'
 
 export type DataMethod = (ctx: Ctx, ...args: any[]) => Promise<unknown>
 
@@ -66,6 +67,7 @@ export const dataMethods = {
   ...brief,
   ...careProgram,
   ...platformPulse,
+  ...privacy,
 } as unknown as Record<string, DataMethod>
 
 export type { Ctx }

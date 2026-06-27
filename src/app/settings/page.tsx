@@ -100,6 +100,14 @@ const motionOptions = [
 ] as const
 
 type BlockedRow = { user_id: string; profile: { username?: string; full_name?: string | null } | null }
+type AiPrivacyEvent = {
+  id: string
+  title: string
+  body: string
+  icon: string
+  action: string
+  createdAt: string | null
+}
 
 export default function Settings() {
   const { user, loading: authLoading, signOut } = useAuth()
@@ -118,6 +126,8 @@ export default function Settings() {
   const [exportingData, setExportingData] = useState(false)
   const [deletingAccount, setDeletingAccount] = useState(false)
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [aiPrivacyEvents, setAiPrivacyEvents] = useState<AiPrivacyEvent[]>([])
+  const [loadingAiPrivacyEvents, setLoadingAiPrivacyEvents] = useState(false)
   // Sound preference is device-local (localStorage), saved instantly rather than via the profile save.
   const [soundOn, setSoundOn] = useState(true)
 
@@ -140,6 +150,25 @@ export default function Settings() {
         if (!cancelled) setBlockedUsers((Array.isArray(rows) ? rows : []) as BlockedRow[])
       })
       .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    setLoadingAiPrivacyEvents(true)
+    DatabaseService.getAiPrivacyEvents(user.userId, 8)
+      .then((rows) => {
+        if (!cancelled) setAiPrivacyEvents((Array.isArray(rows) ? rows : []) as AiPrivacyEvent[])
+      })
+      .catch(() => {
+        if (!cancelled) setAiPrivacyEvents([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAiPrivacyEvents(false)
+      })
     return () => {
       cancelled = true
     }
@@ -1338,6 +1367,49 @@ export default function Settings() {
             >
               {exportingData ? 'Preparing' : 'Download'}
             </Button>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-brand-background/10 bg-brand-background/[0.04] p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-brand-background">AI activity trail</p>
+                <p className="mt-0.5 text-xs text-brand-background/45">
+                  Recent Guide context reads, memory downloads, and memory resets.
+                </p>
+              </div>
+              <Badge tone="info">{aiPrivacyEvents.length}</Badge>
+            </div>
+            <div className="mt-3 space-y-2">
+              {loadingAiPrivacyEvents ? (
+                <Skeleton className="h-16 rounded-xl" />
+              ) : aiPrivacyEvents.length === 0 ? (
+                <p className="rounded-xl bg-brand-background/[0.04] p-3 text-sm text-brand-background/50">
+                  No AI activity logged yet.
+                </p>
+              ) : (
+                aiPrivacyEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="flex items-start gap-3 rounded-xl bg-brand-background/[0.05] p-3"
+                  >
+                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-accent2/15 text-brand-accent2">
+                      <i className={event.icon || 'ri-shield-check-line'} aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-brand-background">{event.title}</p>
+                        {event.createdAt && (
+                          <span className="text-[11px] text-brand-background/40">
+                            {new Date(event.createdAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs leading-relaxed text-brand-background/55">{event.body}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           <div className="mt-3 rounded-xl border border-brand-accent1/30 bg-brand-accent1/10 p-3">

@@ -7,6 +7,7 @@ import {
 } from '@/server/therapy/guide-memory'
 import { getDb } from '@/server/db/client'
 import { getSessionUserId } from '@/server/http/auth'
+import { recordAiPrivacyAuditEvent } from '@/server/privacy/ai-audit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -28,9 +29,17 @@ export async function GET(request: NextRequest) {
 
   const format = parseFormat(request.nextUrl.searchParams.get('format'))
   const personaId = request.nextUrl.searchParams.get('persona')
-  const memory = await getOrBuildGuideMemory(getDb(), userId, personaId)
+  const db = getDb()
+  const memory = await getOrBuildGuideMemory(db, userId, personaId)
   const markdown = formatGuideMemoryMarkdown(memory)
   const baseName = `kinspace-${safeFilePart(memory.personaName)}-guide-memory`
+
+  void recordAiPrivacyAuditEvent(db, {
+    actorId: userId,
+    action: 'ai.guide.memory_exported',
+    targetId: memory.personaId,
+    meta: { personaId: memory.personaId, personaName: memory.personaName, format },
+  }).catch(() => undefined)
 
   const headers = new Headers({
     'Cache-Control': 'private, no-store',

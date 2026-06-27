@@ -17,6 +17,8 @@ import { detectCrisisInMessages } from '@/server/ai/safety'
 import { decryptField } from '@/server/crypto/field-encryption'
 import { normaliseGuideAttachments, toGuideModelMessageContent } from '@/lib/guide-media'
 import { getOrBuildGuideMemory, normaliseGuidePersonaId } from '@/server/therapy/guide-memory'
+import { recordAiPrivacyAuditEvent } from '@/server/privacy/ai-audit'
+import { getPersona } from '@/lib/therapy-config'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -239,6 +241,23 @@ export async function POST(request: NextRequest) {
 
   const context = await hydrateContext(db, userId, body.personaId ?? null)
   if (!context) return NextResponse.json({ ok: false, error: 'Complete your profile first.' }, { status: 404 })
+
+  void recordAiPrivacyAuditEvent(db, {
+    actorId: userId,
+    action: 'ai.guide.context_read',
+    targetId: context.personaId ?? null,
+    meta: {
+      personaId: context.personaId ?? null,
+      personaName: getPersona(context.personaId ?? null).name,
+      healthShared: context.healthShared !== false,
+      conditionCount: context.conditions.length,
+      medicationCount: context.medications.length,
+      accessNeedCount: context.accessNeeds.length,
+      priorSessionCount: context.priorSessions?.length ?? 0,
+      hasGuideMemory: Boolean(context.guideMemory?.summary),
+      sessionId: body.sessionId ?? null,
+    },
+  }).catch(() => undefined)
 
   if (body.sessionId) {
     void db

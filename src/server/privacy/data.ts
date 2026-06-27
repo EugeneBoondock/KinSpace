@@ -41,6 +41,7 @@ import {
   mutedTopics,
   notifications,
   referrals,
+  auditLogs,
 } from '../db/schema'
 
 /** Assembles a full export of a user's data (POPIA/GDPR portability). */
@@ -87,6 +88,7 @@ export async function exportUserData(userId: string): Promise<Record<string, unk
     muted,
     notificationRows,
     referralRows,
+    aiAuditRows,
   ] = await Promise.all([
     db.query.users.findFirst({ where: eq(users.id, userId) }),
     db.query.profiles.findFirst({ where: eq(profiles.userId, userId) }),
@@ -129,6 +131,7 @@ export async function exportUserData(userId: string): Promise<Record<string, unk
     db.query.mutedTopics.findMany({ where: eq(mutedTopics.userId, userId) }),
     db.query.notifications.findMany({ where: eq(notifications.userId, userId) }),
     db.query.referrals.findMany({ where: eq(referrals.createdBy, userId) }),
+    db.query.auditLogs.findMany({ where: eq(auditLogs.actorId, userId) }),
   ])
 
   return byUser({
@@ -172,6 +175,7 @@ export async function exportUserData(userId: string): Promise<Record<string, unk
     mutedTopics: muted,
     notifications: notificationRows,
     referrals: referralRows,
+    aiPrivacyAudit: aiAuditRows,
   })
 }
 
@@ -222,6 +226,7 @@ export async function deleteUserData(userId: string): Promise<void> {
   await db.delete(mutedTopics).where(eq(mutedTopics.userId, userId))
   await db.delete(notifications).where(eq(notifications.userId, userId))
   await db.delete(referrals).where(eq(referrals.createdBy, userId))
+  await db.delete(auditLogs).where(eq(auditLogs.actorId, userId))
   await db.delete(profiles).where(eq(profiles.userId, userId))
   await db.delete(users).where(eq(users.id, userId))
 }
