@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       const until = Date.now() + SNOOZE_MINUTES * 60 * 1000
       await kv.put(
         `medsnooze:${reminderId}`,
-        JSON.stringify({ until, time: body.time ?? null }),
+        JSON.stringify({ until, time: body.time ?? null, dateKey: body.dateKey ?? null }),
         { expirationTtl: SNOOZE_MINUTES * 60 + 180 },
       )
     }

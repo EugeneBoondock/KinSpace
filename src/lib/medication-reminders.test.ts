@@ -63,6 +63,25 @@ test('finds medication reminders that became due inside a recent wake window', (
   ])
 })
 
+test('finds medication reminders that became due before midnight', () => {
+  const now = new Date(2026, 5, 22, 0, 2, 15)
+  const reminder: MedicationReminderSchedule = {
+    id: 'med-1',
+    medication: 'Sertraline',
+    dose: '50 mg',
+    times: ['23:58'],
+    active: true,
+  }
+
+  assert.deepEqual(getDueMedicationReminderSlots([reminder], now, new Set(), 6), [
+    {
+      reminder,
+      time: '23:58',
+      ackKey: '2026-06-21:med-1:23:58',
+    },
+  ])
+})
+
 test('skips medication reminder slots already acknowledged today', () => {
   const now = new Date(2026, 5, 21, 20, 0, 0)
   const reminder: MedicationReminderSchedule = {

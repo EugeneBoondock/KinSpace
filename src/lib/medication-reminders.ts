@@ -18,6 +18,7 @@ export type ReminderTimeSuggestion = {
 }
 
 const TIME_PATTERN = /^(\d{1,2}):(\d{2})$/
+const MINUTES_PER_DAY = 24 * 60
 
 function pad2(value: number): string {
   return String(value).padStart(2, '0')
@@ -25,6 +26,12 @@ function pad2(value: number): string {
 
 function localDateKey(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+function previousLocalDateKey(date: Date): string {
+  const previous = new Date(date)
+  previous.setDate(previous.getDate() - 1)
+  return localDateKey(previous)
 }
 
 function timeToMinutes(time: string): number | null {
@@ -37,6 +44,13 @@ function timeToMinutes(time: string): number | null {
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null
 
   return hour * 60 + minute
+}
+
+function minutesAgoInDailyWindow(nowMinutes: number, slotMinutes: number): number {
+  const normalizedNow = ((Math.floor(nowMinutes) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY
+  const normalizedSlot = ((Math.floor(slotMinutes) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY
+  const delta = normalizedNow - normalizedSlot
+  return delta >= 0 ? delta : delta + MINUTES_PER_DAY
 }
 
 export function normalizeReminderTimes(times: string[]): string[] {
@@ -120,6 +134,8 @@ export function getDueMedicationReminderSlots(
   windowMinutes = 1,
 ): DueMedicationReminderSlot[] {
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const todayKey = localDateKey(now)
+  const yesterdayKey = previousLocalDateKey(now)
   const windowSize = Math.max(1, Math.floor(windowMinutes))
   const due: DueMedicationReminderSlot[] = []
 
@@ -129,10 +145,11 @@ export function getDueMedicationReminderSlots(
     for (const time of normalizeReminderTimes(reminder.times)) {
       const slotMinutes = timeToMinutes(time)
       if (slotMinutes === null) continue
-      const delta = nowMinutes - slotMinutes
-      if (delta < 0 || delta >= windowSize) continue
+      const delta = minutesAgoInDailyWindow(nowMinutes, slotMinutes)
+      if (delta >= windowSize) continue
 
-      const ackKey = buildReminderAckKey(reminder.id, time, now)
+      const slotDateKey = slotMinutes > nowMinutes ? yesterdayKey : todayKey
+      const ackKey = `${slotDateKey}:${reminder.id}:${time}`
       if (acknowledgedKeys.has(ackKey)) continue
 
       due.push({ reminder, time, ackKey })

@@ -6,7 +6,7 @@ import { normalizeReminderTimes } from '@/lib/medication-reminders'
 import { createNotification } from '@/server/notify'
 import {
   buildMedicationReminderNotification,
-  dueSlotsInWindow,
+  dueSlotsInWindowWithDate,
   localMinutesInTimeZone,
   localDateKeyInTimeZone,
   nextReminderAlertAttempt,
@@ -79,11 +79,11 @@ export async function runDueMedicationReminders(now: Date) {
     const nowMinutes = localMinutesInTimeZone(now, tz)
     const dateKey = localDateKeyInTimeZone(now, tz)
 
-    const dueForUser: Array<{ reminder: ReminderRow; time: string; snoozed?: boolean }> = []
+    const dueForUser: Array<{ reminder: ReminderRow; time: string; dateKey: string; snoozed?: boolean }> = []
     for (const reminder of userReminders) {
       const alertWindow = reminderDeliveryWindowMinutes(Boolean(kv))
-      for (const time of dueSlotsInWindow(normalizeReminderTimes(reminder.times ?? []), nowMinutes, alertWindow)) {
-        dueForUser.push({ reminder, time })
+      for (const slot of dueSlotsInWindowWithDate(normalizeReminderTimes(reminder.times ?? []), nowMinutes, alertWindow, dateKey)) {
+        dueForUser.push({ reminder, time: slot.time, dateKey: slot.dateKey })
       }
       // Snoozed re-fire: a "Snooze" ack wrote medsnooze:<id> with an `until`. Once
       // that arrives, fire one more time; the key is cleared after sending below.
@@ -91,9 +91,14 @@ export async function runDueMedicationReminders(now: Date) {
         const raw = await kv.get(`medsnooze:${reminder.id}`)
         if (raw) {
           try {
-            const parsed = JSON.parse(raw) as { until?: number; time?: string | null }
+            const parsed = JSON.parse(raw) as { until?: number; time?: string | null; dateKey?: string | null }
             if (typeof parsed.until === 'number' && parsed.until <= now.getTime()) {
-              dueForUser.push({ reminder, time: parsed.time || '', snoozed: true })
+              dueForUser.push({
+                reminder,
+                time: parsed.time || '',
+                dateKey: parsed.dateKey || dateKey,
+                snoozed: true,
+              })
             }
           } catch {
             await kv.delete(`medsnooze:${reminder.id}`) // bad payload, clear it
@@ -103,16 +108,23 @@ export async function runDueMedicationReminders(now: Date) {
     }
     if (dueForUser.length === 0) continue
 
-    const fresh: Array<{ reminder: ReminderRow; time: string; key: string; attempt: number; snoozed?: boolean }> = []
+    const fresh: Array<{
+      reminder: ReminderRow
+      time: string
+      dateKey: string
+      key: string
+      attempt: number
+      snoozed?: boolean
+    }> = []
     for (const item of dueForUser) {
       if (item.snoozed) {
         fresh.push({ ...item, key: `medsnooze:${item.reminder.id}`, attempt: 1 })
         continue
       }
-      const key = reminderAlertStateKey(item.reminder.id, dateKey, item.time)
+      const key = reminderAlertStateKey(item.reminder.id, item.dateKey, item.time)
       const state = kv ? parseReminderAlertState(await kv.get(key)) : { attempts: 0, lastSentAt: null }
-      const acknowledged = kv ? Boolean(await kv.get(reminderSlotAckKey(item.reminder.id, dateKey, item.time))) : false
-      const taken = wasReminderSlotTaken(toDate(item.reminder.lastTakenAt), dateKey, item.time, tz)
+      const acknowledged = kv ? Boolean(await kv.get(reminderSlotAckKey(item.reminder.id, item.dateKey, item.time))) : false
+      const taken = wasReminderSlotTaken(toDate(item.reminder.lastTakenAt), item.dateKey, item.time, tz)
       const attempt = nextReminderAlertAttempt({
         time: item.time,
         nowMinutes,
@@ -146,7 +158,7 @@ export async function runDueMedicationReminders(now: Date) {
             kind: 'med-reminder',
             reminder_id: item.reminder.id,
             time: item.time,
-            date_key: dateKey,
+            date_key: item.dateKey,
             snoozed: Boolean(item.snoozed),
             url: '/dashboard?meds=1',
           },
@@ -180,7 +192,7 @@ export async function runDueMedicationReminders(now: Date) {
             kind: 'med-reminder',
             reminderId: item.reminder.id,
             time: item.time,
-            dateKey,
+            dateKey: item.dateKey,
             attempt: item.attempt,
             snoozed: Boolean(item.snoozed),
           },

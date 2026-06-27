@@ -60,9 +60,31 @@ export type MedicationReminderNotification = {
 export const REMINDER_ALERT_WINDOW_MINUTES = 31
 export const REMINDER_ALERT_GAP_MINUTES = 4
 export const REMINDER_ALERT_MAX_ATTEMPTS = 4
+const MINUTES_PER_DAY = 24 * 60
+
+export type DueReminderSlotWithDate = {
+  time: string
+  dateKey: string
+  minutesAgo: number
+}
 
 export function reminderDeliveryWindowMinutes(_hasPersistentState: boolean): number {
   return REMINDER_ALERT_WINDOW_MINUTES
+}
+
+function minutesAgoInDailyWindow(nowMinutes: number, slotMinutes: number): number {
+  const normalizedNow = ((Math.floor(nowMinutes) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY
+  const normalizedSlot = ((Math.floor(slotMinutes) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY
+  const delta = normalizedNow - normalizedSlot
+  return delta >= 0 ? delta : delta + MINUTES_PER_DAY
+}
+
+function previousDateKey(dateKey: string): string {
+  const match = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return dateKey
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])))
+  date.setUTCDate(date.getUTCDate() - 1)
+  return date.toISOString().slice(0, 10)
 }
 
 export function parseReminderAlertState(raw: string | null): ReminderAlertState {
@@ -127,8 +149,8 @@ export function nextReminderAlertAttempt({
   const slotMinutes = timeToMinutes(time)
   if (slotMinutes === null) return null
 
-  const delta = nowMinutes - slotMinutes
-  if (delta < 0 || delta >= windowMinutes) return null
+  const delta = minutesAgoInDailyWindow(nowMinutes, slotMinutes)
+  if (delta >= windowMinutes) return null
 
   const attempts = Math.max(0, Math.floor(state.attempts))
   if (attempts >= maxAttempts) return null
@@ -185,12 +207,31 @@ export function buildMedicationReminderNotification({
  * to skip, send, or re-alert that slot.
  */
 export function dueSlotsInWindow(times: string[], nowMinutes: number, windowMin: number): string[] {
-  const due: string[] = []
+  return dueSlotsInWindowWithDate(times, nowMinutes, windowMin, '').map((slot) => slot.time)
+}
+
+export function dueSlotsInWindowWithDate(
+  times: string[],
+  nowMinutes: number,
+  windowMin: number,
+  currentDateKey: string,
+): DueReminderSlotWithDate[] {
+  const due: DueReminderSlotWithDate[] = []
+  const windowSize = Math.max(1, Math.floor(windowMin))
+  const normalizedNow = ((Math.floor(nowMinutes) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY
+  const previousKey = previousDateKey(currentDateKey)
+
   for (const time of times) {
     const slot = timeToMinutes(time)
     if (slot === null) continue
-    const delta = nowMinutes - slot
-    if (delta >= 0 && delta < windowMin) due.push(time)
+    const delta = minutesAgoInDailyWindow(normalizedNow, slot)
+    if (delta < windowSize) {
+      due.push({
+        time,
+        dateKey: slot > normalizedNow ? previousKey : currentDateKey,
+        minutesAgo: delta,
+      })
+    }
   }
   return due
 }
