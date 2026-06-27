@@ -13,6 +13,11 @@ type PublicCommentInput = {
   content?: unknown
 }
 
+type PublicGuideCommentState = {
+  userId?: unknown
+  isDeleted?: unknown
+}
+
 type PublicGuideCommentInput = {
   personaId?: string | null
   post: PublicPostInput
@@ -106,4 +111,8 @@ export function sanitizePublicGuideComment(value: unknown): string {
     .trim()
     .slice(0, 600)
   return hasUnsafePublicGuideOutput(cleaned) ? '' : cleaned
+}
+
+export function hasPublicGuideAlreadyCommented(comments: PublicGuideCommentState[], guideUserId: string): boolean {
+  return comments.some((comment) => comment.userId === guideUserId && comment.isDeleted !== true)
 }

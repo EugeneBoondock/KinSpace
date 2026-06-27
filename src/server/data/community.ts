@@ -13,8 +13,12 @@ import { createNotification } from '@/server/notify'
 import { notifyMatchingExperts } from '@/server/expertise'
 import { blockedRelatedIds, isBlockBetween } from '@/server/social/blocks'
 import { filterReadablePosts, requireReadablePost } from './post-access'
-import { buildPublicGuideCommentRequest, sanitizePublicGuideComment } from '@/lib/ai/public-guide'
-import { ensureGuidePersonaUser } from '@/server/therapy/guide-persona-user'
+import {
+  buildPublicGuideCommentRequest,
+  hasPublicGuideAlreadyCommented,
+  sanitizePublicGuideComment,
+} from '@/lib/ai/public-guide'
+import { ensureGuidePersonaUser, guidePersonaUserId } from '@/server/therapy/guide-persona-user'
 import {
   communityPosts,
   communityActivities,
@@ -880,11 +884,17 @@ export async function addPostComment(
 
 export async function requestGuidePostComment(ctx: Ctx, postId: string, personaId: string | null = 'mira') {
   const { post } = await requireReadablePost(ctx, postId)
-  if (!process.env.OPENAI_API_KEY) throw new Error('AI is not configured')
 
   const commentRows = await ctx.db.query.postComments.findMany({
     where: eq(postComments.postId, postId),
   })
+  const guideUserId = guidePersonaUserId(personaId)
+  if (hasPublicGuideAlreadyCommented(commentRows, guideUserId)) {
+    throw new Error('This Guide has already replied to this post.')
+  }
+
+  if (!process.env.OPENAI_API_KEY) throw new Error('AI is not configured')
+
   const group = post.groupId
     ? await ctx.db.query.groups.findFirst({ where: eq(groups.id, post.groupId) })
     : null
