@@ -1,3 +1,5 @@
+'use client'
+
 import type { ButtonHTMLAttributes, MouseEvent, ReactNode } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/cn'

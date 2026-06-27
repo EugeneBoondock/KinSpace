@@ -1,10 +1,13 @@
 import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import { Badge, Button, Card, LinkButton } from '@/components/ui'
-import { requireUser } from '@/server/auth/current-user'
+import { buildLoginRedirect } from '@/lib/auth-redirect'
+import { getCurrentUser } from '@/server/auth/current-user'
 import { getGuideCreditBalance, getQuota, getSubscription } from '@/server/billing/repo'
 import { GUIDE_CREDIT_PACKS, PLANS, type Tier, planForTier } from '@/server/billing/tiers'
 import { CreditCheckoutButton, PlanCheckoutButton, SubscriptionManageButton } from './PlanActions'
+import { formatPlanDateLabel, formatPlanQuotaLabel } from './format'
 
 export const metadata: Metadata = {
   title: 'Plan - KinSpace',
@@ -16,22 +19,15 @@ function money(cents: number): string {
   return `R${(cents / 100).toFixed(0)}`
 }
 
-function dateLabel(value: Date | null): string {
-  if (!value) return 'Not set'
-  return value.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function quotaLabel(remaining: number, limit: number): string {
-  if (!Number.isFinite(limit)) return 'Unlimited'
-  return `${remaining} of ${limit} left`
-}
-
 export default async function PlanPage({
   searchParams,
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const user = await requireUser()
+  const params = searchParams ? await searchParams : {}
+  const user = await getCurrentUser()
+  if (!user) redirect(buildLoginRedirect('/plan', params))
+
   const [subscription, guideQuota, askQuota, researchQuota, guideCredits] = await Promise.all([
     getSubscription(user.userId),
     getQuota(user.userId, 'ai_therapy'),
@@ -39,7 +35,6 @@ export default async function PlanPage({
     getQuota(user.userId, 'ai_research'),
     getGuideCreditBalance(user.userId),
   ])
-  const params = searchParams ? await searchParams : {}
   const checkout = Array.isArray(params.checkout) ? params.checkout[0] : params.checkout
   const activePlan = planForTier(subscription.tier)
   const cancelledAtProvider =
@@ -93,7 +88,9 @@ export default async function PlanPage({
                   {money(activePlan.priceCents)}
                   {activePlan.priceCents > 0 ? ' per month' : ''}
                 </p>
-                <p className="mt-3 text-xs text-brand-ink/50">Renews or ends: {dateLabel(subscription.currentPeriodEnd)}</p>
+                <p className="mt-3 text-xs text-brand-ink/50">
+                  Renews or ends: {formatPlanDateLabel(subscription.currentPeriodEnd)}
+                </p>
               </div>
             </div>
           </Card>
@@ -108,17 +105,23 @@ export default async function PlanPage({
         <section className="grid gap-4 md:grid-cols-3">
           <Card>
             <p className="text-sm font-semibold text-brand-ink">Guide sessions</p>
-            <p className="mt-2 text-2xl font-bold text-brand-ink">{quotaLabel(guideQuota.remaining, guideQuota.limit)}</p>
+            <p className="mt-2 text-2xl font-bold text-brand-ink">
+              {formatPlanQuotaLabel(guideQuota.remaining, guideQuota.limit)}
+            </p>
             <p className="mt-1 text-xs text-brand-ink/55">Each new Guide session counts once. Messages inside it are included.</p>
           </Card>
           <Card>
             <p className="text-sm font-semibold text-brand-ink">Ask answers</p>
-            <p className="mt-2 text-2xl font-bold text-brand-ink">{quotaLabel(askQuota.remaining, askQuota.limit)}</p>
+            <p className="mt-2 text-2xl font-bold text-brand-ink">
+              {formatPlanQuotaLabel(askQuota.remaining, askQuota.limit)}
+            </p>
             <p className="mt-1 text-xs text-brand-ink/55">For symptom, treatment, and resource questions.</p>
           </Card>
           <Card>
             <p className="text-sm font-semibold text-brand-ink">Research articles</p>
-            <p className="mt-2 text-2xl font-bold text-brand-ink">{quotaLabel(researchQuota.remaining, researchQuota.limit)}</p>
+            <p className="mt-2 text-2xl font-bold text-brand-ink">
+              {formatPlanQuotaLabel(researchQuota.remaining, researchQuota.limit)}
+            </p>
             <p className="mt-1 text-xs text-brand-ink/55">For deeper AI research requests.</p>
           </Card>
         </section>
