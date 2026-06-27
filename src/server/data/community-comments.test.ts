@@ -33,7 +33,12 @@ function makeDb(parentUserId: string) {
             userId: 'post-author',
             content: 'Post',
             isAnonymous: false,
+            groupId: null,
+            isDeleted: false,
           }),
+        },
+        groupMembers: {
+          findMany: async () => [],
         },
         profiles: {
           findMany: async () => [],

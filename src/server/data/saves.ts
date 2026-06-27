@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from './_shared'
 import { requireActor, getProfileSummaries, sortByNewest } from './_shared'
 import { bookmarks, communityPosts } from '@/server/db/schema'
+import { filterReadablePosts, requireReadablePost } from './post-access'
 
 /** Idempotent private save/unsave. Toggle on a unique (user, post) index, no
  *  public counters, no fan-out, so it is effectively free on D1 and never KV. */
@@ -15,6 +16,7 @@ export async function toggleBookmark(ctx: Ctx, postId: string): Promise<{ saved:
     await ctx.db.delete(bookmarks).where(eq(bookmarks.id, existing.id))
     return { saved: false }
   }
+  await requireReadablePost(ctx, postId)
   await ctx.db.insert(bookmarks).values({ id: crypto.randomUUID(), userId, postId })
   return { saved: true }
 }
@@ -33,7 +35,7 @@ export async function getBookmarks(ctx: Ctx, limitCount = 50) {
   const ids = rows.map((row) => row.postId).slice(0, limitCount)
   if (ids.length === 0) return []
 
-  const posts = await ctx.db.query.communityPosts.findMany({ where: inArray(communityPosts.id, ids) })
+  const posts = await filterReadablePosts(ctx, await ctx.db.query.communityPosts.findMany({ where: inArray(communityPosts.id, ids) }))
   const byId = new Map(posts.map((post) => [post.id, post]))
   const authorIds = posts.filter((post) => !post.isAnonymous).map((post) => post.userId)
   const authors = await getProfileSummaries(ctx.db, authorIds)

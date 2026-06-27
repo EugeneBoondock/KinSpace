@@ -11,6 +11,7 @@ import {
 import { createNotification } from '@/server/notify'
 import { notifyMatchingExperts } from '@/server/expertise'
 import { blockedRelatedIds, isBlockBetween } from '@/server/social/blocks'
+import { filterReadablePosts, requireReadablePost } from './post-access'
 import {
   communityPosts,
   communityActivities,
@@ -439,7 +440,7 @@ export async function getCommunityPosts(
       orderBy: desc(communityPosts.createdAt),
       limit: limitCount,
     })
-    return sortByNewest(await hydratePosts(ctx, rows)).slice(0, limitCount)
+    return sortByNewest(await hydratePosts(ctx, await filterReadablePosts(ctx, rows))).slice(0, limitCount)
   }
 
   const actorId = ctx.userId
@@ -641,12 +642,7 @@ export async function rekindlePost(
   _userId: string,
   comment?: string,
 ) {
-  const userId = requireActor(ctx)
-
-  const original = await ctx.db.query.communityPosts.findFirst({
-    where: eq(communityPosts.id, postId),
-  })
-  if (!original) throw new Error('Original post not found')
+  const { userId, post: original } = await requireReadablePost(ctx, postId)
 
   const originalProfile = await getProfileSummary(ctx.db, original.userId)
 
@@ -658,6 +654,7 @@ export async function rekindlePost(
     type: 'rekindle',
     tags: [],
     media: [],
+    groupId: original.groupId ?? null,
     likesCount: 0,
     reactionCounts: {},
     commentsCount: 0,
@@ -711,7 +708,7 @@ export async function getUserPostReactions(ctx: Ctx, _userId?: string) {
 }
 
 export async function togglePostLike(ctx: Ctx, postId: string, _userId?: string) {
-  const userId = requireActor(ctx)
+  const { userId } = await requireReadablePost(ctx, postId)
 
   const existing = await ctx.db.query.postLikes.findFirst({
     where: and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)),
@@ -740,7 +737,7 @@ export async function togglePostReaction(
   _userId: string,
   reaction: string,
 ) {
-  const userId = requireActor(ctx)
+  const { userId } = await requireReadablePost(ctx, postId)
 
   const existing = await ctx.db.query.postReactions.findFirst({
     where: and(
@@ -796,6 +793,9 @@ export async function toggleCommentReaction(
   const userId = requireActor(ctx)
   const value = String(reaction ?? '').trim().slice(0, 16)
   if (!commentId || !value) throw new Error('Missing comment or reaction')
+  const comment = await ctx.db.query.postComments.findFirst({ where: eq(postComments.id, commentId) })
+  if (!comment || comment.isDeleted) throw new Error('Comment not found')
+  await requireReadablePost(ctx, comment.postId)
 
   const existing = await ctx.db.query.commentReactions.findFirst({
     where: and(
@@ -822,7 +822,7 @@ export async function addPostComment(
   isAnonymous = false,
   parentId: string | null = null,
 ) {
-  const userId = requireActor(ctx)
+  const { userId } = await requireReadablePost(ctx, postId)
 
   const trimmed = (content ?? '').trim()
   if (!trimmed) throw new Error('Comment cannot be empty')
@@ -909,8 +909,17 @@ export async function getCommentsForPosts(ctx: Ctx, postIds: string[], limitCoun
     return new Map<string, Array<Record<string, unknown> & { id: string; profile: unknown }>>()
   }
 
+  const inputIds = new Set(uniquePostIds)
+  const postRows = await ctx.db.query.communityPosts.findMany({
+    where: inArray(communityPosts.id, uniquePostIds),
+  })
+  const readablePostIds = new Set((await filterReadablePosts(ctx, postRows)).filter((row) => inputIds.has(row.id)).map((row) => row.id))
+  if (readablePostIds.size === 0) {
+    return new Map<string, Array<Record<string, unknown> & { id: string; profile: unknown }>>()
+  }
+
   const rows = await ctx.db.query.postComments.findMany({
-    where: inArray(postComments.postId, uniquePostIds),
+    where: inArray(postComments.postId, Array.from(readablePostIds)),
   })
 
   const userIds = rows.map((row) => row.userId)

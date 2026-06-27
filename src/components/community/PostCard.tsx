@@ -48,6 +48,7 @@ type PostCardProps = {
   isGroupAdmin?: boolean
   /** Called after a change that affects the feed (delete, rekindle, pin-to-group). */
   onChanged?: () => void | Promise<void>
+  className?: string
 }
 
 /**
@@ -64,6 +65,7 @@ export default function PostCard({
   currentUserId,
   isGroupAdmin = false,
   onChanged,
+  className,
 }: PostCardProps) {
   const { user } = useAuth()
   const { push: toast } = useToast()
@@ -370,7 +372,7 @@ export default function PostCard({
   }
 
   return (
-    <Card id={`community-post-${postId}`}>
+    <Card id={`community-post-${postId}`} className={className}>
       <div className="flex items-start gap-3">
         <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-brand-background/10 text-sm font-bold text-brand-accent2">
           {livePost.is_anonymous ? (

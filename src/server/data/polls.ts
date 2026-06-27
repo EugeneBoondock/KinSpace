@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import type { Ctx } from './_shared'
 import { requireActor, toDate } from './_shared'
 import { polls, pollOptions, pollVotes, communityPosts, profiles, groupMembers } from '@/server/db/schema'
+import { filterReadablePosts, requireReadablePost } from './post-access'
 
 const MAX_OPTIONS = 6
 
@@ -100,8 +101,15 @@ export async function createPollPost(
 export async function getPollsForPosts(ctx: Ctx, postIds: string[]): Promise<Record<string, PollDto>> {
   if (!postIds || postIds.length === 0) return {}
   const userId = ctx.userId ?? null
+  const uniquePostIds = Array.from(new Set(postIds.filter(Boolean)))
+  if (uniquePostIds.length === 0) return {}
+  const postRows = await ctx.db.query.communityPosts.findMany({ where: inArray(communityPosts.id, uniquePostIds) })
+  const readablePostIds = new Set((await filterReadablePosts(ctx, postRows)).map((post) => post.id))
+  if (readablePostIds.size === 0) return {}
 
-  const pollRows = await ctx.db.query.polls.findMany({ where: inArray(polls.postId, postIds) })
+  const pollRows = (await ctx.db.query.polls.findMany({ where: inArray(polls.postId, Array.from(readablePostIds)) })).filter((poll) =>
+    readablePostIds.has(poll.postId),
+  )
   if (pollRows.length === 0) return {}
 
   const pollIds = pollRows.map((poll) => poll.id)
@@ -154,6 +162,7 @@ export async function votePoll(ctx: Ctx, pollId: string, optionId: string): Prom
 
   const poll = await ctx.db.query.polls.findFirst({ where: eq(polls.id, pollId) })
   if (!poll) throw new Error('Poll not found')
+  await requireReadablePost(ctx, poll.postId)
   if (poll.expiresAt && (toDate(poll.expiresAt as never)?.getTime() ?? 0) < Date.now()) {
     throw new Error('This poll has closed')
   }

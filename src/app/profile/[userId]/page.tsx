@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useEffect, useRef, type CSSProperties } from 'react'
+import { use, useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { resendVerificationAction } from '@/app/actions/auth'
@@ -16,6 +16,7 @@ import StrandButton from '@/components/StrandButton'
 import { useToast } from '@/components/Toast'
 import { Button, LinkButton, Card, Textarea, Input, Badge, Skeleton, EmptyState } from '@/components/ui'
 import type { AchievementSummary } from '@/lib/achievements'
+import PostCard, { type PollDto, type PostShape } from '@/components/community/PostCard'
 
 type Achievements = AchievementSummary & { is_owner: boolean }
 
@@ -53,7 +54,7 @@ interface Profile {
   [key: string]: unknown
 }
 
-interface Post {
+type Post = PostShape & {
   id: string
   content?: string
   type?: string
@@ -437,6 +438,10 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
   const { push: toast } = useToast()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set())
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set())
+  const [userReactions, setUserReactions] = useState<Set<string>>(new Set())
+  const [pollsByPost, setPollsByPost] = useState<Record<string, PollDto>>({})
   const [groups, setGroups] = useState<Group[]>([])
   const [strandCount, setStrandCount] = useState(0)
   const [gameScores, setGameScores] = useState<GameScore[]>([])
@@ -469,16 +474,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
 
   useEffect(() => {
     if (profile?.id) setSpaceDraft(readProfileSpace(profile))
-  }, [
-    profile?.id,
-    profile?.space_theme,
-    profile?.space_accent,
-    profile?.space_font,
-    profile?.space_motto,
-    profile?.space_vibe,
-    profile?.space_pinned_note,
-    profile?.space_background_image_url,
-  ])
+  }, [profile])
 
   useEffect(() => {
     if (!user || isOwnProfile) {
@@ -514,6 +510,26 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
     }
   }
 
+  const refreshProfilePosts = useCallback(async () => {
+    const userPosts = (await DatabaseService.getCommunityPosts(20, { userId })) as Post[]
+    const nextPosts = Array.isArray(userPosts) ? userPosts : []
+    const pollPostIds = nextPosts.filter((post) => post.type === 'poll').map((post) => post.id)
+    const [likedIds, reactionKeys, savedIds, pollMap] = await Promise.all([
+      user ? DatabaseService.getUserLikedPostIds(user.userId).catch(() => [] as string[]) : Promise.resolve([] as string[]),
+      user ? DatabaseService.getUserPostReactions(user.userId).catch(() => [] as string[]) : Promise.resolve([] as string[]),
+      user ? DatabaseService.getBookmarkedPostIds().catch(() => [] as string[]) : Promise.resolve([] as string[]),
+      pollPostIds.length > 0
+        ? DatabaseService.getPollsForPosts(pollPostIds).catch(() => ({} as Record<string, PollDto>))
+        : Promise.resolve({} as Record<string, PollDto>),
+    ])
+
+    setPosts(nextPosts)
+    setLikedPostIds(new Set(likedIds as string[]))
+    setUserReactions(new Set(reactionKeys as string[]))
+    setSavedPostIds(new Set(savedIds as string[]))
+    setPollsByPost((pollMap ?? {}) as Record<string, PollDto>)
+  }, [user, userId])
+
   const resendVerificationEmail = async () => {
     if (!isOwnProfile || user?.emailVerified || verificationBusy) return
     setVerificationBusy(true)
@@ -533,7 +549,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
       try {
         const [
           profileData,
-          userPosts,
+          ,
           memberships,
           sentRequests,
           receivedRequests,
@@ -543,7 +559,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
           strandData,
         ] = await Promise.all([
             DatabaseService.getProfile(userId),
-            DatabaseService.getCommunityPosts(20, { userId }),
+            refreshProfilePosts(),
             DatabaseService.getUserGroupMemberships(userId),
             user && user.userId !== userId
               ? DatabaseService.getSentConnectionRequests(user.userId)
@@ -591,7 +607,6 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
           setProfile(null)
         }
 
-        setPosts(userPosts as Post[])
         setGroups(
           (memberships as Array<{ group?: Group | null }>)
             .map((membership) => membership.group)
@@ -643,7 +658,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
       }
     }
     fetchProfile()
-  }, [userId, user])
+  }, [userId, user, refreshProfilePosts])
 
   if (loading || authLoading) {
     return (
@@ -750,8 +765,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         [],
         false,
       )
-      const refreshedPosts = await DatabaseService.getCommunityPosts(20, { userId })
-      setPosts(refreshedPosts as Post[])
+      await refreshProfilePosts()
       setNewPostContent('')
       toast('Post shared to your profile', 'success')
     } catch (error) {
@@ -1628,34 +1642,17 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
           <div className="space-y-3">
             {posts.length > 0 ? (
               posts.map((post) => (
-                <Card key={post.id} variant="light" className={themedCardClass}>
-                  <div className="mb-2 flex items-center gap-2">
-                    <ProfileAvatar
-                      alt={displayName}
-                      avatarUrl={profile.avatar_url}
-                      className="h-7 w-7 rounded-full object-cover"
-                      fullName={profile.full_name}
-                      userId={profile.id}
-                      username={profile.username}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-brand-background">{displayName}</p>
-                      <p className="text-xs text-brand-background/45">
-                        {post.created_at?.seconds ? timeAgo(post.created_at.seconds) : 'recently'}
-                      </p>
-                    </div>
-                    {post.type && <Badge>{post.type}</Badge>}
-                  </div>
-                  <p className="text-sm text-brand-background/80">{post.content}</p>
-                  <div className="mt-3 flex items-center gap-4 text-xs text-brand-background/45">
-                    <span className="flex items-center gap-1">
-                      <i className="ri-heart-line" /> {post.likes_count || 0}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <i className="ri-chat-1-line" /> {post.comments_count || 0}
-                    </span>
-                  </div>
-                </Card>
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  poll={pollsByPost[post.id]}
+                  reacted={userReactions}
+                  initialLiked={likedPostIds.has(post.id)}
+                  initialSaved={savedPostIds.has(post.id)}
+                  currentUserId={user?.userId ?? null}
+                  onChanged={refreshProfilePosts}
+                  className={themedCardClass}
+                />
               ))
             ) : (
               <EmptyState
