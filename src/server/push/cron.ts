@@ -5,13 +5,13 @@ import { medicationReminders, profiles, pushSubscriptions } from '@/server/db/sc
 import { normalizeReminderTimes } from '@/lib/medication-reminders'
 import { createNotification } from '@/server/notify'
 import {
-  REMINDER_ALERT_WINDOW_MINUTES,
   buildMedicationReminderNotification,
   dueSlotsInWindow,
   localMinutesInTimeZone,
   localDateKeyInTimeZone,
   nextReminderAlertAttempt,
   parseReminderAlertState,
+  reminderDeliveryWindowMinutes,
   reminderAlertStateKey,
   reminderSlotAckKey,
   serializeReminderAlertState,
@@ -21,8 +21,6 @@ import { sendWebPushToAll, isPushConfigured } from './send'
 
 // SA-first default when a member hasn't recorded a timezone (set on push opt-in).
 const DEFAULT_TZ = 'Africa/Johannesburg'
-// Slightly wider than the 5-minute cron so a slot is never skipped between ticks.
-const WINDOW_MIN = 6
 const ALERT_STATE_TTL_SECONDS = 60 * 60 * 26 // about 1 day
 
 type ReminderRow = typeof medicationReminders.$inferSelect
@@ -83,7 +81,7 @@ export async function runDueMedicationReminders(now: Date) {
 
     const dueForUser: Array<{ reminder: ReminderRow; time: string; snoozed?: boolean }> = []
     for (const reminder of userReminders) {
-      const alertWindow = kv ? REMINDER_ALERT_WINDOW_MINUTES : WINDOW_MIN
+      const alertWindow = reminderDeliveryWindowMinutes(Boolean(kv))
       for (const time of dueSlotsInWindow(normalizeReminderTimes(reminder.times ?? []), nowMinutes, alertWindow)) {
         dueForUser.push({ reminder, time })
       }
@@ -122,7 +120,7 @@ export async function runDueMedicationReminders(now: Date) {
         state,
         acknowledged,
         taken,
-        windowMinutes: kv ? REMINDER_ALERT_WINDOW_MINUTES : WINDOW_MIN,
+        windowMinutes: reminderDeliveryWindowMinutes(Boolean(kv)),
       })
       if (attempt === null) continue
       fresh.push({ ...item, key, attempt })

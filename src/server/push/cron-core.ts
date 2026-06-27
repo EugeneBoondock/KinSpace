@@ -61,6 +61,10 @@ export const REMINDER_ALERT_WINDOW_MINUTES = 31
 export const REMINDER_ALERT_GAP_MINUTES = 4
 export const REMINDER_ALERT_MAX_ATTEMPTS = 4
 
+export function reminderDeliveryWindowMinutes(_hasPersistentState: boolean): number {
+  return REMINDER_ALERT_WINDOW_MINUTES
+}
+
 export function parseReminderAlertState(raw: string | null): ReminderAlertState {
   if (!raw) return { attempts: 0, lastSentAt: null }
 
