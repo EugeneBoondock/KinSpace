@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/AuthContext'
 
@@ -43,30 +43,31 @@ export default function CommandLauncher() {
   const [active, setActive] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const openLauncher = useCallback(() => {
+    setQuery('')
+    setActive(0)
+    setOpen(true)
+  }, [])
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        setOpen((current) => !current)
+        if (open) setOpen(false)
+        else openLauncher()
       } else if (event.key === 'Escape') {
         setOpen(false)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [open, openLauncher])
 
   useEffect(() => {
     if (!open) return
-    setQuery('')
-    setActive(0)
     const id = requestAnimationFrame(() => inputRef.current?.focus())
     return () => cancelAnimationFrame(id)
   }, [open])
-
-  useEffect(() => {
-    setActive(0)
-  }, [query])
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -115,7 +116,7 @@ export default function CommandLauncher() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openLauncher}
         aria-label="Ask KinSpace"
         className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-4 z-[70] inline-flex items-center gap-2 rounded-full border border-brand-line bg-brand-surface px-4 py-2.5 text-sm font-semibold text-brand-ink shadow-[0_14px_32px_rgba(16,28,24,0.22)] transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent2/40 md:bottom-6"
       >
@@ -141,7 +142,10 @@ export default function CommandLauncher() {
               <input
                 ref={inputRef}
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value)
+                  setActive(0)
+                }}
                 onKeyDown={onInputKey}
                 placeholder="Ask anything, or jump anywhere…"
                 aria-label="Ask KinSpace or jump to a feature"

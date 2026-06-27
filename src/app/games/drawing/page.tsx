@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import PageFrame from '@/components/PageFrame'
@@ -16,16 +16,20 @@ const PROMPTS = [
 
 type Status = 'drawing' | 'reveal'
 
+function randomPrompt() {
+  return PROMPTS[Math.floor(Math.random() * PROMPTS.length)]
+}
+
 export default function DrawingPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [prompt, setPrompt] = useState<string>('')
+  const [prompt, setPrompt] = useState<string>(() => randomPrompt())
   const [status, setStatus] = useState<Status>('drawing')
   const [drawing, setDrawing] = useState(false)
   const [color, setColor] = useState('#eedfc8')
   const [brush, setBrush] = useState(4)
 
   const newRound = useCallback(() => {
-    setPrompt(PROMPTS[Math.floor(Math.random() * PROMPTS.length)])
+    setPrompt(randomPrompt())
     setStatus('drawing')
     const canvas = canvasRef.current
     if (canvas) {
@@ -33,10 +37,6 @@ export default function DrawingPage() {
       context?.clearRect(0, 0, canvas.width, canvas.height)
     }
   }, [])
-
-  useEffect(() => {
-    newRound()
-  }, [newRound])
 
   function startDraw(event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
     if (status !== 'drawing') return

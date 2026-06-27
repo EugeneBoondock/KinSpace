@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
@@ -1023,7 +1024,14 @@ export default function CommunityPage() {
                     {pendingMedia.map((item, idx) => (
                       <div key={idx} className="group relative">
                         {item.type === 'image' && (
-                          <img src={item.preview} alt="Attachment preview" className="h-20 w-20 rounded-xl border border-brand-background/10 object-cover" />
+                          <Image
+                            src={item.preview}
+                            alt="Attachment preview"
+                            width={80}
+                            height={80}
+                            className="h-20 w-20 rounded-xl border border-brand-background/10 object-cover"
+                            unoptimized
+                          />
                         )}
                         {item.type === 'video' && (
                           <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-brand-background/10 bg-brand-background/5">
@@ -1348,7 +1356,14 @@ export default function CommunityPage() {
                                 {(rekindleOriginal.media as Array<{ url: string; type: string }>).map((m, i) => (
                                   <div key={i}>
                                     {m.type === 'image' && (
-                                      <img src={m.url} alt="" className="max-h-32 max-w-full rounded-xl object-cover" />
+                                      <Image
+                                        src={m.url}
+                                        alt=""
+                                        width={320}
+                                        height={180}
+                                        className="max-h-32 max-w-full rounded-xl object-cover"
+                                        unoptimized
+                                      />
                                     )}
                                   </div>
                                 ))}
@@ -1363,10 +1378,13 @@ export default function CommunityPage() {
                             {postMedia.map((media, idx) => (
                               <div key={idx}>
                                 {media.type === 'image' && (
-                                  <img
+                                  <Image
                                     src={media.url}
                                     alt=""
+                                    width={1200}
+                                    height={900}
                                     className="mx-auto max-h-[34rem] w-auto max-w-full rounded-2xl border border-brand-background/10 bg-black/20 object-contain"
+                                    unoptimized
                                   />
                                 )}
                                 {media.type === 'video' && (

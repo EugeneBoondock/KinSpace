@@ -25,8 +25,9 @@ export function useSpeechInput(onTranscript: (text: string) => void) {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const w = window as SpeechWindow
-    setSupported(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition))
+    const id = requestAnimationFrame(() => setSupported(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition)))
     return () => {
+      cancelAnimationFrame(id)
       try {
         recognitionRef.current?.abort?.()
       } catch {
@@ -80,13 +81,16 @@ export function useSpeechOutput() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return
-    setSupported(true)
     const load = () => {
       voicesRef.current = window.speechSynthesis.getVoices()
     }
-    load()
+    const id = requestAnimationFrame(() => {
+      setSupported(true)
+      load()
+    })
     window.speechSynthesis.addEventListener('voiceschanged', load)
     return () => {
+      cancelAnimationFrame(id)
       window.speechSynthesis.removeEventListener('voiceschanged', load)
       try {
         window.speechSynthesis.cancel()

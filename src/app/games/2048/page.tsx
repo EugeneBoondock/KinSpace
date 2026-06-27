@@ -50,19 +50,25 @@ export default function Game2048Page() {
   const [status, setStatus] = useState<'playing' | 'won' | 'lost'>('playing')
 
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('kinspace:2048:best') : null
-    if (stored) setBest(Number.parseInt(stored, 10) || 0)
+    const id = requestAnimationFrame(() => {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('kinspace:2048:best') : null
+      if (stored) setBest(Number.parseInt(stored, 10) || 0)
+    })
+    return () => cancelAnimationFrame(id)
   }, [])
 
   useEffect(() => {
     if (score <= best) return
-    setBest(score)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('kinspace:2048:best', String(score))
-    }
-    if (user) {
-      DatabaseService.recordGameScore(user.userId, '2048', score).catch(() => undefined)
-    }
+    const id = requestAnimationFrame(() => {
+      setBest(score)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('kinspace:2048:best', String(score))
+      }
+      if (user) {
+        DatabaseService.recordGameScore(user.userId, '2048', score).catch(() => undefined)
+      }
+    })
+    return () => cancelAnimationFrame(id)
   }, [score, best, user])
 
   const handleMove = useCallback(

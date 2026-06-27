@@ -37,8 +37,11 @@ export default function SimonPage() {
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('kinspace:simon:best') : null
-    if (stored) setBest(Number.parseInt(stored, 10) || 0)
+    const id = requestAnimationFrame(() => {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('kinspace:simon:best') : null
+      if (stored) setBest(Number.parseInt(stored, 10) || 0)
+    })
+    return () => cancelAnimationFrame(id)
   }, [])
 
   const clearTimers = useCallback(() => {

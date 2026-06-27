@@ -74,14 +74,6 @@ function Breathing({ phases }: { phases: Phase[] }) {
   const [cycles, setCycles] = useState(0)
 
   useEffect(() => {
-    // Reset when the exercise (phase set) changes.
-    setRunning(false)
-    setPhaseIndex(0)
-    setSecondsLeft(phases[0].seconds)
-    setCycles(0)
-  }, [phases])
-
-  useEffect(() => {
     if (!running) return
     const id = window.setInterval(() => {
       setSecondsLeft((current) => {
@@ -248,7 +240,7 @@ export default function MindfulnessPage() {
 
         <Card>
           <p className="text-center text-sm text-brand-background/60">{active.blurb}</p>
-          {active.kind === 'breathing' && active.phases ? <Breathing phases={active.phases} /> : <Grounding />}
+          {active.kind === 'breathing' && active.phases ? <Breathing key={active.id} phases={active.phases} /> : <Grounding />}
         </Card>
 
         <p className="text-center text-xs text-brand-background/45">

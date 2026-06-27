@@ -246,20 +246,23 @@ export default function TimelinePage() {
   useEffect(() => {
     if (!user) return
     let active = true
-    setLoading(true)
-    DatabaseService.getHealthTimeline(user.userId)
-      .then((result: unknown) => {
-        if (!active) return
-        const data = (result ?? {}) as TimelineResponse
-        setEvents(parseEvents(data.events))
-        setStats(parseStats(data.stats))
-      })
-      .catch((error: unknown) => console.error('Failed to load timeline:', error))
-      .finally(() => {
-        if (active) setLoading(false)
-      })
+    const id = requestAnimationFrame(() => {
+      setLoading(true)
+      DatabaseService.getHealthTimeline(user.userId)
+        .then((result: unknown) => {
+          if (!active) return
+          const data = (result ?? {}) as TimelineResponse
+          setEvents(parseEvents(data.events))
+          setStats(parseStats(data.stats))
+        })
+        .catch((error: unknown) => console.error('Failed to load timeline:', error))
+        .finally(() => {
+          if (active) setLoading(false)
+        })
+    })
     return () => {
       active = false
+      cancelAnimationFrame(id)
     }
   }, [user])
 

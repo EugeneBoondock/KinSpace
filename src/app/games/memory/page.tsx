@@ -55,7 +55,8 @@ export default function MemoryPage() {
   }, [difficulty])
 
   useEffect(() => {
-    reset()
+    const id = requestAnimationFrame(reset)
+    return () => cancelAnimationFrame(id)
   }, [difficulty, reset])
 
   const totalPairs = (rows * cols) / 2

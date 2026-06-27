@@ -42,8 +42,11 @@ export default function SnakePage() {
   const pendingRef = useRef<Point | null>(null)
 
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('kinspace:snake:best') : null
-    if (stored) setBest(Number.parseInt(stored, 10) || 0)
+    const id = requestAnimationFrame(() => {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('kinspace:snake:best') : null
+      if (stored) setBest(Number.parseInt(stored, 10) || 0)
+    })
+    return () => cancelAnimationFrame(id)
   }, [])
 
   useEffect(() => {

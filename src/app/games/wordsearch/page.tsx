@@ -133,8 +133,11 @@ export default function WordSearchPage() {
   const [best, setBest] = useState(0)
 
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('kinspace:wordsearch:best') : null
-    if (stored) setBest(Number.parseInt(stored, 10) || 0)
+    const id = requestAnimationFrame(() => {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('kinspace:wordsearch:best') : null
+      if (stored) setBest(Number.parseInt(stored, 10) || 0)
+    })
+    return () => cancelAnimationFrame(id)
   }, [])
 
   const reset = useCallback(() => {
@@ -145,7 +148,8 @@ export default function WordSearchPage() {
   }, [difficulty])
 
   useEffect(() => {
-    reset()
+    const id = requestAnimationFrame(reset)
+    return () => cancelAnimationFrame(id)
   }, [difficulty, reset])
 
   const won = board.words.length > 0 && found.length === board.words.length

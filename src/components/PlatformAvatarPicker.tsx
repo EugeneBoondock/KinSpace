@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { platformAvatarOptions } from '@/lib/profile-avatars'
 
 type PlatformAvatarPickerProps = {
@@ -29,9 +30,11 @@ export default function PlatformAvatarPicker({
                 : 'border-brand-background/10 bg-brand-background/5 hover:border-brand-background/20 hover:bg-brand-background/8'
             } disabled:cursor-not-allowed disabled:opacity-60`}
           >
-            <img
+            <Image
               src={option.src}
               alt={`${option.label} avatar`}
+              width={64}
+              height={64}
               className="h-16 w-16 rounded-2xl object-cover"
             />
             <span className="mt-2 block text-center text-[11px] font-semibold text-brand-background/75">

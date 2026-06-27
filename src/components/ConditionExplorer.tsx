@@ -85,10 +85,6 @@ function EffectivenessMeter({ value, color, reduced }: { value: number; color: s
   const pct = Math.max(0, Math.min(100, (value / 5) * 100))
   const [width, setWidth] = useState(reduced ? pct : 0)
   useEffect(() => {
-    if (reduced) {
-      setWidth(pct)
-      return
-    }
     const id = requestAnimationFrame(() => setWidth(pct))
     return () => cancelAnimationFrame(id)
   }, [pct, reduced])

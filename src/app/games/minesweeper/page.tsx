@@ -35,7 +35,8 @@ export default function MinesweeperPage() {
   }, [config.rows, config.cols])
 
   useEffect(() => {
-    reset()
+    const id = requestAnimationFrame(reset)
+    return () => cancelAnimationFrame(id)
   }, [reset])
 
   function handleReveal(row: number, col: number) {

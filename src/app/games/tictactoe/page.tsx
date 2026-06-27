@@ -35,17 +35,8 @@ export default function TicTacToePage() {
     setWinningLine(null)
   }, [])
 
-  const handleCell = (index: number) => {
-    if (status !== 'playing' || turn !== 'X' || board[index] !== null) return
-    const next = [...board]
-    next[index] = 'X'
-    setBoard(next)
-    setTurn('O')
-    playSfx('move')
-  }
-
-  useEffect(() => {
-    const { winner, line } = checkWinner(board)
+  const finishTurn = useCallback((nextBoard: TTTBoard) => {
+    const { winner, line } = checkWinner(nextBoard)
     if (winner) {
       setStatus('win')
       setWinningLine(line)
@@ -55,14 +46,28 @@ export default function TicTacToePage() {
         ai: current.ai + (winner === 'O' ? 1 : 0),
       }))
       playSfx(winner === 'X' ? 'win' : 'lose')
-      return
+      return true
     }
-    if (isDraw(board)) {
+    if (isDraw(nextBoard)) {
       setStatus('draw')
       setScores((current) => ({ ...current, draw: current.draw + 1 }))
       playSfx('pop')
-      return
+      return true
     }
+    return false
+  }, [])
+
+  const handleCell = (index: number) => {
+    if (status !== 'playing' || turn !== 'X' || board[index] !== null) return
+    const next = [...board]
+    next[index] = 'X'
+    setBoard(next)
+    if (finishTurn(next)) return
+    setTurn('O')
+    playSfx('move')
+  }
+
+  useEffect(() => {
     if (turn === 'O' && status === 'playing') {
       const timer = setTimeout(() => {
         const aiIndex = computeAiMove(board, 'O', difficulty)
@@ -70,12 +75,13 @@ export default function TicTacToePage() {
         const next = [...board]
         next[aiIndex] = 'O'
         setBoard(next)
+        if (finishTurn(next)) return
         setTurn('X')
         playSfx('move')
       }, 380)
       return () => clearTimeout(timer)
     }
-  }, [board, turn, status, difficulty])
+  }, [board, turn, status, difficulty, finishTurn])
 
   const availableCount = useMemo(() => availableMoves(board).length, [board])
 

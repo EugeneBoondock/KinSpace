@@ -52,8 +52,9 @@ export default function SudokuPage() {
   const [noteMode, setNoteMode] = useState(false)
   const [status, setStatus] = useState<'playing' | 'won'>('playing')
 
-  const loadPuzzle = useCallback(async () => {
+  const loadPuzzle = useCallback(async (canApply: () => boolean = () => true) => {
     const { start, solution: solved } = await generatePuzzle(difficulty)
+    if (!canApply()) return
     setGrid(start.map((value) => ({ value: value === 0 ? null : value, fixed: value !== 0, notes: [] })))
     setSolution(solved)
     setStatus('playing')
@@ -61,7 +62,15 @@ export default function SudokuPage() {
   }, [difficulty])
 
   useEffect(() => {
-    loadPuzzle().catch((error) => console.error('Sudoku generation failed:', error))
+    let active = true
+    const id = requestAnimationFrame(() => {
+      loadPuzzle(() => active)
+        .catch((error) => console.error('Sudoku generation failed:', error))
+    })
+    return () => {
+      active = false
+      cancelAnimationFrame(id)
+    }
   }, [loadPuzzle])
 
   function placeNumber(value: number) {
@@ -208,7 +217,7 @@ export default function SudokuPage() {
           )}
 
           <div className="flex flex-wrap gap-2">
-            <button onClick={loadPuzzle} className="btn-primary !rounded-2xl !px-4 !py-2 text-sm">
+            <button onClick={() => { void loadPuzzle() }} className="btn-primary !rounded-2xl !px-4 !py-2 text-sm">
               New puzzle
             </button>
             <Link href="/games/sudoku?difficulty=easy" className="btn-secondary !rounded-2xl !px-4 !py-2 text-sm">Easy</Link>

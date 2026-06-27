@@ -34,9 +34,11 @@ export default function InstallAppButton({ className, label = 'Install app', hid
   useEffect(() => {
     initPwaInstall()
     const unsubscribe = subscribePwaInstall(() => setTick((n) => n + 1))
-    // Re-read state once mounted, in case the event fired before this mounted.
-    setTick((n) => n + 1)
-    return unsubscribe
+    const id = requestAnimationFrame(() => setTick((n) => n + 1))
+    return () => {
+      cancelAnimationFrame(id)
+      unsubscribe()
+    }
   }, [])
 
   if (isStandaloneNow() || isInstalled()) return null
@@ -108,7 +110,7 @@ export default function InstallAppButton({ className, label = 'Install app', hid
               <li className="flex items-start gap-3">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-background/10 text-xs font-bold">3</span>
                 <span>
-                  Tap <strong className="text-brand-background">Add</strong> &mdash; KinSpace opens like a native app.
+                  Tap <strong className="text-brand-background">Add</strong>. KinSpace opens like a native app.
                 </span>
               </li>
             </ol>

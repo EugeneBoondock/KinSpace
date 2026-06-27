@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { resendVerificationAction } from '@/app/actions/auth'
@@ -856,10 +857,13 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
       <div className={`pointer-events-none fixed inset-0 -z-30 bg-gradient-to-br ${spaceTheme.page}`} />
       {space.space_background_image_url && (
         <div className="pointer-events-none fixed inset-0 -z-20">
-          <img
+          <Image
             src={space.space_background_image_url}
             alt=""
-            className="h-full w-full object-cover opacity-45"
+            fill
+            sizes="100vw"
+            className="object-cover opacity-45"
+            unoptimized
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/55 to-black/70" />
         </div>
@@ -870,10 +874,13 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         {/* Cover Area */}
         <div className={`relative h-36 overflow-hidden bg-gradient-to-br ${spaceTheme.cover} sm:h-44`}>
           {profile?.cover_image_url ? (
-            <img
+            <Image
               src={profile.cover_image_url}
               alt=""
-              className="absolute inset-0 h-full w-full object-cover"
+              fill
+              sizes="(min-width: 640px) 56rem, 100vw"
+              className="object-cover"
+              unoptimized
             />
           ) : (
             <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
@@ -1353,10 +1360,13 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                           />
                           <div className="h-14 w-20 overflow-hidden rounded-xl border border-[color:var(--space-line)] bg-black/20">
                             {spaceDraft.space_background_image_url ? (
-                              <img
+                              <Image
                                 src={spaceDraft.space_background_image_url}
                                 alt=""
+                                width={80}
+                                height={56}
                                 className="h-full w-full object-cover"
+                                unoptimized
                               />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center">

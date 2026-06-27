@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { resolveAvatarUrl, getPlatformAvatarForSeed } from '@/lib/profile-avatars'
 
 type ProfileAvatarProps = {
@@ -44,10 +45,13 @@ export default function ProfileAvatar({
 
   if (src) {
     return (
-      <img
+      <Image
         src={src}
         alt={alt}
+        width={128}
+        height={128}
         className={className}
+        unoptimized
         loading="lazy"
         onError={() => {
           if (!errored) setErrored(true)
