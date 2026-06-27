@@ -14,7 +14,7 @@ const COPY: Record<Mode, { brandTitle: string; brandSub: string; switchText: str
   },
   signup: {
     brandTitle: 'Your cozy corner for healing.',
-    brandSub: 'Join a community that actually gets it, plus what really works for 52 conditions.',
+    brandSub: 'Join a community that actually gets it, plus what really works for health conditions and disabilities.',
     switchText: 'Already have an account?',
     switchCta: 'Log in',
     switchHref: '/login',
@@ -22,7 +22,7 @@ const COPY: Record<Mode, { brandTitle: string; brandSub: string; switchText: str
 }
 
 const HIGHLIGHTS = [
-  { icon: 'ri-flask-line', text: 'What actually works for 52 conditions' },
+  { icon: 'ri-flask-line', text: 'What works for health conditions and disabilities' },
   { icon: 'ri-group-line', text: 'Peer support from people who get it' },
   { icon: 'ri-shield-keyhole-line', text: 'Private, and anonymous if you want' },
 ]

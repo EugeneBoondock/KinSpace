@@ -349,7 +349,7 @@ function PersonalSection() {
               image="/images/app/empty-insights.webp"
               imageAlt="A small seedling growing"
               title={data.coverage.logged_days < 3 ? 'Your patterns start with a check-in' : 'A little more logging unlocks your patterns'}
-              description="These reflections come from your own check-ins. The more days you log mood and symptoms together, the more KinSpace can gently show you."
+              description="These reflections come from your own check-ins. The more days you log mood, symptoms, access needs, and daily limits together, the more KinSpace can gently show you."
               action={<LinkButton href="/dashboard">Start today&rsquo;s check-in</LinkButton>}
             />
           )}
@@ -402,12 +402,12 @@ export default function InsightsPage() {
         <header className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-ink/45">Insights</p>
           <h1 className="text-2xl font-bold text-brand-ink sm:text-3xl">
-            {user ? 'Your health, reflected back' : 'What works for our community'}
+            {user ? 'Your health and access patterns, reflected back' : 'What works for our community'}
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-brand-ink/65">
             {user
-              ? 'Patterns from your own check-ins, plus what the wider community reports works, honest, never a diagnosis.'
-              : 'Top-rated treatments by condition, drawn from clinical evidence and real member experiences.'}
+              ? 'Patterns from your own check-ins, plus what the wider community reports works for health conditions, disabilities, symptoms, and access needs. Honest, never a diagnosis.'
+              : 'Top-rated treatments by health condition or disability, drawn from clinical evidence and real member experiences.'}
           </p>
         </header>
 
@@ -417,10 +417,10 @@ export default function InsightsPage() {
           <div>
             <h2 className="text-xl font-bold text-brand-ink">{user ? 'What works across our community' : 'What works for our community'}</h2>
             <p className="mt-1 max-w-2xl text-sm text-brand-ink/60">
-              Top-rated treatments by condition. Open any condition for the full evidence page, stories, and side-effect patterns.
+              Top-rated treatments by health condition or disability. Open any study for the full evidence page, stories, and side-effect patterns.
             </p>
             <div className="mt-3 flex flex-wrap gap-3">
-              <LinkButton href="/conditions" size="sm">Browse all conditions</LinkButton>
+              <LinkButton href="/conditions" size="sm">Browse all studies</LinkButton>
               <LinkButton href="/treatments" variant="secondary" size="sm">Browse treatments</LinkButton>
               <LinkButton href="/share-experience" variant="secondary" size="sm">Share yours</LinkButton>
             </div>
@@ -450,7 +450,7 @@ export default function InsightsPage() {
                 <Card key={condition.id} className="flex h-full flex-col">
                   <div className="flex items-start justify-between gap-3">
                     <Badge className="bg-brand-accent3/15 capitalize text-brand-accent3">
-                      {(condition.category as string) ?? 'condition'}
+                      {(condition.category as string) ?? 'study'}
                     </Badge>
                     <span className="text-xs text-brand-ink/45">
                       {formatCompactNumber((condition.member_count as number | undefined) ?? 0)} members

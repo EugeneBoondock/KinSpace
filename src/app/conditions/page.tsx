@@ -82,7 +82,7 @@ export default function ConditionsPage() {
         <div className="space-y-2 border-t border-brand-line pt-8">
           <h2 className="text-xl font-bold text-brand-background sm:text-2xl">Browse the full directory</h2>
           <p className="max-w-2xl text-sm leading-relaxed text-brand-background/65">
-            Browse every condition, search or filter by category. Honest ratings and stories, a starting point
+            Browse health conditions and disabilities, search or filter by category. Honest ratings and stories, a starting point
             for your own care conversations, not medical advice.
           </p>
         </div>
@@ -97,8 +97,8 @@ export default function ConditionsPage() {
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search conditions, e.g. migraine or fibromyalgia"
-                aria-label="Search conditions"
+                placeholder="Search conditions or disabilities, e.g. migraine or mobility"
+                aria-label="Search conditions or disabilities"
                 className="h-11 pl-11"
               />
             </div>
@@ -167,11 +167,11 @@ export default function ConditionsPage() {
         ) : (
           <EmptyState
             icon={<i className="ri-pulse-line text-4xl" aria-hidden="true" />}
-            title={search || category !== 'all' ? 'No conditions match your search' : 'No conditions yet'}
+            title={search || category !== 'all' ? 'No conditions or disabilities match your search' : 'No conditions or disabilities yet'}
             description={
               search || category !== 'all'
                 ? 'Try a different word or clear the filters to see everything.'
-                : 'Once the directory is seeded, conditions will appear here for the community to explore.'
+                : 'Once the directory is seeded, health conditions and disabilities will appear here for the community to explore.'
             }
             action={
               search || category !== 'all' ? (

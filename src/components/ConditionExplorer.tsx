@@ -300,12 +300,12 @@ export default function ConditionExplorer() {
                   className="border-0 border-b-2 border-brand-accent2 bg-transparent font-black text-brand-ink caret-brand-accent2 placeholder:text-brand-ink/40 focus:border-brand-accent2 focus:outline-none"
                 />
               </span>
-              <span className="lg:hidden">your condition</span>
+              <span className="lg:hidden">your health</span>
               <span className="text-brand-ink">?</span>
             </h1>
 
             <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-brand-ink/70 lg:mx-0">
-              Type your condition. See the real top treatments, ranked by effectiveness, right now, no account
+              Type a condition or disability. See the real top treatments, ranked by effectiveness, right now, no account
               needed.
             </p>
 
@@ -325,7 +325,7 @@ export default function ConditionExplorer() {
                   onChange={(e) => setQuery(e.target.value)}
                   onFocus={() => setFocused(true)}
                   onBlur={() => setFocused(false)}
-                  placeholder="Search a condition…"
+                  placeholder="Search a condition or disability..."
                   autoComplete="off"
                   className="input-field h-12 w-full pl-11"
                 />
@@ -368,6 +368,7 @@ export default function ConditionExplorer() {
               noMatch={noMatch}
               closestNames={closestNames}
               onPick={pickCondition}
+              totalConditions={conditions.length}
             />
           </div>
         </div>
@@ -413,6 +414,7 @@ function AnswerCard({
   noMatch,
   closestNames,
   onPick,
+  totalConditions,
 }: {
   state: 'loading' | 'ready' | 'error'
   condition: Condition | null
@@ -421,6 +423,7 @@ function AnswerCard({
   noMatch: boolean
   closestNames: string[]
   onPick: (name: string) => void
+  totalConditions: number
 }) {
   if (state === 'error') {
     return (
@@ -435,7 +438,7 @@ function AnswerCard({
   if (noMatch) {
     return (
       <Card className="safe-glass">
-        <p className="text-sm font-semibold text-brand-ink">We don&rsquo;t have a study for that yet.</p>
+        <p className="text-sm font-semibold text-brand-ink">We do not have a public study for that yet.</p>
         {closestNames.length > 0 && (
           <div className="mt-3">
             <p className="text-xs text-brand-ink/55">Did you mean:</p>
@@ -477,6 +480,8 @@ function AnswerCard({
 
   const color = categoryColorVar(condition.category)
   const rows = treatments
+  const studyCountLabel =
+    totalConditions > 0 ? `${formatCompactNumber(totalConditions)} condition and disability studies` : 'condition and disability studies'
 
   return (
     <Card className="safe-glass">
@@ -540,7 +545,7 @@ function AnswerCard({
         See the full evidence page →
       </LinkButton>
       <p className="mt-2 text-xs text-brand-ink/50">
-        Live from 52 condition studies · evidence-based, refined by member reports · not medical advice.
+        Live from {studyCountLabel} · evidence-based, refined by member reports · not medical advice.
       </p>
     </Card>
   )

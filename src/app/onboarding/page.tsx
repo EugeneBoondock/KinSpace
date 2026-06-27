@@ -325,8 +325,8 @@ export default function OnboardingPage() {
           {/* ── Conditions ── */}
           {step === 'conditions' && (
             <StepShell
-              title="Anything you're navigating?"
-              hint="Totally optional, and end-to-end encrypted, only you can ever read it. Skip if you'd rather not say."
+              title="Any health condition or disability you are navigating?"
+              hint="Totally optional, and end-to-end encrypted, only you can ever read it. Skip if you would rather not say."
             >
               {conditions.length > 0 && (
                 <div className="flex flex-wrap gap-2">
@@ -349,8 +349,8 @@ export default function OnboardingPage() {
                     addCondition(conditionInput)
                   }
                 }}
-                aria-label="Add what you're navigating"
-                placeholder="Type and press Enter, or pick below"
+                aria-label="Add a health condition or disability"
+                placeholder="Type a condition or disability and press Enter, or pick below"
               />
               <div className="flex flex-wrap gap-1.5">
                 {CONDITION_SUGGESTIONS.filter((s) => !conditions.includes(s)).map((s) => (

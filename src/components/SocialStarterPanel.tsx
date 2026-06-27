@@ -76,7 +76,7 @@ export default function SocialStarterPanel({
   compact = false,
   embedded = false,
   title = 'Start with one real person',
-  description = 'Suggestions use shared conditions, symptoms, treatments, goals, and recent activity. Private fields stay private.',
+  description = 'Suggestions use shared health conditions, disabilities, symptoms, treatments, goals, and recent activity. Private fields stay private.',
 }: SocialStarterPanelProps) {
   const { user } = useAuth()
   const [members, setMembers] = useState<StarterMember[]>([])
@@ -198,7 +198,7 @@ export default function SocialStarterPanel({
                           {label}
                         </Badge>
                       ))}
-                      {/* Privacy: never reveal another member's specific conditions. */}
+                      {/* Privacy: never reveal specific health or disability labels from another member. */}
                       <Badge tone="sage">Something in common</Badge>
                     </div>
                     {starterPrompt && (
@@ -215,7 +215,7 @@ export default function SocialStarterPanel({
         <div className="rounded-2xl border border-dashed border-brand-line-strong bg-brand-ink/[0.03] p-4">
           <p className="text-sm font-semibold text-brand-ink">No close matches yet</p>
           <p className="mt-1 text-sm leading-relaxed text-brand-ink/60">
-            Add a condition report or profile details to give matching more signal.
+            Add a health condition or disability report, or update your profile, to give matching more signal.
           </p>
         </div>
       )}

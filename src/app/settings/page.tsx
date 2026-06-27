@@ -856,7 +856,7 @@ export default function Settings() {
           </div>
           <div className="space-y-4">
             {/* Conditions */}
-            <Field label="Conditions" htmlFor="settings-condition-input">
+            <Field label="Health conditions and disabilities" htmlFor="settings-condition-input">
               {profile.conditions.length > 0 && (
                 <div className="mb-2 flex flex-wrap gap-2">
                   {profile.conditions.map((c, i) => (
@@ -881,7 +881,7 @@ export default function Settings() {
                       void handleAddTag('conditions', conditionInput, setConditionInput)
                     }
                   }}
-                  placeholder="Add a condition…"
+                  placeholder="Add a condition or disability..."
                   className="flex-1"
                 />
                 <Button
@@ -993,9 +993,9 @@ export default function Settings() {
                   <i className="ri-eye-off-line text-brand-accent3" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-brand-background">Hide conditions on my profile</p>
+                  <p className="text-sm font-medium text-brand-background">Hide health conditions and disabilities on my profile</p>
                   <p className="text-xs text-brand-background/45">
-                    Keep your conditions off your profile page. Other people never see them anyway, this hides them from your own profile view too.
+                    Keep these labels off your profile page. Other people never see them anyway, this hides them from your own profile view too.
                   </p>
                 </div>
               </div>
@@ -1003,7 +1003,7 @@ export default function Settings() {
                 type="button"
                 role="switch"
                 aria-checked={profile.hide_conditions_on_profile}
-                aria-label="Hide conditions on my profile"
+                aria-label="Hide health conditions and disabilities on my profile"
                 onClick={() => void handleToggleHideConditionsOnProfile()}
                 className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/60 ${
                   profile.hide_conditions_on_profile ? 'bg-brand-accent2' : 'bg-brand-background/20'
@@ -1230,7 +1230,7 @@ export default function Settings() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-brand-background">Research emails</p>
-                  <p className="text-xs text-brand-background/45">New articles that match your profile conditions</p>
+                  <p className="text-xs text-brand-background/45">New articles that match your health conditions or disabilities</p>
                 </div>
               </div>
               <button

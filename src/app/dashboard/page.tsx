@@ -307,7 +307,7 @@ export default function DashboardPage() {
                     </span>
                   ) : (
                     <>
-                      <span className="text-xs font-medium text-brand-background/45">Living with</span>
+                      <span className="text-xs font-medium text-brand-background/45">Health and disability</span>
                       {conditions.slice(0, 6).map((condition) => (
                         <Badge key={condition}>{condition}</Badge>
                       ))}
@@ -689,7 +689,7 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-background/35">
-                    Common conditions
+                    Common health and disability topics
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {communitySignals.topConditions.length > 0 ? (

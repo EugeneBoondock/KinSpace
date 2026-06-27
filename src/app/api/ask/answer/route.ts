@@ -35,8 +35,8 @@ async function buildStructuredSources(db: ReturnType<typeof getDb>, userId: stri
         label: 'Profile health summary',
         source: 'KinSpace profile',
         summary: [
-          profileConditions.length > 0 ? `Conditions: ${profileConditions.join(', ')}` : null,
-          profileComorbidities.length > 0 ? `Other listed conditions: ${profileComorbidities.join(', ')}` : null,
+          profileConditions.length > 0 ? `Health conditions and disabilities: ${profileConditions.join(', ')}` : null,
+          profileComorbidities.length > 0 ? `Other listed health conditions or disabilities: ${profileComorbidities.join(', ')}` : null,
         ].filter(Boolean).join('. '),
         confidence: 'Self-reported by this member',
       })

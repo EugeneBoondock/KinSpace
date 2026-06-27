@@ -127,20 +127,20 @@ ${patternLine}
 
 ${
     context.healthShared === false
-      ? `This person has chosen to keep their health profile private from you. You do not have their conditions, medications, or other health details. Do not ask them to list these, and do not assume any. Work only with what they choose to tell you in the room.`
-      : `Self-reported conditions: ${conditions}
+      ? `This person has chosen to keep their health profile private from you. You do not have their health conditions, disabilities, medications, or other health details. Do not ask them to list these, and do not assume any. Work only with what they choose to tell you in the room.`
+      : `Self-reported health conditions and disabilities: ${conditions}
 Current medications they take: ${meds}
-Other conditions they listed: ${comorbid}
+Other health conditions or disabilities they listed: ${comorbid}
 Access and daily-life support they named: ${accessNeeds}`
   }
 Mental-health goals they shared: ${goals}
 Interests that brighten them: ${interests}
 
-## What the KinSpace community reports works for their conditions
+## What the KinSpace community reports works for their health conditions and disabilities
 ${
     context.healthShared === false
-      ? '(Hidden, the user has not shared their conditions with you.)'
-      : insights || '(No community-sourced treatment data yet for their specific conditions.)'
+      ? '(Hidden, the user has not shared their health conditions or disabilities with you.)'
+      : insights || '(No community-sourced treatment data yet for their specific health conditions or disabilities.)'
   }
 
 ## What you remember from prior sessions

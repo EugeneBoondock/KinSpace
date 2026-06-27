@@ -1,20 +1,23 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import InstallAppButton from '@/components/InstallAppButton'
 import { useAuth } from '@/lib/AuthContext'
 import Footer from '@/components/Footer'
+import { DatabaseService } from '@/lib/database'
+import { formatCompactNumber } from '@/lib/platform'
 import { CrisisBar, LinkButton, PathwayCard, type PathwayTint } from '@/components/ui'
 
 // Example conditions: deliberately mix mental-health staples with African/SA-prevalent
 // conditions so a first-time visitor sees this isn't a Western-only platform.
 const TEASER_CHIPS = ['Depression', 'HIV', 'Anxiety', 'Migraine', 'Type 2 diabetes', 'IBS', 'Sickle cell', 'PTSD']
+const CONDITION_COUNT_FALLBACK = 52
 
 const PLATFORM_TILES: Array<{ title: string; description: string; icon: string; tint: PathwayTint; href: string }> = [
-  { title: 'Condition studies', description: 'What actually works for 52 conditions, clinical evidence, refined by real member reports.', icon: 'ri-flask-line', tint: 'gold', href: '/conditions' },
+  { title: 'Condition studies', description: 'What actually works across the health and disability library, clinical evidence refined by real member reports.', icon: 'ri-flask-line', tint: 'gold', href: '/conditions' },
   { title: 'AI guide & therapy', description: 'A gentle AI companion with five human-feeling personas, and it knows when a moment is a crisis.', icon: 'ri-message-3-line', tint: 'violet', href: '/therapy' },
   { title: 'Community & peer support', description: 'Angels, mentors, and condition groups, people who actually get it.', icon: 'ri-group-line', tint: 'sage', href: '/community' },
   { title: 'Nearby care map', description: 'Doctors, pharmacies, and support groups near you, built right in.', icon: 'ri-map-pin-line', tint: 'blue', href: '/nearby-support' },
@@ -25,10 +28,39 @@ const PLATFORM_TILES: Array<{ title: string; description: string; icon: string; 
 export default function LandingPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const [conditionCount, setConditionCount] = useState(CONDITION_COUNT_FALLBACK)
 
   useEffect(() => {
     if (!loading && user) router.replace('/dashboard')
   }, [loading, router, user])
+
+  useEffect(() => {
+    let cancelled = false
+    DatabaseService.getConditionCount()
+      .then((count) => {
+        const next = Number(count)
+        if (!cancelled && Number.isFinite(next) && next >= 0) setConditionCount(next)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const conditionCountLabel = formatCompactNumber(conditionCount)
+  const moreCountLabel = formatCompactNumber(Math.max(0, conditionCount - TEASER_CHIPS.length))
+  const platformTiles = useMemo(
+    () =>
+      PLATFORM_TILES.map((tile) =>
+        tile.title === 'Condition studies'
+          ? {
+              ...tile,
+              description: `What actually works for ${conditionCountLabel} health conditions and disabilities, clinical evidence refined by real member reports.`,
+            }
+          : tile,
+      ),
+    [conditionCountLabel],
+  )
 
   if (loading) {
     return (
@@ -110,8 +142,9 @@ export default function LandingPage() {
             </h1>
 
             <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-brand-ink/70 lg:mx-0 lg:text-lg">
-              KinSpace brings together what actually works for 52 conditions, clinical evidence refined by real
-              member reports, with an AI guide, peer support, and a care map. Free, private, and yours.
+              KinSpace brings together what actually works for {conditionCountLabel} health conditions and
+              disabilities, clinical evidence refined by real member reports, with an AI guide, peer support, and
+              a care map. Free, private, and yours.
             </p>
 
             <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
@@ -141,7 +174,7 @@ export default function LandingPage() {
           </div>
 
           {/* Right, the image collage */}
-          <HeroCollage />
+          <HeroCollage conditionCountLabel={conditionCountLabel} />
         </div>
       </section>
 
@@ -159,12 +192,13 @@ export default function LandingPage() {
               </h2>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-brand-ink/65 sm:text-base">
                 Type a condition and see its real top treatments, ranked by effectiveness and refined by member
-                reports. Fifty-two conditions, including the ones most platforms ignore, HIV, TB, hypertension,
-                sickle cell, cervical cancer. No account needed.
+                reports. {conditionCountLabel} health conditions and disabilities, including the ones many
+                platforms ignore, HIV, TB, hypertension, sickle cell, mobility disability, cervical cancer. No
+                account needed.
               </p>
               <div className="mt-5">
                 <LinkButton href="/conditions" variant="accent" leadingIcon={<i className="ri-search-line" aria-hidden="true" />}>
-                  Explore 52 condition studies
+                  Explore {conditionCountLabel} studies
                 </LinkButton>
               </div>
             </div>
@@ -183,7 +217,7 @@ export default function LandingPage() {
                 href="/conditions"
                 className="rounded-full border border-brand-line px-3 py-1.5 text-sm text-brand-ink/55 transition-colors hover:text-brand-ink"
               >
-                +44 more
+                +{moreCountLabel} more
               </Link>
             </div>
           </div>
@@ -198,7 +232,7 @@ export default function LandingPage() {
             The condition studies are just the front door. This is the rest of your space, here when you need it.
           </p>
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {PLATFORM_TILES.map((tile) => (
+            {platformTiles.map((tile) => (
               <PathwayCard
                 key={tile.title}
                 title={tile.title}
@@ -262,7 +296,7 @@ export default function LandingPage() {
 }
 
 // ── The hero image collage (the social-media flourish) ──────────────────────
-function HeroCollage() {
+function HeroCollage({ conditionCountLabel }: { conditionCountLabel: string }) {
   return (
     <div className="relative mx-auto w-full max-w-[420px] lg:max-w-[500px]">
       <div className="relative aspect-[4/5]">
@@ -319,7 +353,7 @@ function HeroCollage() {
         {/* Floating stat pill */}
         <div className="absolute left-[2%] top-[2%] flex items-center gap-1.5 rounded-full bg-brand-surface px-3 py-1.5 text-xs font-semibold text-brand-ink shadow-lg ring-1 ring-brand-ink/5">
           <i className="ri-flask-line text-brand-accent3" aria-hidden="true" />
-          52 conditions
+          {conditionCountLabel} studies
         </div>
 
         {/* Floating chip, you're not alone */}

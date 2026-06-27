@@ -256,7 +256,7 @@ export default function PeopleLikeYouPage() {
           <p className="eyebrow">Your people</p>
           <h1 className="text-2xl font-bold text-brand-ink sm:text-3xl">People like you</h1>
           <p className="max-w-2xl text-base leading-relaxed text-brand-ink/65">
-            Members weighted by shared conditions, symptoms, treatments, goals, and lived context.
+            Members weighted by shared health conditions, disabilities, symptoms, treatments, goals, and lived context.
             Reach out when a strand feels right.
           </p>
         </header>
@@ -319,7 +319,7 @@ export default function PeopleLikeYouPage() {
             <div className="rounded-2xl border border-brand-line bg-brand-ink/[0.035] p-4">
               <p className="text-sm font-semibold text-brand-ink">No lanes yet</p>
               <p className="mt-1 text-sm leading-relaxed text-brand-ink/55">
-                Add a condition report with symptoms or treatments to get guided peer lanes.
+                Add a health condition or disability report with symptoms or treatments to get guided peer lanes.
               </p>
               <LinkButton href="/contribute" variant="secondary" size="sm" className="mt-3">
                 Add report
@@ -338,7 +338,7 @@ export default function PeopleLikeYouPage() {
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <Field label="Condition" htmlFor="condition-filter">
+              <Field label="Condition or disability" htmlFor="condition-filter">
                 <Input
                   id="condition-filter"
                   value={filters.conditionSlug}

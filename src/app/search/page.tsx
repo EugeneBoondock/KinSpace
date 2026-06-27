@@ -21,7 +21,7 @@ type SearchResult = {
 const placeholders = [
   'Search groups, posts, resources, or nearby care',
   'Try "anxiety", "grief", or "pharmacy"',
-  'Search a city, symptom, topic, or condition',
+  'Search a city, symptom, condition, or disability',
 ]
 
 export default function SearchPage() {

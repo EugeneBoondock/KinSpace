@@ -77,6 +77,11 @@ export async function getConditions(ctx: Ctx, filters?: { category?: string; sea
     .sort((first, second) => (first.name ?? '').localeCompare(second.name ?? ''))
 }
 
+export async function getConditionCount(ctx: Ctx): Promise<number> {
+  const [row] = await ctx.db.select({ value: sql<number>`count(*)` }).from(conditions)
+  return Number(row?.value ?? 0)
+}
+
 export async function getCondition(ctx: Ctx, slug: string) {
   const direct = await ctx.db.query.conditions.findFirst({ where: eq(conditions.slug, slug) })
   if (direct) return { id: direct.slug, ...direct }

@@ -12,6 +12,7 @@ import { createNotification } from '@/server/notify'
 import { blockedRelatedIds } from '@/server/social/blocks'
 import type { Database } from '@/server/db/client'
 import { normalizeMoodCheckin } from '@/lib/moods'
+import { ensureConditionCatalogEntries } from '@/server/conditions/catalog'
 
 /** True when two users have an accepted connection (in either direction). */
 async function areConnected(db: Database, a: string, b: string): Promise<boolean> {
@@ -98,6 +99,13 @@ function snakeToCamel(key: string): string {
   return key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 }
 
+function catalogLabelsFromProfilePatch(safe: Record<string, unknown>): string[] {
+  return ['conditions', 'comorbidities'].flatMap((field) => {
+    const value = safe[field]
+    return Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : []
+  })
+}
+
 /**
  * Update the authenticated user's own profile. Target is always ctx.userId
  * (never a passed arg). Input keys are normalised snake_case→camelCase and
@@ -130,6 +138,11 @@ export async function updateProfile(ctx: Ctx, _userId: string, updates: Record<s
     .update(profiles)
     .set({ ...safe, updatedAt: new Date() })
     .where(eq(profiles.userId, actorId))
+
+  const catalogLabels = catalogLabelsFromProfilePatch(safe)
+  if (catalogLabels.length > 0) {
+    await ensureConditionCatalogEntries(ctx, actorId, catalogLabels).catch(() => undefined)
+  }
 
   const row = await ctx.db.query.profiles.findFirst({ where: eq(profiles.userId, actorId) })
   if (!row) return null
