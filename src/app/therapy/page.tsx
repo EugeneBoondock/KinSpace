@@ -774,7 +774,7 @@ export default function TherapyPage() {
         if (!response.ok || !data?.ok) throw new Error(data?.error ?? 'Delete failed')
         setSessionMessages((current) => current.filter((row) => row.id !== messageId))
         void loadHistory()
-        toast('Deleted, and erased from your Guide’s memory.', 'success')
+        toast('Deleted and erased from Guide memory.', 'success')
       } catch {
         toast('Could not delete that message.', 'error')
       } finally {
@@ -2138,7 +2138,7 @@ export default function TherapyPage() {
                           >
                             <GuideMessageContent content={row.message} />
                           </div>
-                          {isUser && (
+                          {Boolean(row.id) && (
                             <button
                               type="button"
                               onClick={() => deleteSessionMessage(row.id)}
@@ -2165,8 +2165,8 @@ export default function TherapyPage() {
 
               <div className="shrink-0 border-t border-brand-background/10 p-4">
                 <p className="text-center text-[11px] leading-relaxed text-brand-background/45">
-                  <i className="ri-shield-keyhole-line" aria-hidden="true" /> Deleting your message erases it
-                  here and from {persona.name}’s memory.
+                  <i className="ri-shield-keyhole-line" aria-hidden="true" /> Deleting a message erases it
+                  here and from Guide memory.
                 </p>
               </div>
             </div>
