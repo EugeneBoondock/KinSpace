@@ -3,16 +3,16 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui'
 import { startCheckoutAction } from '@/app/actions/billing'
-import type { Tier } from '@/server/billing/tiers'
+import type { BillingPeriod, Tier } from '@/server/billing/tiers'
 
-export function SubscribeButton({ tier, label }: { tier: Tier; label: string }) {
+export function SubscribeButton({ tier, period = 'monthly', label }: { tier: Tier; period?: BillingPeriod; label: string }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleClick() {
     setLoading(true)
     setError(null)
-    const result = await startCheckoutAction(tier)
+    const result = await startCheckoutAction(tier, period)
     if (result.ok) {
       window.location.href = result.authorizationUrl
       return

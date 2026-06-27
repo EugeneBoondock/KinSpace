@@ -8,16 +8,18 @@ import {
   startCheckoutAction,
   startGuideCreditsCheckoutAction,
 } from '@/app/actions/billing'
-import type { Tier } from '@/server/billing/tiers'
+import type { BillingPeriod, Tier } from '@/server/billing/tiers'
 
 type CheckoutKind = `plan:${Tier}` | `credits:${string}` | 'cancel' | 'resume'
 
 export function PlanCheckoutButton({
   tier,
+  period = 'monthly',
   label,
   variant = 'accent',
 }: {
   tier: Tier
+  period?: BillingPeriod
   label: string
   variant?: 'primary' | 'secondary' | 'accent' | 'ghost'
 }) {
@@ -27,7 +29,7 @@ export function PlanCheckoutButton({
   async function submit() {
     setLoading(true)
     setError(null)
-    const result = await startCheckoutAction(tier)
+    const result = await startCheckoutAction(tier, period)
     if (result.ok) {
       window.location.href = result.authorizationUrl
       return

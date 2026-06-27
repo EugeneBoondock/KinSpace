@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { LinkButton } from '@/components/ui'
-import { PLANS } from '@/server/billing/tiers'
+import { BILLING_PERIODS, PLANS, billingPeriodInfo, planPriceCents } from '@/server/billing/tiers'
 import { SubscribeButton } from './SubscribeButton'
 
 export const metadata: Metadata = {
@@ -46,8 +46,9 @@ export default function PricingPage() {
                 <h2 className="text-xl font-bold text-brand-background">{plan.name}</h2>
                 <p className="mt-1 text-sm text-brand-background/60">{plan.tagline}</p>
                 <div className="mt-4 flex items-baseline gap-1">
+                  {plan.priceCents > 0 && <span className="text-sm text-brand-background/50">from</span>}
                   <span className="text-3xl font-bold text-brand-background">{priceLabel(plan.priceCents)}</span>
-                  {plan.priceCents > 0 && <span className="text-sm text-brand-background/50">/ month</span>}
+                  {plan.priceCents > 0 && <span className="text-sm text-brand-background/50">per month</span>}
                 </div>
 
                 <ul className="mt-5 flex-1 space-y-2.5">
@@ -71,7 +72,29 @@ export default function PricingPage() {
                       Get started free
                     </LinkButton>
                   ) : (
-                    <SubscribeButton tier={plan.id} label={`Choose ${plan.name}`} />
+                    <div className="space-y-2">
+                      {BILLING_PERIODS.map((period) => {
+                        const periodInfo = billingPeriodInfo(period.id)
+                        return (
+                          <div
+                            key={period.id}
+                            className="rounded-2xl border border-brand-background/10 bg-brand-background/[0.04] p-3"
+                          >
+                            <div className="mb-2 flex items-baseline justify-between gap-3">
+                              <span className="text-sm font-semibold text-brand-background">{periodInfo.label}</span>
+                              <span className="text-sm text-brand-background/60">
+                                {priceLabel(planPriceCents(plan, period.id))} {periodInfo.suffix}
+                              </span>
+                            </div>
+                            <SubscribeButton
+                              tier={plan.id}
+                              period={period.id}
+                              label={`Choose ${periodInfo.label.toLowerCase()}`}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
                   )}
                 </div>
               </div>
@@ -80,7 +103,7 @@ export default function PricingPage() {
         </div>
 
         <p className="mt-8 text-center text-sm text-brand-background/55">
-          Prices in ZAR. Secure payments by PayFast. Already joined?{' '}
+          Prices in ZAR. Monthly, quarterly, and annual billing available. Secure payments by PayFast. Already joined?{' '}
           <a href="/plan" className="underline">
             Manage your plan
           </a>

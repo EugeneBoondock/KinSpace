@@ -1,7 +1,15 @@
 'use server'
 
 import { requireUser } from '@/server/auth/current-user'
-import { GUIDE_CREDIT_PACKS, PLANS, guideCreditPack, type Tier } from '@/server/billing/tiers'
+import {
+  billingPeriodFromInput,
+  planPriceCents,
+  GUIDE_CREDIT_PACKS,
+  PLANS,
+  guideCreditPack,
+  type BillingPeriod,
+  type Tier,
+} from '@/server/billing/tiers'
 import { getSubscriptionBillingHandle, upsertSubscription } from '@/server/billing/repo'
 import { disableSubscription } from '@/server/billing/paystack'
 import { buildCheckoutUrl, cancelPayfastSubscription, payfastConfigured } from '@/server/billing/payfast'
@@ -10,8 +18,9 @@ export type CheckoutResult =
   | { ok: true; authorizationUrl: string }
   | { ok: false; error: string }
 
-export async function startCheckoutAction(tier: Tier): Promise<CheckoutResult> {
+export async function startCheckoutAction(tier: Tier, period: BillingPeriod = 'monthly'): Promise<CheckoutResult> {
   if (tier === 'free') return { ok: false, error: 'The Free plan needs no checkout.' }
+  const billingPeriod = billingPeriodFromInput(period)
   let user
   try {
     user = await requireUser()
@@ -21,6 +30,7 @@ export async function startCheckoutAction(tier: Tier): Promise<CheckoutResult> {
 
   const plan = PLANS.find((p) => p.id === tier)
   if (!plan || plan.priceCents <= 0) return { ok: false, error: 'Unknown plan.' }
+  const amountCents = planPriceCents(plan, billingPeriod)
   if (!payfastConfigured()) {
     return { ok: false, error: 'Payments are not configured yet. Please try again later.' }
   }
@@ -31,10 +41,11 @@ export async function startCheckoutAction(tier: Tier): Promise<CheckoutResult> {
       userId: user.userId,
       email: user.email,
       tier,
-      amountCents: plan.priceCents,
-      itemName: `${plan.name} (monthly)`,
+      amountCents,
+      itemName: `${plan.name} (${billingPeriod})`,
       appUrl,
       purpose: 'plan',
+      billingPeriod,
     })
     return { ok: true, authorizationUrl }
   } catch (error) {

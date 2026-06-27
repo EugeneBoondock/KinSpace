@@ -8,6 +8,13 @@
  * MD5 (RFC 1321). Payments must not depend on a runtime quirk.
  */
 
+import {
+  billingPeriodFromInput,
+  billingPeriodMonths,
+  billingPeriodPayfastFrequency,
+  type BillingPeriod,
+} from './tiers'
+
 const LIVE_PROCESS = 'https://www.payfast.co.za/eng/process'
 const SANDBOX_PROCESS = 'https://sandbox.payfast.co.za/eng/process'
 const LIVE_VALIDATE = 'https://www.payfast.co.za/eng/query/validate'
@@ -61,9 +68,9 @@ function apiSignature(fields: Record<string, string>, passphrase: string): strin
   return md5(parts.join('&')).toLowerCase()
 }
 
-function nextMonthlyBillingDate(): string {
+function nextBillingDate(period: BillingPeriod): string {
   const next = new Date()
-  next.setUTCMonth(next.getUTCMonth() + 1)
+  next.setUTCMonth(next.getUTCMonth() + billingPeriodMonths(period))
   return next.toISOString().slice(0, 10)
 }
 
@@ -76,6 +83,7 @@ export type CheckoutInput = {
   itemName: string
   appUrl: string
   purpose?: 'plan' | 'guide_credits'
+  billingPeriod?: BillingPeriod
   packId?: string
   credits?: number
 }
@@ -85,17 +93,21 @@ export function buildCheckoutUrl(input: CheckoutInput): string {
   const c = cfg()
   const amount = (input.amountCents / 100).toFixed(2)
   const purpose = input.purpose ?? 'plan'
-  const paymentId = `${input.userId}:${purpose}:${purpose === 'guide_credits' ? input.packId ?? 'credits' : input.tier}:${Date.now()}`
+  const billingPeriod = billingPeriodFromInput(input.billingPeriod)
+  const paymentId =
+    purpose === 'guide_credits'
+      ? `${input.userId}:${purpose}:${input.packId ?? 'credits'}:${Date.now()}`
+      : `${input.userId}:${purpose}:${input.tier}:${billingPeriod}:${Date.now()}`
   const custom2 = purpose === 'guide_credits' ? 'guide_credits' : input.tier
-  const custom3 = purpose === 'guide_credits' ? input.packId ?? '' : ''
+  const custom3 = purpose === 'guide_credits' ? input.packId ?? '' : billingPeriod
   const custom4 = purpose === 'guide_credits' ? String(input.credits ?? 0) : ''
   const recurringFields: Array<[string, string]> =
     purpose === 'plan'
       ? [
           ['subscription_type', '1'],
-          ['billing_date', nextMonthlyBillingDate()],
+          ['billing_date', nextBillingDate(billingPeriod)],
           ['recurring_amount', amount],
-          ['frequency', '3'],
+          ['frequency', billingPeriodPayfastFrequency(billingPeriod)],
           ['cycles', '0'],
         ]
       : []

@@ -1,5 +1,21 @@
 export type Tier = 'free' | 'plus' | 'pro'
 
+export type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
+
+export type BillingPeriodDisplay = {
+  id: BillingPeriod
+  label: string
+  suffix: string
+  months: number
+  payfastFrequency: '3' | '4' | '6'
+}
+
+export const BILLING_PERIODS: BillingPeriodDisplay[] = [
+  { id: 'monthly', label: 'Monthly', suffix: 'per month', months: 1, payfastFrequency: '3' },
+  { id: 'quarterly', label: 'Quarterly', suffix: 'per quarter', months: 3, payfastFrequency: '4' },
+  { id: 'annual', label: 'Annual', suffix: 'per year', months: 12, payfastFrequency: '6' },
+]
+
 export type Feature =
   | 'ai_therapy'
   | 'ai_ask'
@@ -14,7 +30,7 @@ export const UNLIMITED = Number.POSITIVE_INFINITY
 /** Monthly limits per tier. UNLIMITED = no cap; 0 = not available on this tier. */
 export const LIMITS: Record<Tier, Record<Feature, number>> = {
   free: {
-    // Counted per SESSION, not per message — a session can have many messages.
+    // Counted per SESSION, not per message. A session can have many messages.
     ai_therapy: 4,
     ai_ask: 10,
     ai_research: 2,
@@ -149,4 +165,40 @@ export function planForTier(tier: Tier): PlanDisplay {
 
 export function guideCreditPack(packId: string): GuideCreditPack | null {
   return GUIDE_CREDIT_PACKS.find((pack) => pack.id === packId) ?? null
+}
+
+export function billingPeriodFromInput(value: unknown): BillingPeriod {
+  return value === 'quarterly' || value === 'annual' ? value : 'monthly'
+}
+
+export function billingPeriodInfo(period: BillingPeriod): BillingPeriodDisplay {
+  return BILLING_PERIODS.find((item) => item.id === period) ?? BILLING_PERIODS[0]
+}
+
+export function billingPeriodMonths(period: BillingPeriod): number {
+  return billingPeriodInfo(period).months
+}
+
+export function billingPeriodPayfastFrequency(period: BillingPeriod): '3' | '4' | '6' {
+  return billingPeriodInfo(period).payfastFrequency
+}
+
+export function planPriceCents(plan: PlanDisplay, period: BillingPeriod): number {
+  return plan.priceCents * billingPeriodMonths(period)
+}
+
+export function billingPeriodPlanCode(period: BillingPeriod): string {
+  return `payfast:${period}`
+}
+
+export function billingPeriodFromPlanCode(planCode: string | null | undefined): BillingPeriod {
+  const value = String(planCode ?? '').trim().toLowerCase()
+  if (!value.startsWith('payfast:')) return 'monthly'
+  return billingPeriodFromInput(value.slice('payfast:'.length))
+}
+
+export function billingPeriodEndFrom(start: Date, period: BillingPeriod): Date {
+  const end = new Date(start)
+  end.setUTCMonth(end.getUTCMonth() + billingPeriodMonths(period))
+  return end
 }

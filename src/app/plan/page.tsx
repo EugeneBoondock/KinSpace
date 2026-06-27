@@ -5,7 +5,15 @@ import { Badge, Button, Card, LinkButton } from '@/components/ui'
 import { buildLoginRedirect } from '@/lib/auth-redirect'
 import { getCurrentUser } from '@/server/auth/current-user'
 import { getGuideCreditBalance, getQuota, getSubscription } from '@/server/billing/repo'
-import { GUIDE_CREDIT_PACKS, PLANS, type Tier, planForTier } from '@/server/billing/tiers'
+import {
+  BILLING_PERIODS,
+  GUIDE_CREDIT_PACKS,
+  PLANS,
+  billingPeriodInfo,
+  planForTier,
+  planPriceCents,
+  type Tier,
+} from '@/server/billing/tiers'
 import { CreditCheckoutButton, PlanCheckoutButton, SubscriptionManageButton } from './PlanActions'
 import { formatPlanDateLabel, formatPlanQuotaLabel } from './format'
 
@@ -37,6 +45,7 @@ export default async function PlanPage({
   ])
   const checkout = Array.isArray(params.checkout) ? params.checkout[0] : params.checkout
   const activePlan = planForTier(subscription.tier)
+  const currentPeriod = billingPeriodInfo(subscription.billingPeriod)
   const cancelledAtProvider =
     subscription.paymentProvider === 'payfast' && subscription.providerSubscriptionStatus === 'cancelled'
 
@@ -85,8 +94,8 @@ export default async function PlanPage({
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-ink/45">Current plan</p>
                 <p className="mt-2 text-2xl font-bold text-brand-ink">{activePlan.name}</p>
                 <p className="mt-1 text-sm text-brand-ink/55">
-                  {money(activePlan.priceCents)}
-                  {activePlan.priceCents > 0 ? ' per month' : ''}
+                  {money(planPriceCents(activePlan, subscription.billingPeriod))}
+                  {activePlan.priceCents > 0 ? ` ${currentPeriod.suffix}` : ''}
                 </p>
                 <p className="mt-3 text-xs text-brand-ink/50">
                   Renews or ends: {formatPlanDateLabel(subscription.currentPeriodEnd)}
@@ -130,7 +139,7 @@ export default async function PlanPage({
           <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-xl font-bold text-brand-ink">Change plan</h2>
-              <p className="mt-1 text-sm text-brand-ink/60">Choose monthly access that fits how you use KinSpace.</p>
+              <p className="mt-1 text-sm text-brand-ink/60">Choose the plan and billing period that fit how you use KinSpace.</p>
             </div>
             <LinkButton href="/pricing" variant="ghost" size="sm">
               Compare public pricing
@@ -162,13 +171,39 @@ export default async function PlanPage({
                   </ul>
                   <div className="mt-5">
                     {isCurrent ? (
-                      <Button type="button" variant="secondary" fullWidth disabled>
-                        Current plan
-                      </Button>
+                      <div>
+                        <p className="mb-2 rounded-2xl border border-brand-line bg-brand-surface-raised px-3 py-2 text-sm text-brand-ink/65">
+                          Current billing: {money(planPriceCents(plan, subscription.billingPeriod))}
+                          {plan.priceCents > 0 ? ` ${currentPeriod.suffix}` : ''}
+                        </p>
+                        <Button type="button" variant="secondary" fullWidth disabled>
+                          Current plan
+                        </Button>
+                      </div>
                     ) : plan.id === 'free' ? (
                       <SubscriptionManageButton action="cancel" label="Move to Free at period end" />
                     ) : (
-                      <PlanCheckoutButton tier={plan.id as Tier} label={`Choose ${plan.name}`} />
+                      <div className="space-y-2">
+                        {BILLING_PERIODS.map((period) => {
+                          const periodInfo = billingPeriodInfo(period.id)
+                          return (
+                            <div key={period.id} className="rounded-2xl border border-brand-line bg-brand-surface-raised p-3">
+                              <div className="mb-2 flex items-baseline justify-between gap-3">
+                                <span className="text-sm font-semibold text-brand-ink">{periodInfo.label}</span>
+                                <span className="text-sm text-brand-ink/55">
+                                  {money(planPriceCents(plan, period.id))} {periodInfo.suffix}
+                                </span>
+                              </div>
+                              <PlanCheckoutButton
+                                tier={plan.id as Tier}
+                                period={period.id}
+                                label={`Choose ${periodInfo.label.toLowerCase()}`}
+                                variant={period.id === 'annual' ? 'accent' : 'secondary'}
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
                     )}
                   </div>
                 </Card>

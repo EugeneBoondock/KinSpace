@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyItnSignature, validateItnWithPayfast, itnField, payfastConfigured } from '@/server/billing/payfast'
 import { grantGuideCredits, upsertSubscription } from '@/server/billing/repo'
-import { PLANS, guideCreditPack, type Tier } from '@/server/billing/tiers'
+import {
+  billingPeriodEndFrom,
+  billingPeriodFromInput,
+  billingPeriodPlanCode,
+  PLANS,
+  guideCreditPack,
+  planPriceCents,
+  type Tier,
+} from '@/server/billing/tiers'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-
-const PERIOD_MS = 31 * 24 * 60 * 60 * 1000
 
 /**
  * PayFast ITN (Instant Transaction Notification) handler. PayFast POSTs here
@@ -32,6 +38,7 @@ export async function POST(request: NextRequest) {
     const tierOrPurpose = itnField(raw, 'custom_str2')
     const tier = tierOrPurpose as Tier
     const packId = itnField(raw, 'custom_str3')
+    const billingPeriod = billingPeriodFromInput(packId)
     const creditCount = Number(itnField(raw, 'custom_str4') || '0')
     const grossStr = itnField(raw, 'amount_gross') || itnField(raw, 'amount')
     const grossCents = Math.round(parseFloat(grossStr || '0') * 100)
@@ -53,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     if (status === 'COMPLETE' && userId && (tier === 'plus' || tier === 'pro')) {
       const plan = PLANS.find((p) => p.id === tier)
-      if (plan && grossCents === plan.priceCents) {
+      if (plan && grossCents === planPriceCents(plan, billingPeriod)) {
         await upsertSubscription(userId, {
           tier,
           status: 'active',
@@ -61,8 +68,8 @@ export async function POST(request: NextRequest) {
           providerSubscriptionId: providerSubscriptionId || null,
           providerSubscriptionStatus: providerSubscriptionId ? 'active' : null,
           providerReference,
-          planCode: 'payfast',
-          currentPeriodEnd: new Date(Date.now() + PERIOD_MS),
+          planCode: billingPeriodPlanCode(billingPeriod),
+          currentPeriodEnd: billingPeriodEndFrom(new Date(), billingPeriod),
           cancelAtPeriodEnd: false,
         })
       }

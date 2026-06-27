@@ -1,7 +1,16 @@
 import { and, eq, gt, sql } from 'drizzle-orm'
 import { getDb } from '../db/client'
 import { aiCreditBalances, aiCreditPurchases, subscriptions, usageCounters, users } from '../db/schema'
-import { type Tier, type Feature, getLimit, isUnlimited, LIMITS, UNLIMITED } from './tiers'
+import {
+  billingPeriodFromPlanCode,
+  type BillingPeriod,
+  type Tier,
+  type Feature,
+  getLimit,
+  isUnlimited,
+  LIMITS,
+  UNLIMITED,
+} from './tiers'
 import { effectiveTierFromSubscription, featureUsageStatus } from './access'
 
 /** Admins are never rate-limited on paid features. */
@@ -20,6 +29,7 @@ export type SubscriptionState = {
   providerSubscriptionId: string | null
   providerSubscriptionStatus: string | null
   providerReference: string | null
+  billingPeriod: BillingPeriod
 }
 
 const DEFAULT_STATE: SubscriptionState = {
@@ -32,6 +42,7 @@ const DEFAULT_STATE: SubscriptionState = {
   providerSubscriptionId: null,
   providerSubscriptionStatus: null,
   providerReference: null,
+  billingPeriod: 'monthly',
 }
 
 export async function getSubscription(userId: string): Promise<SubscriptionState> {
@@ -50,6 +61,7 @@ export async function getSubscription(userId: string): Promise<SubscriptionState
     providerSubscriptionId: row.providerSubscriptionId,
     providerSubscriptionStatus: row.providerSubscriptionStatus,
     providerReference: row.providerReference,
+    billingPeriod: billingPeriodFromPlanCode(row.planCode),
   }
 }
 
