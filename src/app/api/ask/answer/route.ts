@@ -5,7 +5,7 @@ import { getDb } from '@/server/db/client'
 import { askQuestions, profiles } from '@/server/db/schema'
 import { getSessionUserId } from '@/server/http/auth'
 import { rateLimit } from '@/server/http/rate-limit'
-import { checkAndConsume } from '@/server/billing/repo'
+import { checkAndConsume, refundConsumedUsage } from '@/server/billing/repo'
 import { getConditionStudy } from '@/server/data/health'
 import { getHealthTimeline } from '@/server/data/timeline'
 
@@ -144,16 +144,16 @@ export async function POST(request: NextRequest) {
     })
   }
 
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json({ ok: false, error: 'AI is not configured.' }, { status: 500 })
+  }
+
   const quota = await checkAndConsume(userId, 'ai_ask')
   if (!quota.allowed) {
     return NextResponse.json(
       { ok: false, error: 'You’ve reached your monthly question limit. Upgrade for more.', upgrade: true },
       { status: 402 },
     )
-  }
-
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ ok: false, error: 'AI is not configured.' }, { status: 500 })
   }
 
   const context: AskContext = {
@@ -181,8 +181,18 @@ export async function POST(request: NextRequest) {
       .map((e) => ({ id: e.id, question: e.question, created_at: e.created_at }))
   }
 
-  const answer = await answerAsk(question, context)
-  if (!answer) return NextResponse.json({ ok: false, error: 'Could not synthesize an answer.' }, { status: 502 })
+  let answer: Awaited<ReturnType<typeof answerAsk>>
+  try {
+    answer = await answerAsk(question, context)
+  } catch (error) {
+    await refundConsumedUsage(userId, 'ai_ask', quota).catch(() => undefined)
+    console.error('Ask answer failed:', error)
+    return NextResponse.json({ ok: false, error: 'Could not write an answer right now.' }, { status: 502 })
+  }
+  if (!answer) {
+    await refundConsumedUsage(userId, 'ai_ask', quota).catch(() => undefined)
+    return NextResponse.json({ ok: false, error: 'Could not write an answer right now.' }, { status: 502 })
+  }
 
   if (questionId && !body.dryRun && savedQuestion) {
     await db

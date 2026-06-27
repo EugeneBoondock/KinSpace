@@ -5,7 +5,7 @@ import { getDb } from '@/server/db/client'
 import { researchRequests, resources } from '@/server/db/schema'
 import { getSessionUserId } from '@/server/http/auth'
 import { rateLimit } from '@/server/http/rate-limit'
-import { checkAndConsume } from '@/server/billing/repo'
+import { checkAndConsume, refundConsumedUsage } from '@/server/billing/repo'
 import { notifyConditionMembersForArticle } from '@/server/research/condition-email'
 
 export const runtime = 'nodejs'
@@ -25,14 +25,6 @@ export async function POST(request: NextRequest) {
   const limited = await rateLimit(`research:${userId}`, 5, 300)
   if (!limited.allowed) return NextResponse.json({ ok: false, error: 'Please wait a few minutes.' }, { status: 429 })
 
-  const quota = await checkAndConsume(userId, 'ai_research')
-  if (!quota.allowed) {
-    return NextResponse.json(
-      { ok: false, error: 'You’ve reached your monthly research limit. Upgrade for more.', upgrade: true },
-      { status: 402 },
-    )
-  }
-
   let body: RequestBody
   try {
     body = (await request.json()) as RequestBody
@@ -46,6 +38,14 @@ export async function POST(request: NextRequest) {
   }
   if (topic.length > 600) return NextResponse.json({ ok: false, error: 'Topic too long.' }, { status: 400 })
 
+  const quota = await checkAndConsume(userId, 'ai_research')
+  if (!quota.allowed) {
+    return NextResponse.json(
+      { ok: false, error: 'You’ve reached your monthly research limit. Upgrade for more.', upgrade: true },
+      { status: 402 },
+    )
+  }
+
   const db = getDb()
   let requestId: string | null = null
   if (!body.dryRun) {
@@ -58,8 +58,19 @@ export async function POST(request: NextRequest) {
       })
   }
 
-  const result = await runDeepResearch(topic)
+  let result: Awaited<ReturnType<typeof runDeepResearch>>
+  try {
+    result = await runDeepResearch(topic)
+  } catch (error) {
+    await refundConsumedUsage(userId, 'ai_research', quota).catch(() => undefined)
+    if (requestId) {
+      await db.update(researchRequests).set({ status: 'failed', updatedAt: new Date() }).where(eq(researchRequests.id, requestId)).catch(() => undefined)
+    }
+    console.error('Research request failed:', error)
+    return NextResponse.json({ ok: false, error: 'We had trouble writing the article. Try again shortly.' }, { status: 502 })
+  }
   if (!result.article) {
+    await refundConsumedUsage(userId, 'ai_research', quota).catch(() => undefined)
     if (requestId) {
       await db.update(researchRequests).set({ status: 'failed', updatedAt: new Date() }).where(eq(researchRequests.id, requestId)).catch(() => undefined)
     }

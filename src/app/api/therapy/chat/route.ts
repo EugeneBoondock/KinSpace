@@ -12,7 +12,7 @@ import {
 } from '@/server/db/schema'
 import { getSessionUserId } from '@/server/http/auth'
 import { rateLimit } from '@/server/http/rate-limit'
-import { checkAndConsume } from '@/server/billing/repo'
+import { checkAndConsume, refundConsumedUsage, type QuotaResult } from '@/server/billing/repo'
 import { detectCrisisInMessages } from '@/server/ai/safety'
 import { decryptField } from '@/server/crypto/field-encryption'
 import { normaliseGuideAttachments, toGuideModelMessageContent } from '@/lib/guide-media'
@@ -219,14 +219,26 @@ export async function POST(request: NextRequest) {
   // message of a session. Continuing an existing session is always free. Admins
   // and paid tiers bypass inside checkAndConsume.
   let isNewSession = true
+  let ownedSessionId: string | null = null
   if (body.sessionId) {
     const sessionRow = await db.query.therapySessions.findFirst({
       where: eq(therapySessions.id, body.sessionId),
     })
-    if (sessionRow && (sessionRow.messageCount ?? 0) > 0) isNewSession = false
+    if (sessionRow) {
+      if (sessionRow.userId !== userId) {
+        return NextResponse.json({ ok: false, error: 'Session not found.' }, { status: 404 })
+      }
+      ownedSessionId = sessionRow.id
+      if ((sessionRow.messageCount ?? 0) > 0) isNewSession = false
+    }
   }
+
+  const context = await hydrateContext(db, userId, body.personaId ?? null)
+  if (!context) return NextResponse.json({ ok: false, error: 'Complete your profile first.' }, { status: 404 })
+
+  let quota: QuotaResult | null = null
   if (isNewSession) {
-    const quota = await checkAndConsume(userId, 'ai_therapy')
+    quota = await checkAndConsume(userId, 'ai_therapy')
     if (!quota.allowed) {
       return NextResponse.json(
         {
@@ -238,9 +250,6 @@ export async function POST(request: NextRequest) {
       )
     }
   }
-
-  const context = await hydrateContext(db, userId, body.personaId ?? null)
-  if (!context) return NextResponse.json({ ok: false, error: 'Complete your profile first.' }, { status: 404 })
 
   void recordAiPrivacyAuditEvent(db, {
     actorId: userId,
@@ -259,11 +268,11 @@ export async function POST(request: NextRequest) {
     },
   }).catch(() => undefined)
 
-  if (body.sessionId) {
+  if (ownedSessionId) {
     void db
       .update(therapySessions)
       .set({ messageCount: sql`${therapySessions.messageCount} + 1`, updatedAt: new Date() })
-      .where(eq(therapySessions.id, body.sessionId))
+      .where(eq(therapySessions.id, ownedSessionId))
       .catch(() => undefined)
   }
 
@@ -272,6 +281,7 @@ export async function POST(request: NextRequest) {
     const isCrisis = result.isCrisis || detectCrisisInMessages(sanitised)
     return NextResponse.json({ ok: true, reply: result.reply, isCrisis, endSession: result.endSession && !isCrisis })
   } catch (error) {
+    if (isNewSession) await refundConsumedUsage(userId, 'ai_therapy', quota).catch(() => undefined)
     // Log the real error so failures are diagnosable in `wrangler tail` (the
     // generic message below is all the user sees). Most common cause: an invalid
     // or expired OPENAI_API_KEY → OpenAI returns 401.

@@ -74,13 +74,14 @@ function currentPeriod(): string {
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-export type QuotaResult = { allowed: boolean; remaining: number; limit: number; tier: Tier }
+export type UsageMeter = 'none' | 'quota' | 'credit'
+export type QuotaResult = { allowed: boolean; remaining: number; limit: number; tier: Tier; metered?: UsageMeter }
 
 /** Reads current usage for a feature without consuming. */
 export async function getQuota(userId: string, feature: Feature): Promise<QuotaResult> {
   const tier = await getTier(userId)
   if (await isAdminUser(userId)) {
-    return { allowed: true, remaining: Number.MAX_SAFE_INTEGER, limit: UNLIMITED, tier }
+    return { allowed: true, remaining: Number.MAX_SAFE_INTEGER, limit: UNLIMITED, tier, metered: 'none' }
   }
   const used = await currentUsage(userId, feature)
   return { ...featureUsageStatus(tier, feature, used), tier }
@@ -105,19 +106,19 @@ async function currentUsage(userId: string, feature: Feature): Promise<number> {
 export async function checkAndConsume(userId: string, feature: Feature): Promise<QuotaResult> {
   const tier = await getTier(userId)
   if (await isAdminUser(userId)) {
-    return { allowed: true, remaining: Number.MAX_SAFE_INTEGER, limit: UNLIMITED, tier }
+    return { allowed: true, remaining: Number.MAX_SAFE_INTEGER, limit: UNLIMITED, tier, metered: 'none' }
   }
 
   const limit = getLimit(tier, feature)
   if (isUnlimited(limit)) {
-    return { allowed: true, remaining: Number.MAX_SAFE_INTEGER, limit, tier }
+    return { allowed: true, remaining: Number.MAX_SAFE_INTEGER, limit, tier, metered: 'none' }
   }
 
   const used = await currentUsage(userId, feature)
   const before = featureUsageStatus(tier, feature, used)
   if (!before.allowed) {
     if (feature === 'ai_therapy' && (await consumeGuideCredit(userId))) {
-      return { allowed: true, remaining: 0, limit, tier }
+      return { allowed: true, remaining: 0, limit, tier, metered: 'credit' }
     }
     return { ...before, tier }
   }
@@ -125,12 +126,12 @@ export async function checkAndConsume(userId: string, feature: Feature): Promise
   const remaining = await consumeQuotaSlot(userId, feature, limit)
   if (remaining === null) {
     if (feature === 'ai_therapy' && (await consumeGuideCredit(userId))) {
-      return { allowed: true, remaining: 0, limit, tier }
+      return { allowed: true, remaining: 0, limit, tier, metered: 'credit' }
     }
     return { allowed: false, remaining: 0, limit, tier }
   }
 
-  return { allowed: true, remaining, limit, tier }
+  return { allowed: true, remaining, limit, tier, metered: 'quota' }
 }
 
 async function consumeQuotaSlot(userId: string, feature: Feature, limit: number): Promise<number | null> {
@@ -171,6 +172,50 @@ async function consumeGuideCredit(userId: string): Promise<boolean> {
     .where(and(eq(aiCreditBalances.userId, userId), gt(aiCreditBalances.credits, 0)))
     .returning({ credits: aiCreditBalances.credits })
   return Boolean(rows[0])
+}
+
+export async function refundConsumedUsageInDb(
+  db: ReturnType<typeof getDb>,
+  userId: string,
+  feature: Feature,
+  usage: QuotaResult | null | undefined,
+): Promise<void> {
+  if (!userId || !usage?.allowed) return
+
+  if (usage.metered === 'quota') {
+    await db
+      .update(usageCounters)
+      .set({ count: sql`max(0, ${usageCounters.count} - 1)`, updatedAt: new Date() })
+      .where(and(
+        eq(usageCounters.userId, userId),
+        eq(usageCounters.period, currentPeriod()),
+        eq(usageCounters.feature, feature),
+        gt(usageCounters.count, 0),
+      ))
+      .returning({ count: usageCounters.count })
+    return
+  }
+
+  if (usage.metered === 'credit' && feature === 'ai_therapy') {
+    await db
+      .insert(aiCreditBalances)
+      .values({ userId, feature, credits: 1 })
+      .onConflictDoUpdate({
+        target: aiCreditBalances.userId,
+        set: {
+          credits: sql`${aiCreditBalances.credits} + 1`,
+          updatedAt: new Date(),
+        },
+      })
+  }
+}
+
+export async function refundConsumedUsage(
+  userId: string,
+  feature: Feature,
+  usage: QuotaResult | null | undefined,
+): Promise<void> {
+  await refundConsumedUsageInDb(getDb(), userId, feature, usage)
 }
 
 export async function grantGuideCredits(
