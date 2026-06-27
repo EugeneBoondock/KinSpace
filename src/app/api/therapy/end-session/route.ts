@@ -5,6 +5,7 @@ import { getDb } from '@/server/db/client'
 import { therapySessions } from '@/server/db/schema'
 import { getSessionUserId } from '@/server/http/auth'
 import { encryptField } from '@/server/crypto/field-encryption'
+import { updateGuideMemoryFromSession } from '@/server/therapy/guide-memory'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -51,16 +52,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: 'too-short' })
   }
 
+  const endedAt = new Date()
   await db
     .update(therapySessions)
     .set({
       summary: await encryptField(summary.summary),
       moodAtEnd: summary.mood_at_end,
       keyThemes: summary.key_themes,
-      endedAt: new Date(),
-      updatedAt: new Date(),
+      endedAt,
+      updatedAt: endedAt,
     })
     .where(eq(therapySessions.id, body.sessionId))
+
+  await updateGuideMemoryFromSession(db, {
+    userId,
+    personaId: row.persona,
+    sessionId: body.sessionId,
+    sessionSummary: summary.summary,
+    keyThemes: summary.key_themes,
+    endedAt,
+  }).catch(() => undefined)
 
   return NextResponse.json({ ok: true, summary })
 }

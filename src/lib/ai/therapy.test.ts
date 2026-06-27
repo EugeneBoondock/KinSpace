@@ -62,3 +62,28 @@ test('does not include access needs when health sharing is off', () => {
   assert.doesNotMatch(system, /Rest breaks/)
   assert.match(system, /chosen to keep their health profile private/)
 })
+
+test('includes private Guide memory and the latest handoff', () => {
+  const request = buildTherapyChatCompletionRequest(
+    {
+      ...baseContext,
+      personaId: 'mira',
+      guideMemory: {
+        personaId: 'mira',
+        personaName: 'Mira',
+        summary: 'Sam has been practicing shorter evening plans.',
+        latestSessionSummary: 'The last session ended with Sam choosing to rest before dinner.',
+        latestSessionEndedAt: '2026-06-27T16:00:00.000Z',
+        sessionCount: 4,
+      },
+    },
+    [{ role: 'user', content: 'Can we pick up from before?' }],
+    { model: 'gpt-5.4' },
+  )
+
+  const system = String(request.messages[0]?.content ?? '')
+  assert.match(system, /Private Guide memory for Mira/)
+  assert.match(system, /Sam has been practicing shorter evening plans/)
+  assert.match(system, /rest before dinner/)
+  assert.match(system, /Sessions remembered: 4/)
+})

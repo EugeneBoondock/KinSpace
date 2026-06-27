@@ -4,6 +4,8 @@ import { summariseSession } from '@/lib/ai/therapy-summary'
 import { getDb } from '@/server/db/client'
 import { chatMessages, therapySessions } from '@/server/db/schema'
 import { getSessionUserId } from '@/server/http/auth'
+import { encryptField } from '@/server/crypto/field-encryption'
+import { rebuildGuideMemory } from '@/server/therapy/guide-memory'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -71,18 +73,20 @@ export async function POST(request: NextRequest) {
         await db
           .update(therapySessions)
           .set({
-            summary: regenerated.summary,
+            summary: await encryptField(regenerated.summary),
             moodAtEnd: regenerated.mood_at_end,
             keyThemes: regenerated.key_themes,
             updatedAt: new Date(),
           })
           .where(eq(therapySessions.id, sessionId))
+        await rebuildGuideMemory(db, userId, session.persona).catch(() => undefined)
       } else {
         // Too little left to summarise - wipe the stored memory of this session.
         await db
           .update(therapySessions)
           .set({ summary: null, keyThemes: [], updatedAt: new Date() })
           .where(eq(therapySessions.id, sessionId))
+        await rebuildGuideMemory(db, userId, session.persona).catch(() => undefined)
       }
     }
   }

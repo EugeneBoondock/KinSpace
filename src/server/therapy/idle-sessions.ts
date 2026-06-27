@@ -8,6 +8,7 @@ import { createNotification } from '@/server/notify'
 import { isPushConfigured, sendWebPushToAll } from '@/server/push/send'
 import { buildGuideFollowUpMessage } from './follow-up'
 import { ensureGuidePersonaUser } from './guide-persona-user'
+import { updateGuideMemoryFromSession } from './guide-memory'
 
 const DEFAULT_IDLE_MS = 30 * 60 * 1000
 const QUIET_FOLLOW_UP_MS = 3 * 24 * 60 * 60 * 1000
@@ -58,6 +59,7 @@ export async function closeIdleGuideSessions(
       endedAt: now,
       updatedAt: now,
     }
+    let savedSummary: Awaited<ReturnType<typeof summariseSession>> | null = null
 
     if (!session.summary && process.env.OPENAI_API_KEY && userMessageCount >= 2) {
       const summary = await summariseSession({
@@ -67,6 +69,7 @@ export async function closeIdleGuideSessions(
       }).catch(() => null)
 
       if (summary) {
+        savedSummary = summary
         patch = {
           ...patch,
           summary: await encryptField(summary.summary),
@@ -77,6 +80,16 @@ export async function closeIdleGuideSessions(
     }
 
     await db.update(therapySessions).set(patch).where(eq(therapySessions.id, session.id))
+    if (savedSummary) {
+      await updateGuideMemoryFromSession(db, {
+        userId: session.userId,
+        personaId: session.persona,
+        sessionId: session.id,
+        sessionSummary: savedSummary.summary,
+        keyThemes: savedSummary.key_themes,
+        endedAt: now,
+      }).catch(() => undefined)
+    }
     ended += 1
 
     if (userMessageCount === 0) continue

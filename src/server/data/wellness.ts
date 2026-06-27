@@ -20,6 +20,7 @@ import { encryptField, decryptField } from '@/server/crypto/field-encryption'
 import { normalizeReminderTimes, reconcileProfileMedications } from '@/lib/medication-reminders'
 import { normalizeMoodCheckin } from '@/lib/moods'
 import { closeIdleGuideSessions } from '@/server/therapy/idle-sessions'
+import { updateGuideMemoryFromSession } from '@/server/therapy/guide-memory'
 
 // ── Mood check-ins with pattern detection ───────────────────────────────────
 
@@ -265,16 +266,25 @@ export async function saveTherapySessionSummary(
   const userId = requireActor(ctx)
   const existing = await ctx.db.query.therapySessions.findFirst({ where: eq(therapySessions.id, sessionId) })
   if (!existing || existing.userId !== userId) throw new Error('Not authorized')
+  const endedAt = new Date()
   await ctx.db
     .update(therapySessions)
     .set({
       summary: await encryptField(payload.summary), // Therapy narrative is sensitive. Encrypt at rest.
       moodAtEnd: payload.mood_at_end ?? null,
       keyThemes: payload.key_themes ?? [],
-      endedAt: new Date(),
-      updatedAt: new Date(),
+      endedAt,
+      updatedAt: endedAt,
     })
     .where(eq(therapySessions.id, sessionId))
+  await updateGuideMemoryFromSession(ctx.db, {
+    userId,
+    personaId: existing.persona,
+    sessionId,
+    sessionSummary: payload.summary,
+    keyThemes: payload.key_themes ?? [],
+    endedAt,
+  }).catch(() => undefined)
 }
 
 export async function getRecentTherapySessions(ctx: Ctx, _userId: string, limitCount = 5) {

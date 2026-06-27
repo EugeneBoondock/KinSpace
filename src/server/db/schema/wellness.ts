@@ -43,6 +43,29 @@ export const therapySessions = sqliteTable(
   (t) => [index('therapy_user_idx').on(t.userId)],
 )
 
+export const guideMemories = sqliteTable(
+  'guide_memories',
+  {
+    id: pk(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    persona: text('persona').notNull().default('mira'),
+    summary: text('summary'),
+    latestSessionSummary: text('latest_session_summary'),
+    latestSessionId: text('latest_session_id'),
+    latestSessionEndedAt: timestamp('latest_session_ended_at'),
+    keyThemes: json<string[]>('key_themes').default([]),
+    sessionCount: integer('session_count').notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('guide_memories_user_persona_uniq').on(t.userId, t.persona),
+    index('guide_memories_user_idx').on(t.userId),
+  ],
+)
+
 // ── Personal healing journal (Plus tier) ────────────────────────────────────
 
 export const journalEntries = sqliteTable(

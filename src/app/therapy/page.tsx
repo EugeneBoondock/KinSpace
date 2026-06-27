@@ -695,6 +695,7 @@ export default function TherapyPage() {
 
   const lastSession = sessions[0]
   const lastTheme = lastSession?.keyThemes?.[0] ?? null
+  const memoryExportBase = `/api/therapy/memory/export?persona=${encodeURIComponent(personaId)}`
 
   const openSessionTranscript = useCallback(
     async (session: SessionSummaryRow) => {
@@ -1874,6 +1875,36 @@ export default function TherapyPage() {
                 These are read only. Open one to revisit it, or delete any of your own messages to erase them
                 from {persona.name}’s memory.
               </p>
+
+              <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-brand-background/[0.08] bg-brand-background/[0.04] p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-brand-background">{persona.name} memory</p>
+                  <p className="mt-0.5 text-xs text-brand-background/55">
+                    Download the private summary this Guide uses between sessions.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(['md', 'pdf', 'docx'] as const).map((format) => (
+                    <a
+                      key={format}
+                      href={`${memoryExportBase}&format=${format}`}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-brand-background/10 bg-brand-background/[0.06] px-3 py-1.5 text-xs font-semibold uppercase text-brand-background/70 transition-colors hover:bg-brand-background/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-background/40"
+                    >
+                      <i
+                        className={
+                          format === 'pdf'
+                            ? 'ri-file-pdf-2-line'
+                            : format === 'docx'
+                              ? 'ri-file-word-line'
+                              : 'ri-file-text-line'
+                        }
+                        aria-hidden="true"
+                      />
+                      {format}
+                    </a>
+                  ))}
+                </div>
+              </div>
 
               <div className="mt-4 space-y-2">
                 {loadingHistory ? (

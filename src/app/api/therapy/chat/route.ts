@@ -16,6 +16,7 @@ import { checkAndConsume } from '@/server/billing/repo'
 import { detectCrisisInMessages } from '@/server/ai/safety'
 import { decryptField } from '@/server/crypto/field-encryption'
 import { normaliseGuideAttachments, toGuideModelMessageContent } from '@/lib/guide-media'
+import { getOrBuildGuideMemory, normaliseGuidePersonaId } from '@/server/therapy/guide-memory'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -31,6 +32,7 @@ async function hydrateContext(db: Db, userId: string, personaOverride?: string |
   // Consent gate. Default ON (legacy rows have null → treated as shared); the user
   // can opt out in Settings, after which no health detail reaches the Guide.
   const shareHealth = profile.shareHealthWithGuide !== false
+  const selectedPersonaId = normaliseGuidePersonaId(personaOverride ?? profile.therapistPersona ?? null)
 
   const conditions = shareHealth ? (profile.conditions ?? []) : []
   const accessNeeds = shareHealth ? (profile.accessNeeds ?? []) : []
@@ -107,6 +109,7 @@ async function hydrateContext(db: Db, userId: string, personaOverride?: string |
   const priorSessions = await Promise.all(
     priorRows
       .filter((s) => Boolean(s.summary))
+      .filter((s) => normaliseGuidePersonaId(s.persona) === selectedPersonaId)
       .sort((a, b) => (b.startedAt?.getTime() ?? 0) - (a.startedAt?.getTime() ?? 0))
       .slice(0, 5)
       .map(async (s) => ({
@@ -117,6 +120,7 @@ async function hydrateContext(db: Db, userId: string, personaOverride?: string |
         started_at: s.startedAt?.toISOString() ?? null,
       })),
   )
+  const guideMemory = await getOrBuildGuideMemory(db, userId, selectedPersonaId).catch(() => null)
 
   // Bridge the medication shelf into what the Guide knows. The shelf (reminders)
   // is where users actually log what they take, so active reminders are the
@@ -167,8 +171,9 @@ async function hydrateContext(db: Db, userId: string, personaOverride?: string |
     currentMoodAt: profile.moodUpdatedAt ?? null,
     recentMoods,
     moodPatternHint,
-    personaId: personaOverride ?? profile.therapistPersona ?? null,
+    personaId: selectedPersonaId,
     priorSessions,
+    guideMemory,
   }
 }
 

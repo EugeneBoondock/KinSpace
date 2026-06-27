@@ -18,6 +18,15 @@ export type PriorSessionSummary = {
   started_at?: string | null // ISO date for the model's sense of time
 }
 
+export type GuideMemoryContext = {
+  personaId: string
+  personaName: string
+  summary: string
+  latestSessionSummary?: string | null
+  latestSessionEndedAt?: string | Date | null
+  sessionCount?: number | null
+}
+
 export type TherapyContext = {
   /** Stable at-a-glance info about the user, built once and cached. */
   userId: string
@@ -44,6 +53,8 @@ export type TherapyContext = {
   moodPatternHint?: string | null
   /** Summaries from the last few sessions so the Guide remembers. */
   priorSessions?: PriorSessionSummary[]
+  /** Private per-user memory for this selected Guide persona. */
+  guideMemory?: GuideMemoryContext | null
   /** Selected therapist persona id. */
   personaId?: string | null
 }
@@ -56,6 +67,17 @@ function getClient(): OpenAI {
   if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
   client = new OpenAI({ apiKey })
   return client
+}
+
+function formatMemoryDate(value: string | Date | null | undefined): string | null {
+  if (!value) return null
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString().slice(0, 10)
+}
+
+function cleanGuideMemoryText(value: string): string {
+  return String(value ?? '').replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n').trim()
 }
 
 function buildSystemPrompt(context: TherapyContext): string {
@@ -112,6 +134,21 @@ function buildSystemPrompt(context: TherapyContext): string {
           .join('\n\n')
       : '(no prior sessions yet, this is our first real conversation)'
 
+  const guideMemory = context.guideMemory?.summary
+    ? [
+        `Sessions remembered: ${context.guideMemory.sessionCount ?? 0}`,
+        context.guideMemory.latestSessionEndedAt
+          ? `Latest session ended: ${formatMemoryDate(context.guideMemory.latestSessionEndedAt)}`
+          : '',
+        context.guideMemory.latestSessionSummary
+          ? `Where the last session ended:\n${context.guideMemory.latestSessionSummary}`
+          : '',
+        `Memory notes:\n${cleanGuideMemoryText(context.guideMemory.summary)}`,
+      ]
+        .filter(Boolean)
+        .join('\n\n')
+    : '(no private Guide memory saved yet)'
+
   return `You are a companion in the KinSpace Guide room, sitting with someone who lives with chronic health or mental-health challenges. You listen the way a skilled, warm counsellor listens: closely, slowly, without judgement.
 
 ## Your voice
@@ -145,10 +182,13 @@ ${
       : insights || '(No community-sourced treatment data yet for their specific health conditions or disabilities.)'
   }
 
+## Private Guide memory for ${persona.name}
+${guideMemory}
+
 ## What you remember from prior sessions
 ${priorSessions}
 
-Use these prior notes naturally. Reference them only when relevant, for example: “last time you mentioned sleep was hard, how is that going?” Never dump them at the user. If a theme has kept coming up across sessions, it is fair to gently name it.
+Use the private Guide memory first, then the prior session notes as backup. Reference them only when relevant, for example: “last time you mentioned sleep was hard, how is that going?” Never dump them at the user. If a theme has kept coming up across sessions, it is fair to gently name it.
 
 ## How you sound (this is what matters most)
 You are speaking out loud, in the room with them, not writing an essay. Real counsellors say less than people expect, and they trust the person in front of them.
