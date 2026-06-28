@@ -8,6 +8,7 @@ import PageFrame from '@/components/PageFrame'
 import BottomNav from '@/components/BottomNav'
 import CareProgramPanel from '@/components/CareProgramPanel'
 import { getNearbyFallbackPlaces, geocodeQueries } from '@/lib/map-client'
+import { buildCareDirectionsHref } from '@/lib/map-links'
 import { getDistanceKm } from '@/lib/platform'
 import { Badge, Button, Card, EmptyState, Input, Skeleton } from '@/components/ui'
 
@@ -248,9 +249,7 @@ export default function CarePage() {
                 )}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={buildCareDirectionsHref(place)}
                     className="inline-flex items-center gap-1.5 rounded-full bg-brand-accent2/15 px-3 py-1.5 text-xs font-semibold text-brand-accent2 transition-colors hover:bg-brand-accent2/25"
                   >
                     <i className="ri-route-line" aria-hidden="true" /> Directions

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import KinMap from '@/components/maps/KinMap'
@@ -8,6 +8,7 @@ import PageFrame from '@/components/PageFrame'
 import { Badge, Button, Card, EmptyState, Input, LinkButton, Skeleton } from '@/components/ui'
 import { DatabaseService } from '@/lib/database'
 import { geocodeQueries, getMapDirections, getNearbyFallbackPlaces, searchMapPlaces } from '@/lib/map-client'
+import { parseCareMapDestination } from '@/lib/map-links'
 import { parseCoordinateString, formatStepDistance, type Coordinates, type MapDirectionsResult, type MapSearchResult, type SupportMapMarker } from '@/lib/map'
 import { formatCompactNumber, getDistanceKm, normalizeKeywords } from '@/lib/platform'
 
@@ -112,6 +113,7 @@ export default function MapPage() {
   const [loadingFallback, setLoadingFallback] = useState(false)
   const [navigating, setNavigating] = useState(false)
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [autoRoutedDestinationId, setAutoRoutedDestinationId] = useState<string | null>(null)
 
   useEffect(() => {
     const requestedType = searchParams.get('type')
@@ -119,6 +121,16 @@ export default function MapPage() {
       setActiveTab(requestedType)
     }
   }, [searchParams])
+
+  const linkedDestination = useMemo(() => parseCareMapDestination(searchParams), [searchParams])
+
+  useEffect(() => {
+    if (!linkedDestination) return
+    setSearchMarker(linkedDestination)
+    setSelectedMarkerId(linkedDestination.id)
+    setQuery(linkedDestination.title)
+    setPlaceSuggestions([])
+  }, [linkedDestination])
 
   useEffect(() => {
     async function loadDirectoryData() {
@@ -432,15 +444,14 @@ export default function MapPage() {
     setPlaceSuggestions([])
   }
 
-  async function handleRouteRequest() {
-    if (!selectedMarker || !userLocation) return
-
+  const requestRoute = useCallback(async (destination: SupportMapMarker) => {
+    if (!userLocation) return
     setRouting(true)
     try {
       const result = await getMapDirections(
         userLocation,
-        { latitude: selectedMarker.latitude, longitude: selectedMarker.longitude },
-        activeTab === 'group' ? 'walking' : 'driving',
+        { latitude: destination.latitude, longitude: destination.longitude },
+        destination.kind === 'group' ? 'walking' : 'driving',
       )
       setDirections(result)
     } catch (error) {
@@ -448,6 +459,17 @@ export default function MapPage() {
     } finally {
       setRouting(false)
     }
+  }, [userLocation])
+
+  useEffect(() => {
+    if (!linkedDestination || !userLocation || autoRoutedDestinationId === linkedDestination.id) return
+    setAutoRoutedDestinationId(linkedDestination.id)
+    void requestRoute(linkedDestination)
+  }, [autoRoutedDestinationId, linkedDestination, requestRoute, userLocation])
+
+  async function handleRouteRequest() {
+    if (!selectedMarker) return
+    await requestRoute(selectedMarker)
   }
 
   return (
