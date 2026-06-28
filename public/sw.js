@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kinspace-v7'
+const CACHE_NAME = 'kinspace-v8'
 const OFFLINE_URL = '/offline'
 
 const PRECACHE_URLS = [
