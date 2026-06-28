@@ -58,6 +58,7 @@ export type MedicationReminderNotification = {
 }
 
 export const REMINDER_ALERT_WINDOW_MINUTES = 31
+export const REMINDER_ALERT_BACKSTOP_WINDOW_MINUTES = 3 * 60
 export const REMINDER_ALERT_GAP_MINUTES = 4
 export const REMINDER_ALERT_MAX_ATTEMPTS = 4
 const MINUTES_PER_DAY = 24 * 60
@@ -68,8 +69,8 @@ export type DueReminderSlotWithDate = {
   minutesAgo: number
 }
 
-export function reminderDeliveryWindowMinutes(_hasPersistentState: boolean): number {
-  return REMINDER_ALERT_WINDOW_MINUTES
+export function reminderDeliveryWindowMinutes(hasPersistentState: boolean): number {
+  return hasPersistentState ? REMINDER_ALERT_BACKSTOP_WINDOW_MINUTES : REMINDER_ALERT_WINDOW_MINUTES
 }
 
 function minutesAgoInDailyWindow(nowMinutes: number, slotMinutes: number): number {

@@ -27,6 +27,21 @@ test('a late scheduled tick can still start a closed-app medication alert', () =
   )
 })
 
+test('a delayed scheduled tick still starts a closed-app medication alert during the backstop window', () => {
+  const windowMinutes = reminderDeliveryWindowMinutes(true)
+
+  assert.equal(
+    nextReminderAlertAttempt({
+      time: '22:00',
+      nowMinutes: 23 * 60 + 45,
+      nowMs: Date.parse('2026-06-27T21:45:00.000Z'),
+      state: { attempts: 0, lastSentAt: null },
+      windowMinutes,
+    }),
+    1,
+  )
+})
+
 test('a scheduled tick after midnight still finds late previous-day slots', () => {
   assert.deepEqual(
     dueSlotsInWindowWithDate(['23:58', '00:01', '00:04'], 2, 5, '2026-06-28'),
